@@ -1,10 +1,9 @@
 
 module UnitRangesSortedSets
 export AbstractUnitRangesSortedSet, UnitRangesSortedVector, UnitRangesSortedSet, SubUnitRangesSortedSet
-export nzpairs, nzvalues, nzvaluesview, nzindices, ranges, nzchunkspairs
 export findfirstnz, findlastnz, findfirstnzindex, findlastnzindex
 export iteratenzpairs, iteratenzpairsview, iteratenzvalues, iteratenzvaluesview, iteratenzindices
-export testfun_create, testfun_createSV, testfun_createVL, testfun_create_seq, testfun_create_dense, testfun_delete!, testfun_getindex, testfun_nzgetindex, testfun_setindex!, testfun_nzchunks, testfun_nzpairs, testfun_nzindices, testfun_nzvalues, testfun_nzvaluesview, testfun_findnz
+export testfun_create, testfun_createSV, testfun_createVL, testfun_create_seq, testfun_create_dense, testfun_delete!, testfun_in, testfun_in_outer, testfun_in_rand, testfun_in_seq, testfun_nzgetindex, testfun_setindex!, testfun_nzchunks, testfun_nzpairs, testfun_nzindices, testfun_nzvalues, testfun_nzvaluesview, testfun_findnz
 
 
 import Base: ForwardOrdering, Forward
@@ -120,15 +119,31 @@ Base.eltype(::AbstractUnitRangesSortedSet{Ti}) where {Ti} = Ti
 #Base.IndexStyle(::AbstractUnitRangesSortedSet) = IndexLinear()
 
 
+#function Base.collect(::Type{ElType}, rs::AbstractUnitRangesSortedSet) where ElType
+#    res = Vector{ElType}(undef, foldl((s,r)->s+(r.stop-r.start+1), rs, init=0))
+#    i = 0
+#    for r in rs, el in r
+#        res[i+=1] = ElType(el)
+#    end
+#    return res
+#end
+#Base.collect(rs::AbstractUnitRangesSortedSet) = collect(eltype(rs), rs)
 function Base.collect(::Type{ElType}, rs::AbstractUnitRangesSortedSet) where ElType
-    res = Vector{ElType}(undef, foldl((s,r)->s+(r.stop-r.start+1), rs, init=0))
+    res = Vector{UnitRange{ElType}}(undef, length(rs))
     i = 0
-    for r in rs, el in r
-        res[i+=1] = ElType(el)
+    for r in rs
+        res[i+=1] = ElType(r.start):ElType(r.stop)
     end
     return res
 end
-Base.collect(rs::AbstractUnitRangesSortedSet) = collect(eltype(rs), rs)
+function Base.collect(rs::AbstractUnitRangesSortedSet{Ti}) where Ti
+    res = Vector{UnitRange{Ti}}(undef, length(rs))
+    i = 0
+    for r in rs
+        res[i+=1] = r.start:r.stop
+    end
+    return res
+end
 
 #Base.@propagate_inbounds length_of_that_range(rs::UnitRangesSortedVector, chunk) = chunk
 #Base.@propagate_inbounds length_of_that_range(rs::UnitRangesSortedSet, chunk) = chunk
@@ -673,7 +688,7 @@ function testfun_create(T::Type, n = 500_000, density = 0.9)
     for i in randseq
         in(i, rs) || println("Not coincide on index $i")
     end
-    length(collect(rs)) == length(randseq) || println("Lost some indices")
+    sum(length(r) for r in rs) == length(randseq) || println("Lost some indices")
     rs
 end
 function testfun_createSV(T::Type, n = 500_000, m = 5, density = 0.9)
@@ -705,7 +720,7 @@ function testfun_create_seq(T::Type, n = 500_000, density = 0.9)
     for i in randseq
         in(i, rs) || println("Not coincide on index $i")
     end
-    length(collect(rs)) == length(randseq) || println("Lost some indices")
+    sum(length(r) for r in rs) == length(randseq) || println("Lost some indices")
     rs
 end
 
@@ -726,7 +741,7 @@ end
 
 function testfun_delete!(rs)
     Random.seed!(1234)
-    indices = shuffle(collect(rs))
+    indices = shuffle([x for r in rs for x in r])
     for i in indices
         delete!(rs, i)
     end
@@ -735,12 +750,44 @@ function testfun_delete!(rs)
 end
 
 
-function testfun_getindex(sv)
-    S = 0.0
-    for i in eachindex(sv)
-        S += sv[i]
+function testfun_in(rs)
+    start = first(first(rs))
+    stop = last(last(rs))
+    Random.seed!(1234)
+    indices = shuffle(collect(start:stop))
+    I = 0
+    for i in indices
+        in(i, rs) && (I += 1)
     end
-    (0, S)
+    I
+end
+
+function testfun_in_outer(rs, idx)
+    I = 0
+    for i in idx
+        in(i, rs) && (I += 1)
+    end
+    I
+end
+function testfun_in_rand(rs)
+    len = sum(length(r) for r in rs)
+    Random.seed!(1234)
+    I = 0
+    for j = 1:len
+        i = rand(1:len)
+        in(i, rs) && (I += 1)
+    end
+    I
+end
+
+function testfun_in_seq(rs)
+    start = first(first(rs))
+    stop = last(last(rs))
+    I = 0
+    for i in start:stop
+        in(i, rs) && (I += 1)
+    end
+    I
 end
 
 function testfun_nzgetindex(sv)
