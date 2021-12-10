@@ -432,24 +432,6 @@ function Base.push!(rs::UnitRangesSortedVector{Ti}, idx) where {Ti}
     st = check_exist_and_update(rs, i)
     st == nothing && return rs
 
-    ## fast check for cached range index
-    #if (st = rs.lastusedrangeindex) != beforestartindex(rs)
-    #    r_start, r_stop = get_range_indices(rs, st)
-    #    if r_start <= i <= r_stop
-    #        return rs
-    #    end
-    #end
-
-    #st = searchsortedlastrange(rs, i)
-
-    ## check the index exist and update its data
-    #if st != beforestartindex(rs)  # the index `i` is not before the first index
-    #    if i <= last(get_range_indices(rs, st))
-    #        rs.lastusedrangeindex = st
-    #        return rs
-    #    end
-    #end
-
     if length(rs) == 0
         push!(rs.ranges, (i:i))
         rs.lastusedrangeindex = 1
@@ -507,29 +489,6 @@ function Base.push!(rs::UnitRangesSortedSet{Ti}, idx) where {Ti}
 
     st = check_exist_and_update(rs, i)
     st == nothing && return rs
-
-    ## fast check for cached range index
-    #if (st = rs.lastusedrangeindex) != beforestartsemitoken(rs.ranges)
-    #    r_start, r_stop = get_range_indices(rs, st)
-    #    if r_start <= i <= r_stop
-    #        return rs
-    #    end
-    #end
-
-    #st = searchsortedlastrange(rs, i)
-
-    ##sstatus = status((rs.ranges, st))
-    #@boundscheck if status((rs.ranges, st)) == 0 # invalid semitoken
-    #    trow(KeyError(i))
-    #end
-
-    ## check the index exist
-    #if st != beforestartindex(rs)  # the index `i` is not before the first index
-    #    if i <= last(get_range_indices(rs, st))
-    #        rs.lastusedrangeindex = st
-    #        return rs
-    #    end
-    #end
 
     if length(rs) == 0
         rs.ranges[i] = i
@@ -649,7 +608,7 @@ end
         rs.ranges[i+1] = r.stop
     end
 
-    rs.lastusedrangeindex = beforestartsemitoken(rs.ranges)
+    rs.lastusedrangeindex = beforestartindex(rs)
 
     return rs
 end
