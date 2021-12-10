@@ -23,14 +23,13 @@ using Random
 
 abstract type AbstractUnitRangesSortedSet{Ti} <: AbstractSet{Ti} end
 
-struct SubUnitRangesSortedSet{Ti,P} <: AbstractSet{Ti}
+struct SubUnitRangesSortedSet{Ti,P} <: AbstractUnitRangesSortedSet{Ti}
     parent::P
     start::Ti
     stop::Ti
 end
 
 
-# Needs `nzpairs` iterator with `idx -> true` Pairs
 """
 Inserting zero, or negative length ranges does nothing.
 $(TYPEDEF)
@@ -42,10 +41,17 @@ mutable struct UnitRangesSortedVector{Ti} <: AbstractUnitRangesSortedSet{Ti}
     lastusedrangeindex::Int
     "Storage for ranges"
     ranges::Vector{UnitRange{Ti}}
-
-    UnitRangesSortedVector{Ti}() where {Ti} = new{Ti}(0, Vector{UnitRange{Ti}}(undef, 0))
 end
 
+UnitRangesSortedVector{Ti}() where {Ti} = UnitRangesSortedVector{Ti}(0, Vector{UnitRange{Ti}}(undef, 0))
+
+function UnitRangesSortedVector(values::Union{AbstractVector, AbstractSet, Tuple})
+    rs = UnitRangesSortedVector{eltype(values)}()
+    for r in values
+        push!(rs, r)
+    end
+    rs
+end
 function UnitRangesSortedVector{Ti}(values::Union{AbstractVector, AbstractSet, Tuple}) where {Ti}
     rs = UnitRangesSortedVector{Ti}()
     for r in values
@@ -54,24 +60,13 @@ function UnitRangesSortedVector{Ti}(values::Union{AbstractVector, AbstractSet, T
     rs
 end
 
-#UnitRangesSortedVector(n::Integer, ranges) = UnitRangesSortedVector{eltype(ranges)}(n, ranges)
-#
-#function UnitRangesSortedVector(rs::AbstractUnitRangesSortedSet{Ti}) where {Ti}
-#    ranges = Vector{Ti}(undef, length(rs))
-#    ranges = Vector{Int}(undef, length(ranges))
-#    for (i, (k,d)) in enumerate(nzchunkspairs(rs))
-#        ranges[i] = k
-#        ranges[i] = length_of_that_range(rs, d)
-#    end
-#    return UnitRangesSortedVector{Ti}(rs.n, ranges, ranges)
-#end
-#function UnitRangesSortedVector(rs::AbstractSparseVector{Ti}) where {Ti}
-#    sv = UnitRangesSortedVector{Ti}(length(rs))
-#    for i in nonzeroinds(rs)
-#        sv[i] = true
-#    end
-#    return sv
-#end
+function UnitRangesSortedVector(rs::AbstractUnitRangesSortedSet{Ti}) where {Ti}
+    ranges = Vector{UnitRange{Ti}}(undef, length(rs))
+    for (i, r) in enumerate(rs)
+        ranges[i] = r
+    end
+    UnitRangesSortedVector{Ti}(firstindex(ranges) - 1, ranges)
+end
 
 
 """
@@ -84,13 +79,20 @@ mutable struct UnitRangesSortedSet{Ti} <: AbstractUnitRangesSortedSet{Ti}
     lastusedrangeindex::DataStructures.Tokens.IntSemiToken
     "Storage for ranges: the ket of Dict is `first(range)`, and the value of Dict is the `last(range)`"
     ranges::SortedDict{Ti,Ti,FOrd}
-
-    function UnitRangesSortedSet{Ti}() where {Ti}
-        ranges = SortedDict{Ti,Ti,FOrd}(Forward)
-        new{Ti}(beforestartsemitoken(ranges), ranges)
-    end
 end
 
+function UnitRangesSortedSet{Ti}() where {Ti}
+    ranges = SortedDict{Ti,Ti,FOrd}(Forward)
+    UnitRangesSortedSet{Ti}(beforestartsemitoken(ranges), ranges)
+end
+
+function UnitRangesSortedSet(values::Union{AbstractVector, AbstractSet, Tuple})
+    rs = UnitRangesSortedSet{eltype(values)}()
+    for r in values
+        push!(rs, r)
+    end
+    rs
+end
 function UnitRangesSortedSet{Ti}(values::Union{AbstractVector, AbstractSet, Tuple}) where {Ti}
     rs = UnitRangesSortedSet{Ti}()
     for r in values
@@ -99,25 +101,13 @@ function UnitRangesSortedSet{Ti}(values::Union{AbstractVector, AbstractSet, Tupl
     rs
 end
 
-#UnitRangesSortedSet(n::Integer, ranges) = UnitRangesSortedSet{keytype(ranges)}(n, ranges)
-##UnitRangesSortedSet{Ti}(n::Integer = 0) where {Ti} = UnitRangesSortedSet{Ti}(n, SortedDict{Ti,Int,FOrd}(Forward))
-#UnitRangesSortedSet(n::Integer = 0) = UnitRangesSortedSet{Int}(n)
-#
-#function UnitRangesSortedSet(rs::AbstractUnitRangesSortedSet{Ti}) where {Ti}
-#    ranges = SortedDict{Ti,Int,FOrd}(Forward)
-#    for (i, (k,d)) in enumerate(nzchunkspairs(rs))
-#        ranges[i] = length_of_that_range(rs, d)
-#    end
-#    return UnitRangesSortedSet{Ti}(rs.n, ranges)
-#end
-#
-#function UnitRangesSortedSet(rs::AbstractSparseVector{Ti}) where {Ti}
-#    sv = UnitRangesSortedSet{Ti}(length(rs))
-#    for i in nonzeroinds(rs)
-#        sv[i] = true
-#    end
-#    return sv
-#end
+function UnitRangesSortedSet(rs::AbstractUnitRangesSortedSet{Ti}) where {Ti}
+    ranges = SortedDict{Ti,Ti,FOrd}(Forward)
+    for r in rs
+        ranges[r.start] = r.stop
+    end
+    UnitRangesSortedSet{Ti}(beforestartsemitoken(ranges), ranges)
+end
 
 
 
@@ -340,132 +330,9 @@ end
 @inline Base.findall(testf::Function, rs::AbstractUnitRangesSortedSet) = collect(first(p) for p in nzpairs(rs) if testf(last(p)))
 
 
-
-# FIXME: Type piracy!!!
-Base.@propagate_inbounds SparseArrays.nnz(rs::DenseArray) = length(rs)
-
-"`iteratenzchunks(rs::AbstractVector)` iterates over non-zero chunks and returns start index of elements in chunk and chunk"
-Base.@propagate_inbounds function iteratenzchunks(rs::AbstractUnitRangesSortedSet, state = 1)
-    if state <= length(rs.ranges)
-        return (state, state + 1)
-    else
-        return nothing
-    end
-end
-Base.@propagate_inbounds function iteratenzchunks(rs::AbstractUnitRangesSortedSet, state = startof(rs.ranges))
-    if state != pastendsemitoken(rs.ranges)
-        stnext = advance((rs.ranges, state))
-        return (state, stnext)
-    else
-        return nothing
-    end
-end
-Base.@propagate_inbounds function iteratenzchunks(rs::SubArray{<:Any,<:Any,<:T}, state = searchsortedlast_nzchunk(rs.parent, first(rs.indices[1]))) where {T<:AbstractUnitRangesSortedSet}
-    if state != pastendindex(rs.parent)
-        key = get_range_start(rs.parent, state)
-        len = get_range_length(rs.parent, state)
-        if last(rs.indices[1]) >= key + len
-            return (state, advance(rs.parent, state))
-        elseif key <= last(rs.indices[1]) < key + len
-            return (state, advance(rs.parent, state))
-        else
-            return nothing
-        end
-    else
-        return nothing
-    end
-end
-Base.@propagate_inbounds function iteratenzchunks(rs::SparseVector, state = (1, nnz(rs)))
-    i, len = state
-    if i <= len
-        return (i, (i+1, len))
-    else
-        return nothing
-    end
-end
-Base.@propagate_inbounds function iteratenzchunks(rs::Vector, state = (1, length(rs)))
-    i, len = state
-    if len == 1
-        return (1, state)
-    elseif i == 1
-        return (i, (i + 1, len))
-    else
-        return nothing
-    end
-end
-Base.@propagate_inbounds iteratenzchunks(rs::Number, state = 1) = (1, state)
-
-"`iteratenzpairs(rs::AbstractUnitRangesSortedSet)` iterates over non-zero elements
- of vector and returns pair of index and value"
-function iteratenzpairs end
-"`iteratenzpairsview(rs::AbstractUnitRangesSortedSet)` iterates over non-zero elements
- of vector and returns pair of index and `view` to value"
-function iteratenzpairsview end
-"`iteratenzvalues(rs::AbstractUnitRangesSortedSet)` iterates over non-zero elements of vector and returns value"
-function iteratenzvalues end
-"`iteratenzvaluesview(rs::AbstractUnitRangesSortedSet)` iterates over non-zero elements
- of vector and returns pair of index and `view` of value"
-function iteratenzvaluesview end
-"`iteratenzindices(rs::AbstractUnitRangesSortedSet)` iterates over non-zero elements of vector and returns indices"
-function iteratenzindices end
-
 #
-# iteratenzSOMEs() iterators for `Number`, `Vector` and `SparseVector`
+#  Iterators
 #
-
-Base.@propagate_inbounds function iteratenzpairs(rs::SparseVector, state = (1, length(rs.ranges)))
-    i, len = state
-    if i <= len
-        return ((@inbounds rs.ranges[i], @inbounds rs.nzval[i]), (i+1, len))
-    else
-        return nothing
-    end
-end
-Base.@propagate_inbounds function iteratenzpairs(rs::Vector, state = 1)
-    if state-1 < length(rs)
-        return ((state, @inbounds rs[state]), state + 1)
-        #return (Pair(state, @inbounds rs[state]), state + 1)
-    else
-        return nothing
-    end
-end
-Base.@propagate_inbounds iteratenzpairs(rs::Number, state = 1) = ((state, rs), state+1)
-
-Base.@propagate_inbounds function iteratenzvalues(rs::SparseVector, state = (1, length(rs.ranges)))
-    i, len = state
-    if i <= len
-        return (@inbounds rs.nzval[i], (i+1, len))
-    else
-        return nothing
-    end
-end
-Base.@propagate_inbounds function iteratenzvalues(rs::Vector, state = 1)
-    if state-1 < length(rs)
-        return (@inbounds rs[state], state + 1)
-    elseif length(rs) == 1
-        return (@inbounds rs[1], state + 1)
-    else
-        return nothing
-    end
-end
-Base.@propagate_inbounds iteratenzvalues(rs::Number, state = 1) = (rs, state+1)
-
-Base.@propagate_inbounds function iteratenzindices(rs::SparseVector, state = (1, length(rs.ranges)))
-    i, len = state
-    if i-1 < len
-        return (@inbounds rs.ranges[i], (i+1, len))
-    else
-        return nothing
-    end
-end
-Base.@propagate_inbounds function iteratenzindices(rs::Vector, state = 1)
-    if state-1 < length(rs)
-        return (state, state + 1)
-    else
-        return nothing
-    end
-end
-Base.@propagate_inbounds iteratenzindices(rs::Number, state = 1) = (state, state+1)
 
 
 Base.@propagate_inbounds function Base.iterate(rs::AbstractUnitRangesSortedSet, state = firstindex(rs))
@@ -475,263 +342,10 @@ Base.@propagate_inbounds function Base.iterate(rs::AbstractUnitRangesSortedSet, 
         return nothing
     end
 end
-#
-# `AbstractUnitRangesSortedSet` iteration functions
-#
-
-
-struct ADSVIteratorState{Tn,Ti,Td}
-    next::Tn         # index (Int or Semitoken) of next chunk
-    nextpos::Int     # position in the current chunk of element will be get
-    currentkey::Ti   # the index of first element in current chunk
-    chunk::Td        # current chunk
-    chunklen::Int    # current chunk length
-end
-
-@inline function ADSVIteratorState{T}(next, nextpos, currentkey, chunk, chunklen) where
-                                          {T<:UnitRangesSortedVector{Ti}} where {Ti}
-    ADSVIteratorState{Int,Ti,Int}(next, nextpos, currentkey, chunk, chunklen)
-end
-@inline function ADSVIteratorState{T}(next, nextpos, currentkey, chunk, chunklen) where
-                                          {T<:UnitRangesSortedSet{Ti}} where {Ti}
-    ADSVIteratorState{DataStructures.Tokens.IntSemiToken, Ti, Int}(next, nextpos, currentkey, chunk, chunklen)
-end
-@inline function ADSVIteratorState{T}(next, nextpos, currentkey, chunk, chunklen) where
-                                          {T<:AbstractUnitRangesSortedSet{Ti}} where {Ti}
-    ADSVIteratorState{Int, Ti, Vector{Tv}}(next, nextpos, currentkey, chunk, chunklen)
-end
-@inline function ADSVIteratorState{T}(next, nextpos, currentkey, chunk, chunklen) where
-                                          {T<:AbstractUnitRangesSortedSet{Ti}} where {Ti}
-    ADSVIteratorState{DataStructures.Tokens.IntSemiToken, Ti, Vector{Tv}}(next, nextpos, currentkey, chunk, chunklen)
-end
-
-# Start iterations from `i` index, i.e. `i` is `firstindex(rs)`. Thats option for `SubArray`
-function get_iterator_init_state(rs::T, i::Integer = 1) where {T<:AbstractUnitRangesSortedSet}
-    st = searchsortedlast_nzchunk(rs, i)
-    if (ret = iteratenzchunks(rs, st)) !== nothing
-        idxchunk, next = ret
-        key, chunk = get_range(rs, idxchunk)
-        if i > key # SubArray starts in middle of chunk
-            return ADSVIteratorState{T}(next, i - key + 1, key, chunk, length_of_that_range(rs, chunk))
-        else
-            return ADSVIteratorState{T}(next, 1, key, chunk, length_of_that_range(rs, chunk))
-        end
-    else
-        key, chunk = get_range(rs)
-        return ADSVIteratorState{T}(1, 1, key, chunk, 0)
-    end
-end
-
-for (fn, ret1, ret2) in
-        ((:iteratenzpairs    ,  :((Ti(key+nextpos-1), chunk[nextpos]))              , :((key, chunk[1]))         ),
-         (:iteratenzpairsview,  :((Ti(key+nextpos-1), view(chunk, nextpos:nextpos))), :((key, view(chunk, 1:1))) ),
-         #(:(Base.iterate)    ,  :(chunk[nextpos])                                   , :(chunk[1])                ),
-         (:iteratenzvalues   ,  :(chunk[nextpos])                                   , :(chunk[1])                ),
-         (:iteratenzvaluesview, :(view(chunk, nextpos:nextpos))                     , :(view(chunk, 1:1))        ),
-         (:iteratenzindices  ,  :(Ti(key+nextpos-1))                                , :(key)                     ))
-
-    @eval Base.@propagate_inbounds function $fn(rs::T, state = get_iterator_init_state(rs)) where
-                                                {T<:AbstractUnitRangesSortedSet{Ti}} where {Ti,Tv}
-        next, nextpos, key, chunk, chunklen = fieldvalues(state)
-        if nextpos <= chunklen
-            return ($ret1, ADSVIteratorState{T}(next, nextpos + 1, key, chunk, chunklen))
-        elseif (ret = iteratenzchunks(rs, next)) !== nothing
-            i, next = ret
-            key, chunk = get_range(rs, i)
-            return ($ret2, ADSVIteratorState{T}(next, 2, key, chunk, length_of_that_range(rs, chunk)))
-        else
-            return nothing
-        end
-    end
-end
-
-
-for (fn, ret1, ret2) in
-        ((:iteratenzpairs    ,  :((Ti(key+nextpos-1-first(rs.indices[1])+1), chunk[nextpos]))              ,
-                                :((Ti(key-first(rs.indices[1])+1), chunk[1]))                                 ),
-         (:iteratenzpairsview,  :((Ti(key+nextpos-1-first(rs.indices[1])+1), view(chunk, nextpos:nextpos))),
-                                :((Ti(key-first(rs.indices[1])+1), view(chunk, 1:1)))                         ),
-         #(:(Base.iterate)    ,  :(chunk[nextpos])                                                         ,
-         #                       :(chunk[1])                                                                  ),
-         (:iteratenzvalues   ,  :(chunk[nextpos])                                                         ,
-                                :(chunk[1])                                                                  ),
-         (:iteratenzvaluesview, :(view(chunk, nextpos:nextpos))                                           ,
-                                :(view(chunk, 1:1))                                                          ),
-         (:iteratenzindices  ,  :(Ti(key+nextpos-1)-first(rs.indices[1])+1)                                ,
-                                :(Ti(key-first(rs.indices[1])+1))                                             ))
-
-    @eval Base.@propagate_inbounds function $fn(rs::SubArray{<:Any,<:Any,<:T},
-                                                state = get_iterator_init_state(rs.parent, first(rs.indices[1]))) where
-                                                {T<:AbstractUnitRangesSortedSet{Ti}} where {Ti}
-        next, nextpos, key, chunk, chunklen = fieldvalues(state)
-        if key+nextpos-1 > last(rs.indices[1])
-            return nothing
-        elseif nextpos <= chunklen
-            return ($ret1, ADSVIteratorState{T}(next, nextpos + 1, key, chunk, chunklen))
-        elseif (ret = iteratenzchunks(rs.parent, next)) !== nothing
-            i, next = ret
-            key, chunk = get_range(rs.parent, i)
-            return ($ret2, ADSVIteratorState{T}(next, 2, key, chunk, length_of_that_range(rs.parent, chunk)))
-        else
-            return nothing
-        end
-    end
-end
-
-#
-#  Iterators
-#
-
-struct ranges{It}
-    itr::It
-end
-"`ranges(rs::AbstractUnitRangesSortedSet)` is the `Iterator` over chunks of nonzeros and
- returns tuple of start index and chunk vector"
-@inline ranges(itr) = ranges(itr)
-@inline function Base.iterate(it::ranges, state...)
-    y = iteratenzchunks(it.itr, state...)
-    if y !== nothing
-        return (get_range(it.itr, y[1]), y[2])
-    else
-        return nothing
-    end
-end
-Base.eltype(::Type{ranges{It}}) where {It} = eltype(It)
-Base.IteratorEltype(::Type{ranges{It}}) where {It} = Base.EltypeUnknown()
-Base.IteratorSize(::Type{<:ranges}) = Base.HasShape{1}()
-Base.length(it::ranges) = length(it.itr)
-Base.size(it::ranges) = (length(it.itr),)
-#Iterators.reverse(it::ranges) = ranges(Iterators.reverse(it.itr))
-
-
-struct NZChunksPairs{It}
-    itr::It
-end
-"`nzchunkspairs(rs::AbstractUnitRangesSortedSet)` is the `Iterator` over non-zero chunks,
- returns tuple of start index and vector of non-zero values."
-@inline nzchunkspairs(itr) = NZChunksPairs(itr)
-@inline function Base.iterate(it::NZChunksPairs, state...)
-    y = iteratenzchunks(it.itr, state...)
-    if y !== nothing
-        return (Pair(get_range(it.itr, y[1])...), y[2])
-    else
-        return nothing
-    end
-end
-Base.eltype(::Type{NZChunksPairs{It}}) where {It} = eltype(It)
-Base.IteratorEltype(::Type{NZChunksPairs{It}}) where {It} = Base.EltypeUnknown()
-Base.IteratorSize(::Type{<:NZChunksPairs}) = Base.HasShape{1}()
-Base.length(it::NZChunksPairs) = length(it.itr)
-Base.size(it::NZChunksPairs) = (length(it.itr),)
-#Iterators.reverse(it::NZChunksPairs) = NZChunksPairs(Iterators.reverse(it.itr))
-
-
-struct NZIndices{It}
-    itr::It
-end
-"`nzindices(rs::AbstractVector)` is the `Iterator` over non-zero indices of vector `rs`."
-nzindices(itr) = NZIndices(itr)
-@inline function Base.iterate(it::NZIndices, state...)
-    y = iteratenzindices(it.itr, state...)
-    if y !== nothing
-        return (y[1], y[2])
-    else
-        return nothing
-    end
-end
-Base.eltype(::Type{NZIndices{It}}) where {It} = eltype(It)
-Base.IteratorEltype(::Type{NZIndices{It}}) where {It} = Base.EltypeUnknown()
-Base.IteratorSize(::Type{<:NZIndices}) = Base.HasShape{1}()
-Base.length(it::NZIndices) = nnz(it.itr)
-Base.size(it::NZIndices) = (nnz(it.itr),)
-#Iterators.reverse(it::NZIndices) = NZIndices(Iterators.reverse(it.itr))
-@inline Base.keys(rs::AbstractUnitRangesSortedSet) = nzindices(rs)
-
-
-struct NZValues{It}
-    itr::It
-end
-"`nzvalues(rs::AbstractVector)` is the `Iterator` over non-zero values of `rs`."
-nzvalues(itr) = NZValues(itr)
-@inline function Base.iterate(it::NZValues, state...)
-    y = iteratenzvalues(it.itr, state...)
-    if y !== nothing
-        return (y[1], y[2])
-    else
-        return nothing
-    end
-end
-Base.eltype(::Type{NZValues{It}}) where {It} = eltype(It)
-Base.IteratorEltype(::Type{NZValues{It}}) where {It} = Base.IteratorEltype(It)
-Base.IteratorSize(::Type{<:NZValues}) = Base.HasShape{1}()
-Base.length(it::NZValues) = nnz(it.itr)
-Base.size(it::NZValues) = (nnz(it.itr),)
-#Iterators.reverse(it::NZValues) = NZValues(Iterators.reverse(it.itr))
-
-
-struct NZValuesView{It}
-    itr::It
-end
-"""
-`NZValuesView(rs::AbstractVector)` is the `Iterator` over non-zero values of `rs`,
-returns the `view(rs, idx:idx)` of iterated values.
-"""
-nzvaluesview(itr) = NZValuesView(itr)
-@inline function Base.iterate(it::NZValuesView, state...)
-    y = iteratenzvaluesview(it.itr, state...)
-    if y !== nothing
-        return (y[1], y[2])
-    else
-        return nothing
-    end
-end
-Base.eltype(::Type{NZValuesView{It}}) where {It} = eltype(It)
-Base.IteratorEltype(::Type{NZValuesView{It}}) where {It} = Base.IteratorEltype(It)
-Base.IteratorSize(::Type{<:NZValuesView}) = Base.HasShape{1}()
-Base.length(it::NZValuesView) = nnz(it.itr)
-Base.size(it::NZValuesView) = (nnz(it.itr),)
-#Iterators.reverse(it::NZValuesView) = NZValuesView(Iterators.reverse(it.itr))
-
-
-struct NZPairs{It}
-    itr::It
-end
-"`nzpairs(rs::AbstractVector)` is the `Iterator` over nonzeros of `rs`, returns pair of index and value."
-@inline nzpairs(itr) = NZPairs(itr)
-@inline function Base.iterate(it::NZPairs, state...)
-    y = iteratenzpairs(it.itr, state...)
-    if y !== nothing
-        return (Pair(y[1]...), y[2])
-    else
-        return nothing
-    end
-end
-Base.eltype(::Type{NZPairs{It}}) where {It} = eltype(It)
-Base.IteratorEltype(::Type{NZPairs{It}}) where {It} = Base.EltypeUnknown()
-Base.IteratorSize(::Type{<:NZPairs}) = Base.HasShape{1}()
-Base.length(it::NZPairs) = nnz(it.itr)
-Base.size(it::NZPairs) = (nnz(it.itr),)
-#Iterators.reverse(it::NZPairs) = NZPairs(Iterators.reverse(it.itr))
-
 
 #
 # Assignments
 #
-
-
-@inline function Base.isstored(rs::AbstractUnitRangesSortedSet, i::Integer)
-    st = searchsortedlastchunk(rs, i)
-    if st == beforestartindex(rs)  # the index `i` is before first index
-        return false
-    elseif i >= get_range_start(rs, st) + get_range_length(rs, st)
-        # the index `i` is outside of data chunk indices
-        return false
-    end
-    return true
-end
-
-@inline Base.haskey(rs::AbstractUnitRangesSortedSet, i) = Base.isstored(rs, i)
-@inline Base.in(i, rs::AbstractUnitRangesSortedSet) = Base.isstored(rs, i)
 
 
 @inline function Base.in(idx, rs::AbstractUnitRangesSortedSet{Ti}) where Ti
@@ -739,11 +353,11 @@ end
     # fast check for cached range index
     if (st = rs.lastusedrangeindex) != beforestartindex(rs)
         r = get_range(rs, st)
-        if r.start <= i < r.stop
+        if r.start <= i <= r.stop
             return true
         end
     end
-    # cached range index miss or index not stored
+    # cached range index miss (or index not stored), thus try search
     st = searchsortedlastrange(rs, i)
     if st != beforestartindex(rs)  # the index `i` is not before the start of first range
         r = get_range(rs, st)
@@ -1021,21 +635,25 @@ function Base.show(io::IOContext, x::AbstractUnitRangesSortedSet)
         if k < half_screen_rows || k > length(ranges) - half_screen_rows
             print(io, "  ")
             if isassigned(ranges, Int(k))
-                print(io, lpad(ranges[k].start, pad), ":", ranges[k].stop)
+                print(io, lpad(repr(ranges[k].start), pad), ":", repr(ranges[k].stop))
             else
                 print(io, Base.undef_ref_str)
             end
             k != length(ranges) && println(io)
         elseif k == half_screen_rows
-            println(io, "   ", " "^pad, "   \u22ee")
+            println(io, " "^(pad-1), "   \u22ee")
         end
     end
 end
 
 function get_max_pad(rs::AbstractUnitRangesSortedSet)
+    len = length(rs)
     pad = 0
-    for r in rs
-        pad = max(pad, ndigits(r.start), ndigits(r.stop))
+    for (i,r) in enumerate(rs)
+        if i < 100 || i > len - 100
+            pad = max(pad, length(repr(r.start)), length(repr(r.stop)))
+            #pad = max(pad, ndigits(r.start), ndigits(r.stop))
+        end
     end
     pad
 end
