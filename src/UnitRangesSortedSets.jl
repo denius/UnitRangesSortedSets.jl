@@ -28,6 +28,9 @@ struct SubUnitRangesSortedSet{Ti,P} <: AbstractUnitRangesSortedSet{Ti}
     stop::Ti
 end
 
+Base.@propagate_inbounds function Base.view(rs::Tp, I::UnitRange) where {Tp<:AbstractUnitRangesSortedSet{Ti}} where Ti
+    return SubUnitRangesSortedSet{Ti,Tp}(rs, Ti(I.start), Ti(I.stop))
+end
 
 """
 Inserting zero, or negative length ranges does nothing.
@@ -148,6 +151,9 @@ end
 #Base.@propagate_inbounds length_of_that_range(rs::UnitRangesSortedVector, chunk) = chunk
 #Base.@propagate_inbounds length_of_that_range(rs::UnitRangesSortedSet, chunk) = chunk
 @inline get_range_length(rs::AbstractUnitRangesSortedSet, i) = ((start, stop) = get_range(rs.ranges, i); stop - start + 1)
+@inline get_range_indices(rs::UnitRangesSortedVector, i) = (r = rs.ranges[i]; return (r.start, r.stop))
+@inline get_range_indices(rs::UnitRangesSortedSet, i::DataStructures.Tokens.IntSemiToken) =
+    ((start, stop) = deref((rs.ranges, i)); return (start, stop))
 @inline get_range(rs::UnitRangesSortedVector, i) = rs.ranges[i]
 @inline get_range(rs::UnitRangesSortedSet, i::DataStructures.Tokens.IntSemiToken) = ((start, stop) = deref((rs.ranges, i)); return (start:stop))
 @inline function get_range(rs::SubArray{<:Any,<:Any,<:T}, i) where {T<:AbstractUnitRangesSortedSet}
@@ -247,6 +253,8 @@ end
     end
 end
 
+Base.@propagate_inbounds index_status(rs::UnitRangesSortedVector, st) = 0 <= st <= length(rs)+1 ? 1 : 0
+Base.@propagate_inbounds index_status(rs::UnitRangesSortedSet, st) = status((rs.ranges, st))
 
 "Returns the index of first non-zero element in sparse vector."
 @inline findfirstnzindex(rs::SparseVector) = nnz(rs) > 0 ? rs.ranges[1] : nothing
@@ -367,16 +375,16 @@ end
     i = Ti(idx)
     # fast check for cached range index
     if (st = rs.lastusedrangeindex) != beforestartindex(rs)
-        r = get_range(rs, st)
-        if r.start <= i <= r.stop
+        r_start, r_stop = get_range_indices(rs, st)
+        if r_start <= i <= r_stop
             return true
         end
     end
     # cached range index miss (or index not stored), thus try search
     st = searchsortedlastrange(rs, i)
     if st != beforestartindex(rs)  # the index `i` is not before the start of first range
-        r = get_range(rs, st)
-        if i <= r.stop  # is the index `i` inside of range
+        r_start, r_stop = get_range_indices(rs, st)
+        if i <= r_stop  # is the index `i` inside of range
             rs.lastusedrangeindex = st
             return true
         end
@@ -389,26 +397,58 @@ end
 @inline Base.haskey(rs::AbstractUnitRangesSortedSet, idx) = in(idx, rs)
 
 
-function Base.push!(rs::UnitRangesSortedVector{Ti}, idx) where {Ti}
-    i = Ti(idx)
+Base.@propagate_inbounds function check_exist_and_update(rs, i)
 
     # fast check for cached range index
     if (st = rs.lastusedrangeindex) != beforestartindex(rs)
-        r = get_range(rs, st)
-        if r.start <= i <= r.stop
-            return rs
+        r_start, r_stop = get_range_indices(rs, st)
+        if r_start <= i <= r_stop
+            return nothing
         end
     end
 
     st = searchsortedlastrange(rs, i)
+    #
+    #sstatus = status((rs.ranges, st))
+    @boundscheck if index_status(rs, st) == 0 # invalid semitoken
+        throw(KeyError(i))
+    end
 
     # check the index exist and update its data
     if st != beforestartindex(rs)  # the index `i` is not before the first index
-        if i <= rs.ranges[st].stop
+        if i <= last(get_range_indices(rs, st))
             rs.lastusedrangeindex = st
-            return rs
+            return nothing
         end
     end
+
+    return st
+end
+
+
+function Base.push!(rs::UnitRangesSortedVector{Ti}, idx) where {Ti}
+    i = Ti(idx)
+
+    st = check_exist_and_update(rs, i)
+    st == nothing && return rs
+
+    ## fast check for cached range index
+    #if (st = rs.lastusedrangeindex) != beforestartindex(rs)
+    #    r_start, r_stop = get_range_indices(rs, st)
+    #    if r_start <= i <= r_stop
+    #        return rs
+    #    end
+    #end
+
+    #st = searchsortedlastrange(rs, i)
+
+    ## check the index exist and update its data
+    #if st != beforestartindex(rs)  # the index `i` is not before the first index
+    #    if i <= last(get_range_indices(rs, st))
+    #        rs.lastusedrangeindex = st
+    #        return rs
+    #    end
+    #end
 
     if length(rs) == 0
         push!(rs.ranges, (i:i))
@@ -426,7 +466,7 @@ function Base.push!(rs::UnitRangesSortedVector{Ti}, idx) where {Ti}
         return rs
     end
 
-    r = rs.ranges[st]
+    r = get_range(rs, st)
 
     if i >= rs.ranges[end].start  # the index `i` is after the last range start
         if i > r.stop + 1  # there is will be the gap in indices after inserting
@@ -465,29 +505,31 @@ end
 function Base.push!(rs::UnitRangesSortedSet{Ti}, idx) where {Ti}
     i = Ti(idx)
 
-    # fast check for cached range index
-    if (st = rs.lastusedrangeindex) != beforestartsemitoken(rs.ranges)
-        r = get_range(rs, st)
-        if r.start <= i <= r.stop
-            return rs
-        end
-    end
+    st = check_exist_and_update(rs, i)
+    st == nothing && return rs
 
-    st = searchsortedlastrange(rs, i)
+    ## fast check for cached range index
+    #if (st = rs.lastusedrangeindex) != beforestartsemitoken(rs.ranges)
+    #    r_start, r_stop = get_range_indices(rs, st)
+    #    if r_start <= i <= r_stop
+    #        return rs
+    #    end
+    #end
 
-    #sstatus = status((rs.ranges, st))
-    @boundscheck if status((rs.ranges, st)) == 0 # invalid semitoken
-        trow(KeyError(i))
-    end
+    #st = searchsortedlastrange(rs, i)
 
-    # check the index exist
-    if st != beforestartindex(rs)  # the index `i` is not before the first index
-        r = get_range(rs, st)
-        if i <= r.stop
-            rs.lastusedrangeindex = st
-            return rs
-        end
-    end
+    ##sstatus = status((rs.ranges, st))
+    #@boundscheck if status((rs.ranges, st)) == 0 # invalid semitoken
+    #    trow(KeyError(i))
+    #end
+
+    ## check the index exist
+    #if st != beforestartindex(rs)  # the index `i` is not before the first index
+    #    if i <= last(get_range_indices(rs, st))
+    #        rs.lastusedrangeindex = st
+    #        return rs
+    #    end
+    #end
 
     if length(rs) == 0
         rs.ranges[i] = i
