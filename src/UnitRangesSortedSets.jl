@@ -306,6 +306,8 @@ end
 "Returns range of `rs` indexes which coincide or concluded in `I` range."
 @inline searchsortedrange(rs::AbstractUnitRangesSortedSet, I::UnitRange) =
     searchsortedfirstrange(rs, I.start):searchsortedlastrange(rs, I.stop)
+#@inline searchsortedrange(rs::UnitRangesSortedSet, I::UnitRange) =
+#    (searchsortedfirstrange(rs, I.start), searchsortedlastrange(rs, I.stop))
 
 "Returns indexes of range in `rs` in which `i` may be inserted. Or negative range in the case of `i` is
  between `rs` ranges, and indices of resulted range is the indexes of that neighbors."
@@ -468,6 +470,28 @@ end
 #
 
 
+#@inline Base.in(II::UnitRange, rs::AbstractUnitRangesSortedSet{Ti}) where Ti = in(convert(UnitRange{Ti}, II), rs)
+
+@inline function Base.in(II::UnitRange{Ti}, rs::AbstractUnitRangesSortedSet{Ti}) where Ti
+    I = convert(UnitRange{Ti}, II)
+    # fast check for cached range index
+    if (st = rs.lastusedrangeindex) != beforestartindex(rs)
+        if issubset(I, get_range(rs, st))
+            return true
+        end
+    end
+    # cached range index miss (or index not stored), thus try search
+    Irange = searchsortedrange(rs, I)
+    rs.lastusedrangeindex = Irange.stop
+    if length(Irange) != 1
+        return false
+    elseif issubset(I, get_range(rs, Irange.start))
+        return true
+    else
+        return false
+    end
+end
+
 @inline function Base.in(idx, rs::AbstractUnitRangesSortedSet{Ti}) where Ti
     i = Ti(idx)
     # fast check for cached range index
@@ -505,8 +529,14 @@ function Base.push!(rs::UnitRangesSortedVector{Ti}, II::UnitRange) where Ti
 
     rs.lastusedrangeindex = beforestartindex(rs)
 
-    # delete all inside `I` range in `rs`
-    delete!(rs, I)
+    Irange = searchsortedrange(rs, I)
+    if length(Irange) == 1 && I == get_range(rs, Irange.start)
+        # `I` already exist in `rs` and the same as the corresponding range in `rs`, nothing to do
+        return rs
+    else
+        # delete all inside `I` range in `rs`
+        delete!(rs, I)
+    end
 
     # get neighbors pointers; range will be zero-length
     # Note: `Irange.start` will be point to range in `rs` on right side to `I` and
@@ -556,8 +586,89 @@ function Base.push!(rs::UnitRangesSortedVector{Ti}, II::UnitRange) where Ti
     # `I` is separate last range in `rs`, insert it
     elseif Irange.stop != beforestartindex(rs) && get_range_stop(rs, Irange.stop) + 1 != I.start &&
            Irange.start == pastendindex(rs)
-        insert!(rs.rstarts, Irange.stop, I.start)
-        insert!(rs.rstops, Irange.stop, I.stop)
+        insert!(rs.rstarts, Irange.start, I.start)
+        insert!(rs.rstops, Irange.start, I.stop)
+
+    # `rs` is empty
+    else #if Irange.stop == beforestartindex(rs) && Irange.start == pastendindex(rs)
+        insert!(rs.rstarts, 1, I.start)
+        insert!(rs.rstops, 1, I.stop)
+    end
+
+    return rs
+end
+
+function Base.push!(rs::UnitRangesSortedSet{Ti}, II::UnitRange) where Ti
+    I = convert(UnitRange{Ti}, II)
+
+    if length(I) < 2
+        for i in I
+            push!(rs, i)
+        end
+        return rs
+    end
+
+    rs.lastusedrangeindex = beforestartindex(rs)
+
+    Irange = searchsortedrange(rs, I)
+    if length(Irange) == 1 && I == get_range(rs, Irange.start)
+        # `I` already exist in `rs` and the same as the corresponding range in `rs`, nothing to do
+        return rs
+    else
+        # delete all inside `I` range in `rs`
+        delete!(rs, I)
+    end
+
+    # get neighbors pointers; range will be zero-length
+    # Note: `Irange.start` will be point to range in `rs` on right side to `I` and
+    # `Irange.stop` will be point to range in `rs` on left side to `I`.
+    Irange = searchsortedrange(rs, I.start)
+    @boundscheck @assert Irange == searchsortedrange(rs, I.stop) "FIXME: I Am an error in program logic."
+
+    # `I` is adjoined in both sides with `rs` ranges, thus join them all
+    if Irange.stop != beforestartindex(rs) && get_range_stop(rs, Irange.stop) + 1 == I.start &&
+       Irange.start != pastendindex(rs) && get_range_start(rs, Irange.start) - 1 == I.stop
+        rs.rstops[Irange.stop] = get_range_stop(rs, Irange.start)
+        deleteat!(rs.rstarts, Irange.start)
+        deleteat!(rs.rstops, Irange.start)
+
+    # `I` is adjoin with `rs` range on left side, thus append to left range
+    elseif Irange.stop != beforestartindex(rs) && get_range_stop(rs, Irange.stop) + 1 == I.start &&
+           Irange.start != pastendindex(rs) && get_range_start(rs, Irange.start) - 1 != I.stop
+        rs.rstops[Irange.stop] = I.stop
+
+    # `I` is adjoin with `rs` range on right side, thus prepend to right range
+    elseif Irange.stop != beforestartindex(rs) && get_range_stop(rs, Irange.stop) + 1 != I.start &&
+           Irange.start != pastendindex(rs) && get_range_start(rs, Irange.start) - 1 == I.stop
+        rs.rstarts[Irange.start] = I.start
+
+    # `I` is separate from both sides, insert it
+    elseif Irange.stop != beforestartindex(rs) && get_range_stop(rs, Irange.stop) + 1 != I.start &&
+           Irange.start != pastendindex(rs) && get_range_start(rs, Irange.start) - 1 != I.stop
+        insert!(rs.rstarts, Irange.start, I.start)
+        insert!(rs.rstops, Irange.start, I.stop)
+
+    # `I` is first range in `rs` and adjoin with range on right side, thus prepend `I` to right range
+    elseif Irange.stop == beforestartindex(rs) &&
+           Irange.start != pastendindex(rs) && get_range_start(rs, Irange.start) - 1 == I.stop
+        rs.rstarts[Irange.start] = I.start
+
+    # `I` is separate first range in `rs`, insert it
+    elseif Irange.stop == beforestartindex(rs) &&
+           Irange.start != pastendindex(rs) && get_range_start(rs, Irange.start) - 1 != I.stop
+        insert!(rs.rstarts, Irange.start, I.start)
+        insert!(rs.rstops, Irange.start, I.stop)
+
+    # `I` is last range in `rs` and adjoin with range on left side, thus append `I` to left range
+    elseif Irange.stop != beforestartindex(rs) && get_range_stop(rs, Irange.stop) + 1 == I.start &&
+           Irange.start == pastendindex(rs)
+        rs.rstops[Irange.stop] = I.stop
+
+    # `I` is separate last range in `rs`, insert it
+    elseif Irange.stop != beforestartindex(rs) && get_range_stop(rs, Irange.stop) + 1 != I.start &&
+           Irange.start == pastendindex(rs)
+        insert!(rs.rstarts, Irange.start, I.start)
+        insert!(rs.rstops, Irange.start, I.stop)
 
     # `rs` is empty
     else #if Irange.stop == beforestartindex(rs) && Irange.start == pastendindex(rs)
@@ -885,14 +996,22 @@ Base.copy(rs::T) where {T<:UnitRangesSortedVector} = T(rs.lastusedrangeindex, co
 Base.copy(rs::T) where {T<:UnitRangesSortedSet} = T(rs.lastusedrangeindex, copy(rs.ranges))
 Base.copymutable(rs::AbstractUnitRangesSortedSet) = copy(rs)
 
+Base.emptymutable(rs::T) where {T<:AbstractUnitRangesSortedSet} = T()
 
-#Base.union(rs1::AbstractUnitRangesSortedSet, rs2) = union!(copy(rs1), rs2)
-#function Base.union(rs1::AbstractUnitRangesSortedSet, rs2)
-#    # TODO: dot?
-#    for r in rs2, el in r
-#        push!(rs1, el)
-#    end
-#end
+
+Base.union(rs::AbstractUnitRangesSortedSet, rss...) = union!(copy(rs), rss...)
+Base.union(rs::AbstractUnitRangesSortedSet, rs2) = union!(copy(rs), rs2)
+
+@inline Base.union!(rs::AbstractUnitRangesSortedSet, rss...) = union!(union!(rs, rss[1]), Iterators.tail(rss)...)
+function Base.union!(rs::AbstractUnitRangesSortedSet, rs2)
+    issubset(rs2, rs) && return rs
+    for r in rs2
+        push!(rs, r)
+    end
+    return rs
+end
+
+@inline Base.union!(rs::AbstractUnitRangesSortedSet, r::UnitRange) = push!(rs, r)
 
 function Base.isequal(rs1::AbstractUnitRangesSortedSet, rs2::AbstractUnitRangesSortedSet)
     length(rs1) == length(rs2) || return false
