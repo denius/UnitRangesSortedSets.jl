@@ -1,9 +1,8 @@
 
 module UnitRangesSortedSets
 export AbstractUnitRangesSortedSet, UnitRangesSortedVector, UnitRangesSortedSet, SubUnitRangesSortedSet, URSSUnitRange
-export findfirstnz, findlastnz, findfirstnzindex, findlastnzindex
 export iteratenzpairs, iteratenzpairsview, iteratenzvalues, iteratenzvaluesview, iteratenzindices
-export testfun_create, testfun_createSV, testfun_createVL, testfun_create_seq, testfun_create_dense, testfun_delete!, testfun_in, testfun_in_outer, testfun_in_rand, testfun_in_seq, testfun_nzgetindex, testfun_setindex!, testfun_nzchunks, testfun_nzpairs, testfun_nzindices, testfun_nzvalues, testfun_nzvaluesview, testfun_findnz
+export testfun_create, testfun_createSV, testfun_createVL, testfun_create_seq, testfun_create_dense, testfun_delete!, testfun_in, testfun_in_outer, testfun_in_rand, testfun_in_seq, testfun_nzgetindex, testfun_setindex!
 export searchsortedrange, searchsortedfirstrange, searchsortedlastrange
 
 
@@ -206,15 +205,6 @@ Base.eltype(::AbstractUnitRangesSortedSet{Ti}) where {Ti} = Ti
 #Base.IndexStyle(::AbstractUnitRangesSortedSet) = IndexLinear()
 
 
-#function Base.collect(::Type{ElType}, rs::AbstractUnitRangesSortedSet) where ElType
-#    res = Vector{ElType}(undef, foldl((s,r)->s+(r.stop-r.start+1), rs, init=0))
-#    i = 0
-#    for r in rs, el in r
-#        res[i+=1] = ElType(el)
-#    end
-#    return res
-#end
-#Base.collect(rs::AbstractUnitRangesSortedSet) = collect(eltype(rs), rs)
 function Base.collect(::Type{ElType}, rs::AbstractUnitRangesSortedSet) where ElType
     res = Vector{UnitRange{ElType}}(undef, length(rs))
     i = 0
@@ -232,14 +222,14 @@ function Base.collect(rs::AbstractUnitRangesSortedSet{Ti}) where Ti
     return res
 end
 
-Base.@propagate_inbounds length_of_that_range(rs::AbstractUnitRangesSortedSet, r) = r.stop - r.start + 1
+@inline length_of_that_range(rs::AbstractUnitRangesSortedSet, r) = r.stop - r.start + 1
 @inline get_range_length(rs::AbstractUnitRangesSortedSet, i) = ((start, stop) = get_range_indices(rs, i); stop - start + 1)
 @inline get_range_indices(rs::UnitRangesSortedVector, i) = (rs.rstarts[i], rs.rstops[i])
 @inline get_range_indices(rs::UnitRangesSortedSet, i::DataStructures.Tokens.IntSemiToken) = deref((rs.ranges, i))
 @inline get_range(rs::UnitRangesSortedVector, i) = (rs.rstarts[i]:rs.rstops[i])
 @inline get_range(rs::UnitRangesSortedSet, i::DataStructures.Tokens.IntSemiToken) = ((start, stop) = deref((rs.ranges, i)); return (start:stop))
 @inline get_range(ur::URSSUnitRange, i) = get_range(ur.parent, i)
-@inline function get_range(rs::SubArray{<:Any,<:Any,<:T}, i) where {T<:AbstractUnitRangesSortedSet}
+function get_range(rs::SubArray{<:Any,<:Any,<:T}, i) where {T<:AbstractUnitRangesSortedSet}
     idx1 = first(rs.indices[1])
     key = rs.parent.ranges[i]
     len = length(rs.parent.ranges[i])
@@ -251,7 +241,7 @@ Base.@propagate_inbounds length_of_that_range(rs::AbstractUnitRangesSortedSet, r
         return @view(rs.parent.ranges[i][1:end])
     end
 end
-@inline function get_range(rs::SubArray{<:Any,<:Any,<:T}, i) where {T<:AbstractUnitRangesSortedSet}
+function get_range(rs::SubArray{<:Any,<:Any,<:T}, i) where {T<:AbstractUnitRangesSortedSet}
     idx1 = first(rs.indices[1])
     key, chunk = deref((rs.parent.ranges, i))
     len = length(chunk)
@@ -437,104 +427,17 @@ end
     end
 end
 
-Base.@propagate_inbounds index_status(rs::UnitRangesSortedVector, st) = 0 <= st <= length(rs)+1 ? 1 : 0
-Base.@propagate_inbounds index_status(rs::UnitRangesSortedSet, st) = status((rs.ranges, st))
+@inline index_status(rs::UnitRangesSortedVector, st) = 0 <= st <= length(rs)+1 ? 1 : 0
+@inline index_status(rs::UnitRangesSortedSet, st) = status((rs.ranges, st))
 
-"Returns the index of first non-zero element in sparse vector."
-@inline findfirstnzindex(rs::SparseVector) = nnz(rs) > 0 ? rs.ranges[1] : nothing
-@inline findfirstnzindex(rs::AbstractUnitRangesSortedSet{Ti}) where {Ti} =
-    nnz(rs) > 0 ? Ti(rs.ranges[1]) : nothing
-@inline findfirstnzindex(rs::AbstractUnitRangesSortedSet{Ti}) where {Ti} =
-    nnz(rs) > 0 ? Ti(deref_key((rs.ranges, startof(rs.ranges)))) : nothing
-function findfirstnzindex(rs::SubArray{<:Any,<:Any,<:T})  where {T<:AbstractUnitRangesSortedSet{Ti}} where {Ti}
-    nnz(rs.parent) == 0 && return nothing
-    ifirst, r_stop = first(rs.indices[1]), last(rs.indices[1])
-    st = searchsortedlast_nzchunk(rs.parent, ifirst)
-    st == pastendindex(rs.parent) && return nothing
-    key = get_range_start(rs.parent, st)
-    len = get_range_length(rs.parent, st)
-    if key <= ifirst < key + len  # ifirst index within nzchunk range
-        return Ti(1)
-    elseif ifirst <= key <= r_stop  # nzchunk[1] somewhere in ifirst:r_stop range
-        return Ti(key-ifirst+1)
-    else
-        return nothing
-    end
-end
+#@inline function Base.findfirst(testf::Function, rs::AbstractUnitRangesSortedSet)
+#    for p in nzpairs(rs)
+#        testf(last(p)) && return first(p)
+#    end
+#    return nothing
+#end
 
-"Returns the index of last non-zero element in sparse vector."
-@inline findlastnzindex(rs::SparseVector) = nnz(rs) > 0 ? rs.ranges[end] : nothing
-@inline findlastnzindex(rs::AbstractUnitRangesSortedSet) =
-    nnz(rs) > 0 ? rs.ranges[end] + length_of_that_range(rs, rs.ranges[end]) - 1 : nothing
-@inline function findlastnzindex(rs::AbstractUnitRangesSortedSet)
-    if nnz(rs) > 0
-        lasttoken = lastindex(rs.ranges)
-        return deref_key((rs.ranges, lasttoken)) + length_of_that_range(rs, deref_value((rs.ranges, lasttoken))) - 1
-    else
-        return nothing
-    end
-end
-function findlastnzindex(rs::SubArray{<:Any,<:Any,<:T})  where {T<:AbstractUnitRangesSortedSet{Ti}} where {Ti}
-    nnz(rs.parent) == 0 && return nothing
-    ifirst, r_stop = first(rs.indices[1]), last(rs.indices[1])
-    st = searchsortedfirst_nzchunk(rs.parent, r_stop)
-    st == beforestartindex(rs.parent) && return nothing
-    key = get_range_start(rs.parent, st)
-    len = get_range_length(rs.parent, st)
-    if key <= r_stop < key + len  # r_stop index within nzchunk range
-        return Ti(r_stop - ifirst + 1)
-    elseif ifirst <= key+len-1 <= r_stop  # nzchunk[end] somewhere in ifirst:r_stop range
-        return Ti(key+len-1 - ifirst+1)
-    else
-        return nothing
-    end
-end
-
-"Returns value of first non-zero element in the sparse vector."
-@inline findfirstnz(rs::AbstractSparseVector) = nnz(rs) > 0 ? rs[findfirstnzindex(rs)] : nothing
-function findfirstnz(rs::SubArray{<:Any,<:Any,<:T})  where {T<:AbstractUnitRangesSortedSet{Ti}} where {Ti}
-    nnz(rs.parent) == 0 && return nothing
-    ifirst, r_stop = first(rs.indices[1]), last(rs.indices[1])
-    st = searchsortedlast_nzchunk(rs.parent, ifirst)
-    st == pastendindex(rs.parent) && return nothing
-    key, chunk = get_range(rs.parent, st)
-    len = length_of_that_range(rs.parent, chunk)
-    if key <= ifirst < key + len  # ifirst index within nzchunk range
-        return chunk[ifirst-key+1]
-    elseif ifirst <= key <= r_stop  # nzchunk[1] somewhere in ifirst:r_stop range
-        return chunk[1]
-    else
-        return nothing
-    end
-end
-
-"Returns value of last non-zero element in the sparse vector."
-@inline findlastnz(rs::AbstractSparseVector) = nnz(rs) > 0 ? rs[findlastnzindex(rs)] : nothing
-function findlastnz(rs::SubArray{<:Any,<:Any,<:T})  where {T<:AbstractUnitRangesSortedSet{Ti}} where {Ti}
-    nnz(rs.parent) == 0 && return nothing
-    ifirst, r_stop = first(rs.indices[1]), last(rs.indices[1])
-    st = searchsortedfirst_nzchunk(rs.parent, r_stop)
-    st == beforestartindex(rs.parent) && return nothing
-    key, chunk = get_range(rs.parent, st)
-    len = length_of_that_range(rs.parent, chunk)
-    if key <= r_stop < key + len  # r_stop index within nzchunk range
-        return chunk[r_stop-key+1]
-    elseif ifirst <= key+len-1 <= r_stop  # nzchunk[end] somewhere in ifirst:r_stop range
-        return chunk[end]
-    else
-        return nothing
-    end
-end
-
-
-@inline function Base.findfirst(testf::Function, rs::AbstractUnitRangesSortedSet)
-    for p in nzpairs(rs)
-        testf(last(p)) && return first(p)
-    end
-    return nothing
-end
-
-@inline Base.findall(testf::Function, rs::AbstractUnitRangesSortedSet) = collect(first(p) for p in nzpairs(rs) if testf(last(p)))
+Base.findall(testf::Function, rs::AbstractUnitRangesSortedSet) = collect(p for p in rs if testf(p))
 
 
 #
@@ -542,7 +445,7 @@ end
 #
 
 
-Base.@propagate_inbounds function Base.iterate(rs::AbstractUnitRangesSortedSet, state = firstindex(rs))
+@inline function Base.iterate(rs::AbstractUnitRangesSortedSet, state = firstindex(rs))
     if state != pastendindex(rs)
         return (get_range(rs, state), advance(rs, state))
     else
@@ -553,9 +456,6 @@ end
 #
 # Assignments
 #
-
-
-#@inline Base.in(II::UnitRange, rs::AbstractUnitRangesSortedSet{Ti}) where Ti = in(convert(UnitRange{Ti}, II), rs)
 
 @inline function Base.in(II::UnitRange{Ti}, rs::AbstractUnitRangesSortedSet{Ti}) where Ti
     I = convert(UnitRange{Ti}, II)
@@ -600,7 +500,7 @@ end
 end
 
 
-@inline Base.haskey(rs::AbstractUnitRangesSortedSet, idx) = in(idx, rs)
+#@inline Base.haskey(rs::AbstractUnitRangesSortedSet, idx) = in(idx, rs)
 
 function Base.push!(rs::UnitRangesSortedVector{Ti}, II::UnitRange) where Ti
     I = convert(UnitRange{Ti}, II)
@@ -615,11 +515,13 @@ function Base.push!(rs::UnitRangesSortedVector{Ti}, II::UnitRange) where Ti
     rs.lastusedrangeindex = beforestartindex(rs)
 
     Iposition = searchsortedrange(rs, I)
+
+    # `I` already exist in `rs` and the same as the corresponding range in `rs`, nothing to do
     if length(Iposition) == 1 && I == get_range(rs, Iposition.start)
-        # `I` already exist in `rs` and the same as the corresponding range in `rs`, nothing to do
         return rs
+
+    # delete all inside `I` range in `rs`
     else
-        # delete all inside `I` range in `rs`
         delete!(rs, I)
     end
 
@@ -682,6 +584,7 @@ function Base.push!(rs::UnitRangesSortedVector{Ti}, II::UnitRange) where Ti
     elseif Iposition_left == beforestartindex(rs) && Iposition_right == pastendindex(rs)
         insert!(rs.rstarts, 1, I.start)
         insert!(rs.rstops, 1, I.stop)
+
     else
         throw(AssertionError("FIXME: I Am an error in program logic."))
     end
@@ -702,11 +605,13 @@ function Base.push!(rs::UnitRangesSortedSet{Ti}, II::UnitRange) where Ti
     rs.lastusedrangeindex = beforestartindex(rs)
 
     Iposition = searchsortedrange(rs, I)
+
+    # `I` already exist in `rs` and the same as the corresponding range in `rs`, nothing to do
     if length(Iposition) == 1 && I == get_range(rs, Iposition.start)
-        # `I` already exist in `rs` and the same as the corresponding range in `rs`, nothing to do
         return rs
+
+    # delete all inside `I` range in `rs`
     else
-        # delete all inside `I` range in `rs`
         delete!(rs, I)
     end
 
@@ -716,7 +621,6 @@ function Base.push!(rs::UnitRangesSortedSet{Ti}, II::UnitRange) where Ti
     # `Iposition.stop` will be point to range in `rs` on left side to `I`.
     Iposition = searchsortedrange(rs, I.start)
     @boundscheck @assert Iposition == searchsortedrange(rs, I.stop) "FIXME: I Am an error in program logic."
-    #dump(Iposition)
 
     Iposition_left = Iposition.stop
     Iposition_right = Iposition.start
@@ -728,62 +632,48 @@ function Base.push!(rs::UnitRangesSortedSet{Ti}, II::UnitRange) where Ti
        Iposition_right != pastendindex(rs) && Iposition_right_range_start - 1 == I.stop
         rs.ranges[Iposition_left] = get_range_stop(rs, Iposition_right)
         delete!((rs.ranges, Iposition_right))
-        #rs.rstops[Iposition_left] = get_range_stop(rs, Iposition_right)
-        #deleteat!(rs.rstarts, Iposition_right)
-        #deleteat!(rs.rstops, Iposition_right)
 
     # `I` is adjoin with `rs` range on left side, thus append to left range
     elseif Iposition_left != beforestartindex(rs) && Iposition_left_range_stop + 1 == I.start &&
            Iposition_right != pastendindex(rs) && Iposition_right_range_start - 1 != I.stop
         rs.ranges[Iposition_left] = I.stop
-        #rs.rstops[Iposition_left] = I.stop
 
     # `I` is adjoin with `rs` range on right side, thus prepend to right range
     elseif Iposition_left != beforestartindex(rs) && Iposition_left_range_stop + 1 != I.start &&
            Iposition_right != pastendindex(rs) && Iposition_right_range_start - 1 == I.stop
         rs.ranges[I.start] = get_range_stop(rs, Iposition_right)
         delete!((rs.ranges, Iposition_right))
-        #rs.rstarts[Iposition_right] = I.start
 
     # `I` is separate from both sides, insert it
     elseif Iposition_left != beforestartindex(rs) && Iposition_left_range_stop + 1 != I.start &&
            Iposition_right != pastendindex(rs) && Iposition_right_range_start - 1 != I.stop
         rs.ranges[I.start] = I.stop
-        #insert!(rs.rstarts, Iposition_right, I.start)
-        #insert!(rs.rstops, Iposition_right, I.stop)
 
     # `I` is first range in `rs` and adjoin with range on right side, thus prepend `I` to right range
     elseif Iposition_left == beforestartindex(rs) &&
            Iposition_right != pastendindex(rs) && Iposition_right_range_start - 1 == I.stop
         rs.ranges[I.start] = get_range_stop(rs, Iposition_right)
         delete!((rs.ranges, Iposition_right))
-        #rs.rstarts[Iposition_right] = I.start
 
     # `I` is separate first range in `rs`, insert it
     elseif Iposition_left == beforestartindex(rs) &&
            Iposition_right != pastendindex(rs) && Iposition_right_range_start - 1 != I.stop
         rs.ranges[I.start] = I.stop
-        #insert!(rs.rstarts, Iposition_right, I.start)
-        #insert!(rs.rstops, Iposition_right, I.stop)
 
     # `I` is last range in `rs` and adjoin with range on left side, thus append `I` to left range
     elseif Iposition_left != beforestartindex(rs) && Iposition_left_range_stop + 1 == I.start &&
            Iposition_right == pastendindex(rs)
         rs.ranges[Iposition_left] = I.stop
-        #rs.rstops[Iposition_left] = I.stop
 
     # `I` is separate last range in `rs`, insert it
     elseif Iposition_left != beforestartindex(rs) && Iposition_left_range_stop + 1 != I.start &&
            Iposition_right == pastendindex(rs)
         rs.ranges[I.start] = I.stop
-        #insert!(rs.rstarts, Iposition_right, I.start)
-        #insert!(rs.rstops, Iposition_right, I.stop)
 
     # `rs` is empty
     elseif Iposition_left == beforestartindex(rs) && Iposition_right == pastendindex(rs)
         rs.ranges[I.start] = I.stop
-        #insert!(rs.rstarts, 1, I.start)
-        #insert!(rs.rstops, 1, I.stop)
+
     else
         throw(AssertionError("FIXME: I Am an error in program logic."))
     end
@@ -1002,6 +892,7 @@ function Base.delete!(rs::UnitRangesSortedVector{Ti}, II::UnitRange) where {Ti}
         if I.stop >= Iposition_range_stop
             deleteat!(rs.rstarts, Iposition.stop)
             deleteat!(rs.rstops, Iposition.stop)
+
         # or shrink it from left side
         else
             rs.rstarts[Iposition.stop] = I.stop + 1
@@ -1011,6 +902,7 @@ function Base.delete!(rs::UnitRangesSortedVector{Ti}, II::UnitRange) where {Ti}
         if Iposition_range_start >= I.start
             deleteat!(rs.rstarts, Iposition.start)
             deleteat!(rs.rstops, Iposition.start)
+
         # or shrink it from right side
         else
             rs.rstops[Iposition.start] = I.start - 1
@@ -1020,42 +912,6 @@ function Base.delete!(rs::UnitRangesSortedVector{Ti}, II::UnitRange) where {Ti}
 
     return rs
 end
-
-function Base.delete!(rs::UnitRangesSortedVector{Ti}, idx) where {Ti}
-    i = Ti(idx)
-
-    length(rs) == 0 && return rs
-
-    st = searchsortedlastrange(rs, i)
-
-    if st == beforestartindex(rs)  # the index `i` is before first range
-        return rs
-    end
-
-    r = get_range(rs, st)
-
-    if i > r.stop  # the index `i` is outside of range
-        return rs
-    end
-
-    if r.stop - r.start + 1 == 1
-        deleteat!(rs.rstarts, st)
-        deleteat!(rs.rstops, st)
-    elseif i == r.stop  # last index in range
-        rs.rstops[st] -= 1
-    elseif i == r.start  # first index in range
-        rs.rstarts[st] += 1
-    else
-        insert!(rs.rstarts, advance(rs, st), i+1)
-        insert!(rs.rstops, advance(rs, st), r.stop)
-        rs.rstops[st] = i-1
-    end
-
-    rs.lastusedrangeindex = beforestartindex(rs)
-
-    return rs
-end
-
 
 
 function Base.delete!(rs::UnitRangesSortedSet{Ti}, II::UnitRange) where {Ti}
@@ -1088,29 +944,23 @@ function Base.delete!(rs::UnitRangesSortedSet{Ti}, II::UnitRange) where {Ti}
        Iposition_range_start < I.start && I.stop < Iposition_range_stop
         rs.ranges[I.stop + 1] = Iposition_range_stop
         rs.ranges[Iposition.start] = I.start - 1
-        #insert!(rs.rstarts, advance(rs, Iposition.start), I.stop + 1)
-        #insert!(rs.rstops, Iposition.start, I.start - 1)
 
     # `I` is whole range, delete it
     elseif length(Iposition) == 1 &&
            Iposition_range_start >= I.start && I.stop >= Iposition_range_stop
         delete!((rs.ranges, Iposition.start))
-        #deleteat!(rs.rstarts, Iposition.start)
-        #deleteat!(rs.rstops, Iposition.start)
 
     # `I` intersects with or inside in one range from left side, thus shrink from left side
     elseif length(Iposition) == 1 &&
            Iposition_range_start >= I.start && I.stop < Iposition_range_stop
         rs.ranges[I.stop + 1] = Iposition_range_stop
         delete!((rs.ranges, Iposition.start))
-        #rs.rstarts[Iposition.start] = I.stop + 1
 
     # `I` intersects with or inside in one range from right side, thus shrink from right side
     # inside one range, ended to left side, thus shrink from right side
     elseif length(Iposition) == 1 &&
            Iposition_range_start < I.start && I.stop >= Iposition_range_stop
         rs.ranges[Iposition.start] = I.start - 1
-        #rs.rstops[Iposition.start] = I.start - 1
 
     # All remaining cases are with two ranges from `rs`
     elseif length(Iposition) != 2
@@ -1121,27 +971,59 @@ function Base.delete!(rs::UnitRangesSortedSet{Ti}, II::UnitRange) where {Ti}
         # delete whole second range
         if I.stop >= Iposition_range_stop
             delete!((rs.ranges, Iposition.stop))
-            #deleteat!(rs.rstarts, Iposition.stop)
-            #deleteat!(rs.rstops, Iposition.stop)
+
         # or shrink it from left side
         else
             rs.ranges[I.stop + 1] = Iposition_range_stop
             delete!((rs.ranges, Iposition.stop))
-            #rs.rstarts[Iposition.stop] = I.stop + 1
         end
 
         # delete whole first range
         if Iposition_range_start >= I.start
             delete!((rs.ranges, Iposition.start))
-            #deleteat!(rs.rstarts, Iposition.start)
-            #deleteat!(rs.rstops, Iposition.start)
+
         # or shrink it from right side
         else
             rs.ranges[Iposition.start] = I.start - 1
-            #rs.rstops[Iposition.start] = I.start - 1
         end
 
     end
+
+    return rs
+end
+
+
+function Base.delete!(rs::UnitRangesSortedVector{Ti}, idx) where {Ti}
+    i = Ti(idx)
+
+    length(rs) == 0 && return rs
+
+    st = searchsortedlastrange(rs, i)
+
+    if st == beforestartindex(rs)  # the index `i` is before first range
+        return rs
+    end
+
+    r = get_range(rs, st)
+
+    if i > r.stop  # the index `i` is outside of range
+        return rs
+    end
+
+    if r.stop - r.start + 1 == 1
+        deleteat!(rs.rstarts, st)
+        deleteat!(rs.rstops, st)
+    elseif i == r.stop  # last index in range
+        rs.rstops[st] -= 1
+    elseif i == r.start  # first index in range
+        rs.rstarts[st] += 1
+    else
+        insert!(rs.rstarts, advance(rs, st), i+1)
+        insert!(rs.rstops, advance(rs, st), r.stop)
+        rs.rstops[st] = i-1
+    end
+
+    rs.lastusedrangeindex = beforestartindex(rs)
 
     return rs
 end
@@ -1181,6 +1063,23 @@ function Base.delete!(rs::UnitRangesSortedSet{Ti}, idx) where {Ti}
     return rs
 end
 
+function Base.pop!(rs::AbstractUnitRangesSortedSet, i)
+    if in(i, rs)
+        delete!(rs, i)
+        return i
+    else
+        throw(KeyError(i))
+    end
+end
+function Base.pop!(rs::AbstractUnitRangesSortedSet, i, default)
+    if in(i, rs)
+        delete!(rs, i)
+        return i
+    else
+        return default
+    end
+end
+
 
 function Base.empty!(rs::UnitRangesSortedVector)
     empty!(rs.rstarts)
@@ -1199,7 +1098,7 @@ end
 
 Base.copy(rs::T) where {T<:SubUnitRangesSortedSet} = T(rs.parent, rs.start, rs.stop)
 Base.copy(rs::T) where {T<:UnitRangesSortedVector} = T(rs.lastusedrangeindex, copy(rs.rstarts), copy(rs.rstops))
-Base.copy(rs::T) where {T<:UnitRangesSortedSet} = T(rs.lastusedrangeindex, copy(rs.ranges))
+Base.copy(rs::T) where {T<:UnitRangesSortedSet} = T(rs.lastusedrangeindex, packcopy(rs.ranges))
 Base.copymutable(rs::AbstractUnitRangesSortedSet) = copy(rs)
 
 Base.emptymutable(rs::T) where {T<:AbstractUnitRangesSortedSet} = T()
@@ -1219,6 +1118,9 @@ end
 
 @inline Base.union!(rs::AbstractUnitRangesSortedSet, r::UnitRange) = push!(rs, r)
 
+@inline Base.:(==)(rs1::T1, rs2::T2) where {T1<:AbstractUnitRangesSortedSet, T2<:AbstractUnitRangesSortedSet} =
+    T1 == T2 && isequal(rs1, rs2)
+
 function Base.isequal(rs1::AbstractUnitRangesSortedSet, rs2::AbstractUnitRangesSortedSet)
     length(rs1) == length(rs2) || return false
     for (r1,r2) in zip(rs1, rs2)
@@ -1227,15 +1129,39 @@ function Base.isequal(rs1::AbstractUnitRangesSortedSet, rs2::AbstractUnitRangesS
     return true
 end
 
-#function Base.issubset(rs1::AbstractUnitRangesSortedSet, rs2::AbstractUnitRangesSortedSet)
-#    length(rs1) == length(rs2) || return false
-#    for (r1,r2) in zip(rs1, rs2)
-#        r1 == r2 || return false
-#    end
-#    return true
-#end
+function Base.issubset(rs1::AbstractUnitRangesSortedSet, rs2::AbstractUnitRangesSortedSet)
+    for r1 in rs1
+        issubset(r1, rs2) || return false
+    end
+    return true
+end
+function Base.issubset(rs1::Union{AbstractSet,AbstractVector,UnitRange,Tuple}, rs2::AbstractUnitRangesSortedSet)
+    for r1 in rs1
+        issubset(r1, rs2) || return false
+    end
+    return true
+end
+function Base.issubset(rs1::AbstractUnitRangesSortedSet, rs2::Union{AbstractSet,AbstractVector,UnitRange,Tuple})
+    for r1 in rs1
+        issubset(r1, rs2) || return false
+    end
+    return true
+end
 
 
+function Base.filter(pred::Function, rs::AbstractUnitRangesSortedSet)
+    res = emptymutable(rs)
+    for r in rs
+        pred(r) && push!(res, r)
+    end
+    res
+end
+function Base.filter!(pred::Function, rs::AbstractUnitRangesSortedSet)
+    for r in rs
+        pred(r) || delete!(rs, r)
+    end
+    rs
+end
 #
 #  Aux functions
 #
@@ -1324,7 +1250,6 @@ function get_max_pad(rs::AbstractUnitRangesSortedSet)
     for (i,r) in enumerate(rs)
         if i < 100 || i > len - 100
             pad = max(pad, length(repr(r.start)), length(repr(r.stop)))
-            #pad = max(pad, ndigits(r.start), ndigits(r.stop))
         end
     end
     pad
@@ -1462,62 +1387,6 @@ function testfun_setindex!(sv)
 end
 
 
-function testfun_nzchunks(sv)
-    I = 0
-    S = 0.0
-    for (startindex,chunk) in nzchunkspairs(sv)
-        startindex -= 1
-        for i in axes(chunk,1)
-            I += startindex + i
-            S += chunk[i]
-        end
-    end
-    (I, S)
-end
-
-function testfun_nzpairs(sv)
-    I = 0
-    S = 0.0
-    for (k,v) in nzpairs(sv)
-        I += k
-        S += v
-    end
-    (I, S)
-end
-
-function testfun_nzindices(sv)
-    I = 0
-    for k in nzindices(sv)
-        I += k
-    end
-    (I, 0.0)
-end
-
-function testfun_nzvalues(sv)
-    S = 0.0
-    for v in nzvalues(sv)
-        S += v
-    end
-    (0, S)
-end
-
-function testfun_nzvaluesview(sv)
-    S = 0.0
-    for v in nzvaluesview(sv)
-        S += v[1]
-    end
-    (0, S)
-end
-
-function testfun_findnz(sv)
-    I = 0
-    S = 0.0
-    for (k,v) in zip(SparseArrays.findnz(sv)...)
-        I += k
-        S += v
-    end
-    (I, S)
-end
 
 
-end  # of module DensedSparseVectors
+end  # of module UnitRangesSortedSets
