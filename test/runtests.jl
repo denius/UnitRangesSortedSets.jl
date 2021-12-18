@@ -46,7 +46,7 @@ end
                 @test test_iseqial(rs, vu)
 
                 v = [3:4, 2:5, 1:1]
-                vu = [1:4]
+                vu = [1:5]
                 rs = $TypeURSS{$Ti}(v)
                 @test eltype(rs) == $Ti
                 @test typeof(rs) === $TypeURSS{$Ti}
