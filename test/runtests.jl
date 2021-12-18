@@ -223,6 +223,13 @@ end
 
                 io = IOBuffer()
                 rs = $TypeURSS{$Ti}((0:0, 2:4))
+                show(io, rs)
+                @test String(take!(io)) == "$TypeURSS{$Ti}(" *
+                                           string($Ti(0)) * ":" * string($Ti(0)) * ", " *
+                                           string($Ti(2)) * ":" * string($Ti(4)) * ")"
+
+                io = IOBuffer()
+                rs = $TypeURSS{$Ti}((0:0, 2:4))
                 show(io, MIME("text/plain"), rs)
                 @test String(take!(io)) == "$TypeURSS{$Ti}():\n" *
                                            "  " * string($Ti(0)) * ":" * string($Ti(0)) * "\n" *

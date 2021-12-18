@@ -282,6 +282,8 @@ end
 @inline Base.first(rs::UnitRangesSortedSet) = ((start,stop) = deref((rs.ranges, startof(rs.ranges))); (start:stop))
 @inline Base.last(rs::UnitRangesSortedVector) = (rs.rstarts[end]:rs.rstops[end])
 @inline Base.last(rs::UnitRangesSortedSet) = ((start,stop) = deref((rs.ranges, lastindex(rs.ranges))); (start:stop))
+#@inline Iterators.tail(rs::UnitRangesSortedVector) = (rs.rstarts[end]:rs.rstops[end])
+#@inline Iterators.tail(rs::UnitRangesSortedSet) = ((start,stop) = deref((rs.ranges, lastindex(rs.ranges))); (start:stop))
 
 @inline beforestartindex(rs::UnitRangesSortedVector) = firstindex(rs.rstarts) - 1
 @inline beforestartindex(rs::UnitRangesSortedSet) = beforestartsemitoken(rs.ranges)
@@ -1107,7 +1109,7 @@ Base.emptymutable(rs::T) where {T<:AbstractUnitRangesSortedSet} = T()
 Base.union(rs::AbstractUnitRangesSortedSet, rss...) = union!(copy(rs), rss...)
 Base.union(rs::AbstractUnitRangesSortedSet, rs2) = union!(copy(rs), rs2)
 
-@inline Base.union!(rs::AbstractUnitRangesSortedSet, rss...) = union!(union!(rs, rss[1]), Iterators.tail(rss)...)
+@inline Base.union!(rs::AbstractUnitRangesSortedSet, rss...) = union!(union!(rs, rss[1]), Base.tail(rss)...)
 function Base.union!(rs::AbstractUnitRangesSortedSet, rs2)
     issubset(rs2, rs) && return rs
     for r in rs2
@@ -1206,8 +1208,19 @@ function Base.show(io::IOContext, x::URSSUnitRange)
 end
 
 
-# derived from stdlib/SparseArrays/src/sparsevector.jl
+function Base.show(io::IO, x::AbstractUnitRangesSortedSet)
+    print(io, typeof(x), "(")
+    if length(x) > 0
+        el1, restx = Iterators.peel(x)
+        print(io, el1)
+        for r in restx
+            print(io, ", ", r)
+        end
+    end
+    print(io, ")")
+end
 
+# derived from stdlib/SparseArrays/src/sparsevector.jl
 function Base.show(io::IO, ::MIME"text/plain", x::AbstractUnitRangesSortedSet)
     len = length(x)
     print(io, typeof(x), "()")
