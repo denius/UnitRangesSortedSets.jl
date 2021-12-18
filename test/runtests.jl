@@ -165,7 +165,7 @@ end
 end
 
 
-@testset "Some functions" begin
+@testset "Set functions" begin
     for Ti in (Int, UInt, UInt16, Float64)
         for TypeURSS in (UnitRangesSortedVector, UnitRangesSortedSet)
             @eval begin
