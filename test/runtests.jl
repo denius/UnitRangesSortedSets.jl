@@ -1,4 +1,4 @@
-using UnitRangesSortedSets
+using .UnitRangesSortedSets
 using Test
 
 function test_iseqial(rs1, rs2)
@@ -74,7 +74,7 @@ end
 end
 
 
-@testset "`in`" begin
+@testset "`in()`" begin
     for Ti in (Int, UInt, UInt16, Float64)
         for TypeURSS in (UnitRangesSortedVector, UnitRangesSortedSet)
             @eval begin
@@ -100,7 +100,7 @@ end
 end
 
 
-@testset "`push!`" begin
+@testset "`push!()`" begin
     for Ti in (Int, UInt, UInt16, Float64)
         for TypeURSS in (UnitRangesSortedVector, UnitRangesSortedSet)
             @eval begin
@@ -136,7 +136,7 @@ end
 end
 
 
-@testset "`delete!`" begin
+@testset "`delete!()`" begin
     for Ti in (Int, UInt, UInt16, Float64)
         for TypeURSS in (UnitRangesSortedVector, UnitRangesSortedSet)
             @eval begin
@@ -216,7 +216,7 @@ end
 end
 
 
-@testset "`show`" begin
+@testset "`show()`" begin
     for Ti in (Int, UInt, UInt16, Float64)
         for TypeURSS in (UnitRangesSortedVector, UnitRangesSortedSet)
             @eval begin

@@ -230,12 +230,11 @@ function Base.collect(rs::AbstractUnitRangesSortedSet{Ti}) where Ti
     return res
 end
 
-@inline length_of_that_range(rs::AbstractUnitRangesSortedSet, r) = last(r) - first(r) + 1
-@inline get_range_length(rs::AbstractUnitRangesSortedSet, i) = ((start, stop) = get_range_indices(rs, i); stop - start + 1)
+@inline get_range_length(rs::AbstractUnitRangesSortedSet, i) = length(get_range(rs, i))
 @inline get_range_indices(rs::UnitRangesSortedVector, i) = (rs.rstarts[i], rs.rstops[i])
-@inline get_range_indices(rs::UnitRangesSortedSet, i::DataStructures.Tokens.IntSemiToken) = deref((rs.ranges, i))
-@inline get_range(rs::UnitRangesSortedVector, i) = (rs.rstarts[i]:rs.rstops[i])
-@inline get_range(rs::UnitRangesSortedSet, i::DataStructures.Tokens.IntSemiToken) = ((start, stop) = deref((rs.ranges, i)); return (start:stop))
+@inline get_range_indices(rs::UnitRangesSortedSet, i::DataStructures.Tokens.IntSemiToken) = tuple(deref((rs.ranges, i))...)
+@inline get_range(rs::UnitRangesSortedVector, i) = UnitRange(rs.rstarts[i], rs.rstops[i])
+@inline get_range(rs::UnitRangesSortedSet, i::DataStructures.Tokens.IntSemiToken) = UnitRange(deref((rs.ranges, i))...)
 @inline get_range(ur::URSSUnitRange, i) = get_range(ur.parent, i)
 function get_range(rs::SubArray{<:Any,<:Any,<:T}, i) where {T<:AbstractUnitRangesSortedSet}
     idx1 = first(rs.indices[1])
@@ -382,7 +381,7 @@ end
 
 "Returns range of `rs` indexes which coincide or concluded in `I` range."
 @inline searchsortedrange(rs::UnitRangesSortedVector{Ti}, I::UnitRange) where Ti =
-    searchsortedfirstrange(rs, first(I)):searchsortedlastrange(rs, last(I))
+    UnitRange(searchsortedfirstrange(rs, first(I)), searchsortedlastrange(rs, last(I)))
 @inline searchsortedrange(rs::UnitRangesSortedSet{Ti}, I::UnitRange) where Ti =
     URSSUnitRange(rs, searchsortedfirstrange(rs, first(I)), searchsortedlastrange(rs, last(I)))
 
@@ -391,9 +390,9 @@ end
 @inline function searchsortedrange(rs::UnitRangesSortedVector{Ti}, i) where Ti
     st = searchsortedlastrange(rs, i)
     if st != beforestartindex(rs) && in(i, get_range(rs, st))
-        return st:st
+        return UnitRange(st, st)
     else
-        return advance(rs, st):st
+        return UnitRange(advance(rs, st), st)
     end
 end
 @inline function searchsortedrange(rs::UnitRangesSortedSet{Ti}, i) where Ti
@@ -649,8 +648,10 @@ function Base.push!(rs::UnitRangesSortedSet{Ti}, II::AbstractRange) where Ti
 
     Iposition_left = last(Iposition)
     Iposition_right = first(Iposition)
-    Iposition_left_range_stop = Iposition_left != beforestartindex(rs) ? get_range_stop(rs, Iposition_left) : Ti(0)
-    Iposition_right_range_start = Iposition_right != pastendindex(rs) ? get_range_start(rs, Iposition_right) : Ti(0)
+    Iposition_left_range_stop = Iposition_left != beforestartindex(rs) ? get_range_stop(rs, Iposition_left) :
+                                                                         typemin(Ti)
+    Iposition_right_range_start = Iposition_right != pastendindex(rs) ? get_range_start(rs, Iposition_right) :
+                                                                        typemax(Ti)
 
     # `I` is adjoined in both sides with `rs` ranges, thus join them all
     if Iposition_left != beforestartindex(rs) && Iposition_left_range_stop + 1 == first(I) &&
@@ -719,13 +720,13 @@ end
     st = searchsortedlastrange(rs, i)
     #
     #sstatus = status((rs.ranges, st))
-    @boundscheck if index_status(rs, st) == 0 # invalid semitoken
+    @boundscheck if index_status(rs, st) == 0 # invalid range index
         throw(KeyError(i))
     end
 
     # check the index exist and update its data
     if st != beforestartindex(rs)  # the index `i` is not before the first index
-        if i <= last(get_range_indices(rs, st))
+        if i <= get_range_stop(rs, st)
             rs.lastusedrangeindex = st
             return nothing
         end
