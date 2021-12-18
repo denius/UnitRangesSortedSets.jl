@@ -11,12 +11,11 @@ const FOrd = ForwardOrdering
 
 using DocStringExtensions
 using DataStructures
-using FillArrays
 using IterTools
 using Setfield
-using SparseArrays
-using StaticArrays
-import SparseArrays: indtype, nonzeroinds, nonzeros
+#using SparseArrays
+#using StaticArrays
+#import SparseArrays: indtype, nonzeroinds, nonzeros
 using Random
 
 
