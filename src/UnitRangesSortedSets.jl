@@ -49,22 +49,6 @@ mutable struct UnitRangesSortedVector{Ti} <: AbstractUnitRangesSortedSet{Ti}
 end
 
 UnitRangesSortedVector{Ti}() where {Ti} = UnitRangesSortedVector{Ti}(0, Vector{Ti}(undef, 0), Vector{Ti}(undef, 0))
-
-function UnitRangesSortedVector(values::Union{AbstractVector, AbstractSet, Tuple})
-    rs = UnitRangesSortedVector{eltype(values)}()
-    for r in values
-        push!(rs, r)
-    end
-    rs
-end
-function UnitRangesSortedVector{Ti}(values::Union{AbstractVector, AbstractSet, Tuple}) where {Ti}
-    rs = UnitRangesSortedVector{Ti}()
-    for r in values
-        push!(rs, r)
-    end
-    rs
-end
-
 function UnitRangesSortedVector(rs::AbstractUnitRangesSortedSet{Ti}) where {Ti}
     rstarts = Vector{Ti}(undef, length(rs))
     rstops = Vector{Ti}(undef, length(rs))
@@ -92,28 +76,43 @@ function UnitRangesSortedSet{Ti}() where {Ti}
     ranges = SortedDict{Ti,Ti,FOrd}(Forward)
     UnitRangesSortedSet{Ti}(beforestartsemitoken(ranges), ranges)
 end
-
-function UnitRangesSortedSet(values::Union{AbstractVector, AbstractSet, Tuple})
-    rs = UnitRangesSortedSet{eltype(values)}()
-    for r in values
-        push!(rs, r)
-    end
-    rs
-end
-function UnitRangesSortedSet{Ti}(values::Union{AbstractVector, AbstractSet, Tuple}) where {Ti}
-    rs = UnitRangesSortedSet{Ti}()
-    for r in values
-        push!(rs, r)
-    end
-    rs
-end
-
 function UnitRangesSortedSet(rs::AbstractUnitRangesSortedSet{Ti}) where {Ti}
     ranges = SortedDict{Ti,Ti,FOrd}(Forward)
     for r in rs
         ranges[r.start] = r.stop
     end
     UnitRangesSortedSet{Ti}(beforestartsemitoken(ranges), ranges)
+end
+
+
+function (::Type{T})(values::Union{AbstractVector, AbstractSet, Tuple}) where {T<:AbstractUnitRangesSortedSet}
+    rs = T{eltype(values)}()
+    for r in values
+        push!(rs, r)
+    end
+    rs
+end
+function (::Type{T})(values::Union{AbstractVector{Tur}, AbstractSet{Tur}, Tuple{Tur}}) where {T<:AbstractUnitRangesSortedSet, Tur<:UnitRange}
+    rs = T{eltype(Tur)}()
+    for r in values
+        push!(rs, r)
+    end
+    rs
+end
+function (::Type{T})(values::Union{AbstractVector, AbstractSet, Tuple}) where {T<:AbstractUnitRangesSortedSet{Ti}} where Ti
+    rs = T()
+    for r in values
+        push!(rs, r)
+    end
+    rs
+end
+function (::Type{T})(values::Union{AbstractVector{Tur}, AbstractSet{Tur}, Tuple{Tur}}) where
+          {T<:AbstractUnitRangesSortedSet{Ti}, Tur<:UnitRange} where Ti
+    rs = T()
+    for r in values
+        push!(rs, r)
+    end
+    rs
 end
 
 
@@ -1195,7 +1194,7 @@ function Base.show(io::IOContext, x::URSSUnitRange)
         if k < half_screen_rows || k > length(ranges) - half_screen_rows
             print(io, "  ")
             if isassigned(ranges, Int(k))
-                print(io, lpad(repr(ranges[k].start), pad), ":", repr(ranges[k].stop))
+                print(io, lpad(repr(first(ranges[k])), pad), ":", repr(last(ranges[k])))
             else
                 print(io, Base.undef_ref_str)
             end
@@ -1245,7 +1244,7 @@ function Base.show(io::IOContext, x::AbstractUnitRangesSortedSet)
         if k < half_screen_rows || k > length(ranges) - half_screen_rows
             print(io, "  ")
             if isassigned(ranges, Int(k))
-                print(io, lpad(repr(ranges[k].start), pad), ":", repr(ranges[k].stop))
+                print(io, lpad(repr(first(ranges[k])), pad), ":", repr(last(ranges[k])))
             else
                 print(io, Base.undef_ref_str)
             end
@@ -1261,7 +1260,7 @@ function get_max_pad(rs::AbstractUnitRangesSortedSet)
     pad = 0
     for (i,r) in enumerate(rs)
         if i < 100 || i > len - 100
-            pad = max(pad, length(repr(r.start)), length(repr(r.stop)))
+            pad = max(pad, length(repr(first(r))), length(repr(last(r))))
         end
     end
     pad

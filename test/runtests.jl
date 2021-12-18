@@ -1,4 +1,4 @@
-using UnitRangesSortedSets
+using .UnitRangesSortedSets
 using Test
 
 function test_iseqial(rs1, rs2)
