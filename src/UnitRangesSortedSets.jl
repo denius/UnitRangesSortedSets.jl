@@ -115,6 +115,16 @@ function (::Type{T})(values::Union{AbstractVector{Tur}, AbstractSet{Tur}, Tuple{
     rs
 end
 
+#struct CommonUnitRange{Ti} <: AbstractUnitRange{Ti}
+#    start::Ti
+#    stop::Ti
+#    CommonUnitRange{Ti}(i1, i2) where Ti = new{Ti}(Ti(i1), Ti(i2))
+#end
+#CommonUnitRange(i1::T1, i2::T2) where {T1,T2} =
+#    CommonUnitRange{promote_type(T1,T2)}(promote_type(T1,T2)(i1), promote_type(T1,T2)(i2))
+#@inline Base.first(cur::CommonUnitRange) = cur.start
+#@inline Base.last(cur::CommonUnitRange) = cur.stop
+#@inline Base.length(cur::CommonUnitRange) = cur.start < cur.stop ? cur.stop - cur.start + 1 : 0
 
 "Type of `UnitRange` for `DataStructures.Tokens.IntSemiToken`."
 struct URSSUnitRange{Trs,Tidx} <: AbstractUnitRange{Tidx}
@@ -453,6 +463,14 @@ Base.findall(testf::Function, rs::AbstractUnitRangesSortedSet) = collect(p for p
     end
 end
 
+@inline function Base.iterate(rrs::Base.Iterators.Reverse{T}, state = lastindex(rrs.itr)) where {T<:AbstractUnitRangesSortedSet}
+    if state != beforestartindex(rrs.itr)
+        return (get_range(rrs.itr, state), regress(rrs.itr, state))
+    else
+        return nothing
+    end
+end
+
 #
 # Assignments
 #
@@ -502,8 +520,15 @@ end
 
 #@inline Base.haskey(rs::AbstractUnitRangesSortedSet, idx) = in(idx, rs)
 
-function Base.push!(rs::UnitRangesSortedVector{Ti}, II::UnitRange) where Ti
-    I = convert(UnitRange{Ti}, II)
+function Base.push!(rs::AbstractUnitRangesSortedSet, II::AbstractUnitRangesSortedSet)
+    for r in II
+        push!(rs, r)
+    end
+    rs
+end
+
+function Base.push!(rs::UnitRangesSortedVector{Ti}, II::AbstractRange) where Ti
+    I = UnitRange{Ti}(first(II), last(II))
 
     if length(I) < 2
         for i in I
@@ -592,8 +617,8 @@ function Base.push!(rs::UnitRangesSortedVector{Ti}, II::UnitRange) where Ti
     return rs
 end
 
-function Base.push!(rs::UnitRangesSortedSet{Ti}, II::UnitRange) where Ti
-    I = convert(UnitRange{Ti}, II)
+function Base.push!(rs::UnitRangesSortedSet{Ti}, II::AbstractRange) where Ti
+    I = UnitRange{Ti}(first(II), last(II))
 
     if length(I) < 2
         for i in I
@@ -835,10 +860,17 @@ function Base.push!(rs::UnitRangesSortedSet{Ti}, idx) where {Ti}
 end
 
 
-function Base.delete!(rs::UnitRangesSortedVector{Ti}, II::UnitRange) where {Ti}
+function Base.delete!(rs::AbstractUnitRangesSortedSet, II::AbstractUnitRangesSortedSet)
+    for r in II
+        delete!(rs, r)
+    end
+    rs
+end
+
+function Base.delete!(rs::UnitRangesSortedVector{Ti}, II::AbstractRange) where {Ti}
     length(II) == 0 && return rs
 
-    I = convert(UnitRange{Ti}, II)
+    I = UnitRange{Ti}(first(II), last(II))
 
     Iposition = searchsortedrange(rs, I)
     length(Iposition) == 0 && return rs
@@ -914,10 +946,10 @@ function Base.delete!(rs::UnitRangesSortedVector{Ti}, II::UnitRange) where {Ti}
 end
 
 
-function Base.delete!(rs::UnitRangesSortedSet{Ti}, II::UnitRange) where {Ti}
+function Base.delete!(rs::UnitRangesSortedSet{Ti}, II::AbstractRange) where {Ti}
     length(II) == 0 && return rs
 
-    I = convert(UnitRange{Ti}, II)
+    I = UnitRange{Ti}(first(II), last(II))
 
     Iposition = searchsortedrange(rs, I)
     length(Iposition) == 0 && return rs
@@ -1150,14 +1182,14 @@ end
 
 
 function Base.filter(pred::Function, rs::AbstractUnitRangesSortedSet)
-    res = emptymutable(rs)
+    res = Base.emptymutable(rs)
     for r in rs
         pred(r) && push!(res, r)
     end
     res
 end
 function Base.filter!(pred::Function, rs::AbstractUnitRangesSortedSet)
-    for r in rs
+    for r in Iterators.reverse(rs)
         pred(r) || delete!(rs, r)
     end
     rs
@@ -1210,9 +1242,9 @@ function Base.show(io::IO, x::AbstractUnitRangesSortedSet)
     print(io, typeof(x), "(")
     if length(x) > 0
         el1, restx = Iterators.peel(x)
-        print(io, el1)
+        print(io, repr(first(el1)), ":", repr(last(el1)))
         for r in restx
-            print(io, ", ", r)
+            print(io, ", ", repr(first(r)), ":", repr(last(r)))
         end
     end
     print(io, ")")
