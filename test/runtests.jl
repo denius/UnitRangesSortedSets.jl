@@ -1,6 +1,7 @@
 using .UnitRangesSortedSets
 using Test
 
+
 function test_iseqial(rs1, rs2)
     length(rs1) == length(rs2) || return false
     for (r1, r2) in zip(rs1, rs2)
@@ -11,7 +12,7 @@ end
 
 
 @testset "Creating" begin
-    for Ti in (Int, UInt, UInt16, Float64)
+    for Ti in (Int, UInt64, UInt16, Float64)
         for TypeURSS in (UnitRangesSortedVector, UnitRangesSortedSet)
             @eval begin
 
@@ -37,9 +38,25 @@ end
                 @test length(rs) == 2
                 @test test_iseqial(rs, vu)
 
+                v = [$Ti(1), $Ti(3), $Ti(4)]
+                vu = [1:1, 3:4]
+                rs = $TypeURSS(v)
+                @test eltype(rs) == $Ti
+                @test typeof(rs) === $TypeURSS{$Ti}
+                @test length(rs) == 2
+                @test test_iseqial(rs, vu)
+
                 v = [3:4, 1:1]
                 vu = [1:1, 3:4]
                 rs = $TypeURSS{$Ti}(v)
+                @test eltype(rs) == $Ti
+                @test typeof(rs) === $TypeURSS{$Ti}
+                @test length(rs) == 2
+                @test test_iseqial(rs, vu)
+
+                v = [$Ti(3):$Ti(4), $Ti(1):$Ti(1)]
+                vu = [1:1, 3:4]
+                rs = $TypeURSS(v)
                 @test eltype(rs) == $Ti
                 @test typeof(rs) === $TypeURSS{$Ti}
                 @test length(rs) == 2
@@ -53,19 +70,27 @@ end
                 @test length(rs) == 1
                 @test test_iseqial(rs, vu)
 
-                v = [UInt(3):UInt(4), UInt(1):UInt(1)]
-                vu = [UInt(1):UInt(1), UInt(3):UInt(4)]
+                v = [UInt64(3):UInt64(4), UInt64(1):UInt64(1)]
+                vu = [UInt64(1):UInt64(1), UInt64(3):UInt64(4)]
                 rs = $TypeURSS{$Ti}(v)
                 @test eltype(rs) == $Ti
                 @test typeof(rs) === $TypeURSS{$Ti}
                 @test length(rs) == 2
                 @test test_iseqial(rs, vu)
 
-                v = [UInt(3):UInt(4), UInt(1):UInt(1)]
-                vu = [UInt(1):UInt(1), UInt(3):UInt(4)]
+                v = [UInt64(3), UInt64(4), UInt64(1)]
+                vu = [UInt64(1):UInt64(1), UInt64(3):UInt64(4)]
                 rs = $TypeURSS(v)
-                @test eltype(rs) == UInt
-                @test typeof(rs) === $TypeURSS{UInt}
+                @test eltype(rs) == UInt64
+                @test typeof(rs) === $TypeURSS{UInt64}
+                @test length(rs) == 2
+                @test test_iseqial(rs, vu)
+
+                v = [UInt64(3):UInt64(4), UInt64(1):UInt64(1)]
+                vu = [UInt64(1):UInt64(1), UInt64(3):UInt64(4)]
+                rs = $TypeURSS(v)
+                @test eltype(rs) == UInt64
+                @test typeof(rs) === $TypeURSS{UInt64}
                 @test length(rs) == 2
                 @test test_iseqial(rs, vu)
             end
@@ -73,9 +98,130 @@ end
     end
 end
 
+@testset "Searching" begin
+    for Ti in (Int, UInt64, UInt16, Float64)
+        for TypeURSS in (UnitRangesSortedVector, UnitRangesSortedSet)
+            @eval begin
+                rs = $TypeURSS{$Ti}((1:2, 4:4, 6:6))
+
+                i = searchsortedlastrange(rs, 0)
+                @test i == beforestartindex(rs)
+
+                i = searchsortedlastrange(rs, 1)
+                @test i != beforestartindex(rs) &&
+                      getindexrange(rs, i) == UnitRange{$Ti}(1, 2) &&
+                      i == firstindex(rs)
+
+                i = searchsortedlastrange(rs, 2)
+                @test i != beforestartindex(rs) &&
+                      getindexrange(rs, i) == UnitRange{$Ti}(1, 2) &&
+                      i == firstindex(rs)
+
+                i = searchsortedlastrange(rs, 3)
+                @test i != beforestartindex(rs) &&
+                      getindexrange(rs, i) == UnitRange{$Ti}(1, 2) &&
+                      i == firstindex(rs)
+
+                i = searchsortedlastrange(rs, 4)
+                @test i != beforestartindex(rs) &&
+                      getindexrange(rs, i) == UnitRange{$Ti}(4, 4) &&
+                      i != firstindex(rs) && i != lastindex(rs)
+
+                i = searchsortedlastrange(rs, 5)
+                @test i != beforestartindex(rs) &&
+                      getindexrange(rs, i) == UnitRange{$Ti}(4, 4) &&
+                      i != firstindex(rs) && i != lastindex(rs)
+
+                i = searchsortedlastrange(rs, 6)
+                @test i != beforestartindex(rs) &&
+                      getindexrange(rs, i) == UnitRange{$Ti}(6, 6) &&
+                      i == lastindex(rs)
+
+                i = searchsortedlastrange(rs, 7)
+                @test i != beforestartindex(rs) &&
+                      getindexrange(rs, i) == UnitRange{$Ti}(6, 6) &&
+                      i == lastindex(rs)
+
+
+                i = searchsortedfirstrange(rs, 0)
+                @test i != pastendindex(rs) &&
+                      getindexrange(rs, i) == UnitRange{$Ti}(1, 2) &&
+                      i == firstindex(rs)
+
+                i = searchsortedfirstrange(rs, 1)
+                @test i != pastendindex(rs) &&
+                      getindexrange(rs, i) == UnitRange{$Ti}(1, 2) &&
+                      i == firstindex(rs)
+
+                i = searchsortedfirstrange(rs, 2)
+                @test i != pastendindex(rs) &&
+                      getindexrange(rs, i) == UnitRange{$Ti}(1, 2) &&
+                      i == firstindex(rs)
+
+                i = searchsortedfirstrange(rs, 3)
+                @test i != pastendindex(rs) &&
+                      getindexrange(rs, i) == UnitRange{$Ti}(4, 4) &&
+                      i != firstindex(rs) && i != lastindex(rs)
+
+                i = searchsortedfirstrange(rs, 4)
+                @test i != pastendindex(rs) &&
+                      getindexrange(rs, i) == UnitRange{$Ti}(4, 4) &&
+                      i != firstindex(rs) && i != lastindex(rs)
+
+                i = searchsortedfirstrange(rs, 5)
+                @test i != pastendindex(rs) &&
+                      getindexrange(rs, i) == UnitRange{$Ti}(6, 6) &&
+                      i == lastindex(rs)
+
+                i = searchsortedfirstrange(rs, 6)
+                @test i != pastendindex(rs) &&
+                      getindexrange(rs, i) == UnitRange{$Ti}(6, 6) &&
+                      i == lastindex(rs)
+
+                i = searchsortedfirstrange(rs, 7)
+                @test i == pastendindex(rs)
+
+
+
+                rs = $TypeURSS{$Ti}((1:2, 4:4))
+
+                ii = searchsortedrange(rs, 0)
+                @test length(ii) == 0 && getindexrange(rs, first(ii)) == UnitRange{$Ti}(1, 2) &&
+                                         first(ii) == firstindex(rs) &&
+                                         last(ii) == beforestartindex(rs)
+
+                ii = searchsortedrange(rs, 1)
+                @test length(ii) == 1 && getindexrange(rs, first(ii)) == UnitRange{$Ti}(1, 2) &&
+                                         first(ii) == firstindex(rs)
+
+                ii = searchsortedrange(rs, 2)
+                @test length(ii) == 1 && getindexrange(rs, first(ii)) == UnitRange{$Ti}(1, 2)
+
+                ii = searchsortedrange(rs, 3)
+                @test length(ii) == 0 && getindexrange(rs, first(ii)) == UnitRange{$Ti}(4, 4) &&
+                                         getindexrange(rs, last(ii)) == UnitRange{$Ti}(1, 2)
+
+                ii = searchsortedrange(rs, 4)
+                @test length(ii) == 1 && getindexrange(rs, first(ii)) == UnitRange{$Ti}(4, 4)
+
+                ii = searchsortedrange(rs, 5)
+                @test length(ii) == 0 && getindexrange(rs, last(ii)) == UnitRange{$Ti}(4, 4) &&
+                                         first(ii) == pastendindex(rs) &&
+                                         last(ii) == lastindex(rs)
+
+                rs = $TypeURSS{$Ti}((1:2, 4:4))
+                @test findrange(rs, 0) === nothing
+                @test findrange(rs, 1) == UnitRange{$Ti}(1, 1)
+                @test findrange(rs, 1:1) == UnitRange{$Ti}(1, 1)
+                @test findrange(rs, 1:2) == UnitRange{$Ti}(1, 2)
+                @test findrange(rs, 1:3) === nothing
+            end
+        end
+    end
+end
 
 @testset "`in()`" begin
-    for Ti in (Int, UInt, UInt16, Float64)
+    for Ti in (Int, UInt64, UInt16, Float64)
         for TypeURSS in (UnitRangesSortedVector, UnitRangesSortedSet)
             @eval begin
 
@@ -90,6 +236,7 @@ end
                 @test !in(1:2, rs)
                 @test in(2:2, rs)
                 @test in(2:3, rs)
+                @test in(5:5, rs)
                 @test !in(2:4, rs)
                 @test !in(4:4, rs)
                 @test !in(2:6, rs)
@@ -101,21 +248,23 @@ end
 
 
 @testset "`push!()`" begin
-    for Ti in (Int, UInt, UInt16, Float64)
+    for Ti in (Int, UInt64, UInt16, Float64)
         for TypeURSS in (UnitRangesSortedVector, UnitRangesSortedSet)
             @eval begin
 
                 rs = $TypeURSS{$Ti}()
                 @test test_iseqial(push!(rs, 3),  (3:3,))
                 @test test_iseqial(push!(rs, 4),  (3:4,))
-                @test test_iseqial(push!(rs, 8),  (3:4, 8:8))
-                @test test_iseqial(push!(rs, 2),  (2:4, 8:8))
-                @test test_iseqial(push!(rs, 0),  (0:0, 2:4, 8:8))
-                @test test_iseqial(push!(rs, 10), (0:0, 2:4, 8:8, 10:10))
-                @test test_iseqial(push!(rs, 9),  (0:0, 2:4, 8:10))
-                @test test_iseqial(push!(rs, 1),  (0:4, 8:10))
-                @test test_iseqial(push!(rs, 6),  (0:4, 6:6, 8:10))
-                @test test_iseqial(push!(rs, 6),  (0:4, 6:6, 8:10))
+                @test test_iseqial(push!(rs, 18), (3:4, 18:18))
+                @test test_iseqial(push!(rs, 2),  (2:4, 18:18))
+                @test test_iseqial(push!(rs, 0),  (0:0, 2:4, 18:18))
+                @test test_iseqial(push!(rs, 20), (0:0, 2:4, 18:18, 20:20))
+                @test test_iseqial(push!(rs, 19), (0:0, 2:4, 18:20))
+                @test test_iseqial(push!(rs, 1),  (0:4, 18:20))
+                @test test_iseqial(push!(rs, 9),  (0:4, 9:9, 18:20))
+                @test test_iseqial(push!(rs, 9),  (0:4, 9:9, 18:20))
+                @test test_iseqial(push!(rs, 10), (0:4, 9:10, 18:20))
+                @test test_iseqial(push!(rs, 8),  (0:4, 8:10, 18:20))
 
                 rs = $TypeURSS{$Ti}()
                 @test test_iseqial(push!(rs, 13:14), (13:14,))
@@ -130,6 +279,7 @@ end
                 @test test_iseqial(push!(rs, 28:29),  (8:14, 16:17, 23:26, 28:29))
                 @test test_iseqial(push!(rs, 28:29),  (8:14, 16:17, 23:26, 28:29))
                 @test test_iseqial(push!(rs, 16:15),  (8:14, 16:17, 23:26, 28:29))
+                @test test_iseqial(push!(rs, 18:19),  (8:14, 16:19, 23:26, 28:29))
             end
         end
     end
@@ -137,12 +287,13 @@ end
 
 
 @testset "`delete!()`" begin
-    for Ti in (Int, UInt, UInt16, Float64)
+    for Ti in (Int, UInt64, UInt16, Float64)
         for TypeURSS in (UnitRangesSortedVector, UnitRangesSortedSet)
             @eval begin
 
                 rs = $TypeURSS{$Ti}((0:0, 2:4, 8:8, 10:12))
                 @test test_iseqial(delete!(rs, 5),  (0:0, 2:4, 8:8, 10:12))
+                @test test_iseqial(delete!(rs, 0),  (2:4, 8:8, 10:12))
                 @test test_iseqial(delete!(rs, 0),  (2:4, 8:8, 10:12))
                 @test test_iseqial(delete!(rs, 8),  (2:4, 10:12))
                 @test test_iseqial(delete!(rs, 12), (2:4, 10:11))
@@ -151,7 +302,10 @@ end
                 @test test_iseqial(delete!(rs, 3),  (2:2, 4:4))
                 @test delete!(rs, 3) === rs
 
-                rs = $TypeURSS{$Ti}((0:0, 2:6, 8:8, 10:13))
+                rs = $TypeURSS{$Ti}((0:0, 2:6, 8:8, 10:13, 15:20))
+                @test test_iseqial(delete!(rs, 17:17),  (0:0, 2:6, 8:8, 10:13, 15:16, 18:20))
+                @test test_iseqial(delete!(rs, 16:18),  (0:0, 2:6, 8:8, 10:13, 15:15, 19:20))
+                @test test_iseqial(delete!(rs, 15:20),  (0:0, 2:6, 8:8, 10:13))
                 @test test_iseqial(delete!(rs, 7:7),  (0:0, 2:6, 8:8, 10:13))
                 @test test_iseqial(delete!(rs, 6:7),  (0:0, 2:5, 8:8, 10:13))
                 @test test_iseqial(delete!(rs, 0:1),  (2:5, 8:8, 10:13))
@@ -165,8 +319,8 @@ end
 end
 
 
-@testset "Set functions" begin
-    for Ti in (Int, UInt, UInt16, Float64)
+@testset "`Set` API" begin
+    for Ti in (Int, UInt64, UInt16, Float64)
         for TypeURSS in (UnitRangesSortedVector, UnitRangesSortedSet)
             @eval begin
 
@@ -182,9 +336,17 @@ end
 
                 rs = $TypeURSS{$Ti}((0:0, 2:4))
                 @test (union!(rs, $TypeURSS{$Ti}((0:0, 6:6))); rs == $TypeURSS{$Ti}((0:0, 2:4, 6:6)))
-                @test pop!(rs, 0) == $Ti(0)
+                @test pop!(rs, 0) == UnitRange{$Ti}(0, 0)
                 @test_throws KeyError pop!(rs, 0)
-                @test pop!(rs, 0, $Ti(0)) == $Ti(0)
+                @test pop!(rs, 0, UInt64(1)) === UInt64(1)
+                @test pop!(rs, 2, UInt64(1)) === UnitRange{$Ti}(2, 2)
+                @test pop!(rs, 2, UInt64(1)) === UInt64(1)
+                @test pop!(rs, 3:3) == UnitRange{$Ti}(3, 3)
+                @test_throws KeyError pop!(rs, 3:3)
+                @test pop!(rs, 3:3, UInt64(1)) === UInt64(1)
+                @test rs == $TypeURSS{$Ti}((4:4, 6:6))
+                @test pop!(rs, 4:4, UInt64(1)) == UnitRange{$Ti}(4, 4)
+                @test pop!(rs, 4:4, UInt64(1)) === UInt64(1)
                 empty!(rs)
                 @test rs == $TypeURSS{$Ti}()
 
@@ -217,7 +379,7 @@ end
 
 
 @testset "`show()`" begin
-    for Ti in (Int, UInt, UInt16, Float64)
+    for Ti in (Int, UInt64, UInt16, Float64)
         for TypeURSS in (UnitRangesSortedVector, UnitRangesSortedSet)
             @eval begin
 
