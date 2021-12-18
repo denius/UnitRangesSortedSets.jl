@@ -3,11 +3,18 @@ uuid = "235ad7fc-2aba-4ca4-9c7c-757ade02a5c7"
 authors = ["Denis Telnov <denis.telnov@gmail.com> and contributors"]
 version = "0.1.0"
 
-[extras]
-Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+[deps]
+DataStructures = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
+DocStringExtensions = "ffbed154-4ef7-542d-bbb7-c09d3a79fcae"
+IterTools = "c8e1da08-722c-5040-9ed9-7db0dc04731e"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+Setfield = "efcf1570-3423-57d1-acb7-fd33fddbac46"
 
 [compat]
 julia = "1.6"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
 test = ["Test"]
