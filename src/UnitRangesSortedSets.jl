@@ -31,7 +31,7 @@ end
 
 Base.@propagate_inbounds function Base.view(rs::Tp, I::UnitRange) where {Tp<:AbstractUnitRangesSortedSet{Ti}} where Ti
     r = searchsortedrange(rs, I)
-    return SubUnitRangesSortedSet{Ti,Tp}(rs, Ti(I.start), Ti(I.stop), r.start, r.stop)
+    return SubUnitRangesSortedSet{Ti,Tp}(rs, Ti(first(I)), Ti(last(I)), first(r), last(r))
 end
 
 """
@@ -53,8 +53,8 @@ function UnitRangesSortedVector(rs::AbstractUnitRangesSortedSet{Ti}) where {Ti}
     rstarts = Vector{Ti}(undef, length(rs))
     rstops = Vector{Ti}(undef, length(rs))
     for (i, r) in enumerate(rs)
-        rstarts[i] = r.start
-        rstops[i] = r.stop
+        rstarts[i] = first(r)
+        rstops[i] = last(r)
     end
     UnitRangesSortedVector{Ti}(firstindex(rstarts) - 1, rstarts, rstops)
 end
@@ -79,7 +79,7 @@ end
 function UnitRangesSortedSet(rs::AbstractUnitRangesSortedSet{Ti}) where {Ti}
     ranges = SortedDict{Ti,Ti,FOrd}(Forward)
     for r in rs
-        ranges[r.start] = r.stop
+        ranges[first(r)] = last(r)
     end
     UnitRangesSortedSet{Ti}(beforestartsemitoken(ranges), ranges)
 end
@@ -207,7 +207,7 @@ function Base.collect(::Type{ElType}, rs::AbstractUnitRangesSortedSet) where ElT
     res = Vector{UnitRange{ElType}}(undef, length(rs))
     i = 0
     for r in rs
-        res[i+=1] = ElType(r.start):ElType(r.stop)
+        res[i+=1] = ElType(first(r)):ElType(last(r))
     end
     return res
 end
@@ -215,12 +215,12 @@ function Base.collect(rs::AbstractUnitRangesSortedSet{Ti}) where Ti
     res = Vector{UnitRange{Ti}}(undef, length(rs))
     i = 0
     for r in rs
-        res[i+=1] = r.start:r.stop
+        res[i+=1] = first(r):last(r)
     end
     return res
 end
 
-@inline length_of_that_range(rs::AbstractUnitRangesSortedSet, r) = r.stop - r.start + 1
+@inline length_of_that_range(rs::AbstractUnitRangesSortedSet, r) = last(r) - first(r) + 1
 @inline get_range_length(rs::AbstractUnitRangesSortedSet, i) = ((start, stop) = get_range_indices(rs, i); stop - start + 1)
 @inline get_range_indices(rs::UnitRangesSortedVector, i) = (rs.rstarts[i], rs.rstops[i])
 @inline get_range_indices(rs::UnitRangesSortedSet, i::DataStructures.Tokens.IntSemiToken) = deref((rs.ranges, i))
@@ -293,9 +293,9 @@ end
 @inline DataStructures.regress(rs::UnitRangesSortedVector, state) = state - 1
 @inline DataStructures.regress(rs::UnitRangesSortedSet, state) = regress((rs.ranges, state))
 
-@inline urangevectorisless(x::UnitRange, y::UnitRange) = x.start < y.start
-@inline urangevectorisless(x::UnitRange, y) = x.start < y
-@inline urangevectorisless(x, y::UnitRange) = x < y.start
+@inline urangevectorisless(x::UnitRange, y::UnitRange) = first(x) < first(y)
+@inline urangevectorisless(x::UnitRange, y) = first(x) < y
+@inline urangevectorisless(x, y::UnitRange) = x < first(y)
 
 # Derived from julia/base/sort.jl, for increasing sorted vectors.
 function bisectionsearchlast(V::AbstractVector, i)
@@ -372,9 +372,9 @@ end
 
 "Returns range of `rs` indexes which coincide or concluded in `I` range."
 @inline searchsortedrange(rs::UnitRangesSortedVector{Ti}, I::UnitRange) where Ti =
-    searchsortedfirstrange(rs, I.start):searchsortedlastrange(rs, I.stop)
+    searchsortedfirstrange(rs, first(I)):searchsortedlastrange(rs, last(I))
 @inline searchsortedrange(rs::UnitRangesSortedSet{Ti}, I::UnitRange) where Ti =
-    URSSUnitRange(rs, searchsortedfirstrange(rs, I.start), searchsortedlastrange(rs, I.stop))
+    URSSUnitRange(rs, searchsortedfirstrange(rs, first(I)), searchsortedlastrange(rs, last(I)))
 
 "Returns indexes of range in `rs` in which `i` may be inserted. Or negative range in the case of `i` is
  between `rs` ranges, and indices of resulted range is the indexes of that neighbors."
@@ -457,7 +457,7 @@ end
 # Assignments
 #
 
-@inline function Base.in(II::UnitRange{Ti}, rs::AbstractUnitRangesSortedSet{Ti}) where Ti
+@inline function Base.in(II::UnitRange, rs::AbstractUnitRangesSortedSet{Ti}) where Ti
     I = convert(UnitRange{Ti}, II)
     # fast check for cached range index
     if (st = rs.lastusedrangeindex) != beforestartindex(rs)
@@ -467,10 +467,10 @@ end
     end
     # cached range index miss (or index not stored), thus try search
     Iposition = searchsortedrange(rs, I)
-    rs.lastusedrangeindex = Iposition.stop
+    rs.lastusedrangeindex = last(Iposition)
     if length(Iposition) != 1
         return false
-    elseif issubset(I, get_range(rs, Iposition.start))
+    elseif issubset(I, get_range(rs, first(Iposition)))
         return true
     else
         return false
@@ -517,7 +517,7 @@ function Base.push!(rs::UnitRangesSortedVector{Ti}, II::UnitRange) where Ti
     Iposition = searchsortedrange(rs, I)
 
     # `I` already exist in `rs` and the same as the corresponding range in `rs`, nothing to do
-    if length(Iposition) == 1 && I == get_range(rs, Iposition.start)
+    if length(Iposition) == 1 && I == get_range(rs, first(Iposition))
         return rs
 
     # delete all inside `I` range in `rs`
@@ -527,63 +527,63 @@ function Base.push!(rs::UnitRangesSortedVector{Ti}, II::UnitRange) where Ti
 
     # get neighbors pointers
     # ATTENTION: Note: the range will be zero-length, thus
-    # `Iposition.start` will be point to range in `rs` on right side to `I` and
-    # `Iposition.stop` will be point to range in `rs` on left side to `I`.
-    Iposition = searchsortedrange(rs, I.start)
-    @boundscheck @assert Iposition == searchsortedrange(rs, I.stop) "FIXME: I Am an error in program logic."
+    # `first(Iposition)` will be point to range in `rs` on right side to `I` and
+    # `last(Iposition)` will be point to range in `rs` on left side to `I`.
+    Iposition = searchsortedrange(rs, first(I))
+    @boundscheck @assert Iposition == searchsortedrange(rs, last(I)) "FIXME: I Am an error in program logic."
 
-    Iposition_left = Iposition.stop
-    Iposition_right = Iposition.start
+    Iposition_left = last(Iposition)
+    Iposition_right = first(Iposition)
 
     # `I` is adjoined in both sides with `rs` ranges, thus join them all
-    if Iposition_left != beforestartindex(rs) && get_range_stop(rs, Iposition_left) + 1 == I.start &&
-       Iposition_right != pastendindex(rs) && get_range_start(rs, Iposition_right) - 1 == I.stop
+    if Iposition_left != beforestartindex(rs) && get_range_stop(rs, Iposition_left) + 1 == first(I) &&
+       Iposition_right != pastendindex(rs) && get_range_start(rs, Iposition_right) - 1 == last(I)
         rs.rstops[Iposition_left] = get_range_stop(rs, Iposition_right)
         deleteat!(rs.rstarts, Iposition_right)
         deleteat!(rs.rstops, Iposition_right)
 
     # `I` is adjoin with `rs` range on left side, thus append to left range
-    elseif Iposition_left != beforestartindex(rs) && get_range_stop(rs, Iposition_left) + 1 == I.start &&
-           Iposition_right != pastendindex(rs) && get_range_start(rs, Iposition_right) - 1 != I.stop
-        rs.rstops[Iposition_left] = I.stop
+    elseif Iposition_left != beforestartindex(rs) && get_range_stop(rs, Iposition_left) + 1 == first(I) &&
+           Iposition_right != pastendindex(rs) && get_range_start(rs, Iposition_right) - 1 != last(I)
+        rs.rstops[Iposition_left] = last(I)
 
     # `I` is adjoin with `rs` range on right side, thus prepend to right range
-    elseif Iposition_left != beforestartindex(rs) && get_range_stop(rs, Iposition_left) + 1 != I.start &&
-           Iposition_right != pastendindex(rs) && get_range_start(rs, Iposition_right) - 1 == I.stop
-        rs.rstarts[Iposition_right] = I.start
+    elseif Iposition_left != beforestartindex(rs) && get_range_stop(rs, Iposition_left) + 1 != first(I) &&
+           Iposition_right != pastendindex(rs) && get_range_start(rs, Iposition_right) - 1 == last(I)
+        rs.rstarts[Iposition_right] = first(I)
 
     # `I` is separate from both sides, insert it
-    elseif Iposition_left != beforestartindex(rs) && get_range_stop(rs, Iposition_left) + 1 != I.start &&
-           Iposition_right != pastendindex(rs) && get_range_start(rs, Iposition_right) - 1 != I.stop
-        insert!(rs.rstarts, Iposition_right, I.start)
-        insert!(rs.rstops, Iposition_right, I.stop)
+    elseif Iposition_left != beforestartindex(rs) && get_range_stop(rs, Iposition_left) + 1 != first(I) &&
+           Iposition_right != pastendindex(rs) && get_range_start(rs, Iposition_right) - 1 != last(I)
+        insert!(rs.rstarts, Iposition_right, first(I))
+        insert!(rs.rstops, Iposition_right, last(I))
 
     # `I` is first range in `rs` and adjoin with range on right side, thus prepend `I` to right range
     elseif Iposition_left == beforestartindex(rs) &&
-           Iposition_right != pastendindex(rs) && get_range_start(rs, Iposition_right) - 1 == I.stop
-        rs.rstarts[Iposition_right] = I.start
+           Iposition_right != pastendindex(rs) && get_range_start(rs, Iposition_right) - 1 == last(I)
+        rs.rstarts[Iposition_right] = first(I)
 
     # `I` is separate first range in `rs`, insert it
     elseif Iposition_left == beforestartindex(rs) &&
-           Iposition_right != pastendindex(rs) && get_range_start(rs, Iposition_right) - 1 != I.stop
-        insert!(rs.rstarts, Iposition_right, I.start)
-        insert!(rs.rstops, Iposition_right, I.stop)
+           Iposition_right != pastendindex(rs) && get_range_start(rs, Iposition_right) - 1 != last(I)
+        insert!(rs.rstarts, Iposition_right, first(I))
+        insert!(rs.rstops, Iposition_right, last(I))
 
     # `I` is last range in `rs` and adjoin with range on left side, thus append `I` to left range
-    elseif Iposition_left != beforestartindex(rs) && get_range_stop(rs, Iposition_left) + 1 == I.start &&
+    elseif Iposition_left != beforestartindex(rs) && get_range_stop(rs, Iposition_left) + 1 == first(I) &&
            Iposition_right == pastendindex(rs)
-        rs.rstops[Iposition_left] = I.stop
+        rs.rstops[Iposition_left] = last(I)
 
     # `I` is separate last range in `rs`, insert it
-    elseif Iposition_left != beforestartindex(rs) && get_range_stop(rs, Iposition_left) + 1 != I.start &&
+    elseif Iposition_left != beforestartindex(rs) && get_range_stop(rs, Iposition_left) + 1 != first(I) &&
            Iposition_right == pastendindex(rs)
-        insert!(rs.rstarts, Iposition_right, I.start)
-        insert!(rs.rstops, Iposition_right, I.stop)
+        insert!(rs.rstarts, Iposition_right, first(I))
+        insert!(rs.rstops, Iposition_right, last(I))
 
     # `rs` is empty
     elseif Iposition_left == beforestartindex(rs) && Iposition_right == pastendindex(rs)
-        insert!(rs.rstarts, 1, I.start)
-        insert!(rs.rstops, 1, I.stop)
+        insert!(rs.rstarts, 1, first(I))
+        insert!(rs.rstops, 1, last(I))
 
     else
         throw(AssertionError("FIXME: I Am an error in program logic."))
@@ -607,7 +607,7 @@ function Base.push!(rs::UnitRangesSortedSet{Ti}, II::UnitRange) where Ti
     Iposition = searchsortedrange(rs, I)
 
     # `I` already exist in `rs` and the same as the corresponding range in `rs`, nothing to do
-    if length(Iposition) == 1 && I == get_range(rs, Iposition.start)
+    if length(Iposition) == 1 && I == get_range(rs, first(Iposition))
         return rs
 
     # delete all inside `I` range in `rs`
@@ -617,62 +617,62 @@ function Base.push!(rs::UnitRangesSortedSet{Ti}, II::UnitRange) where Ti
 
     # get neighbors pointers
     # ATTENTION: Note: the range will be zero-length, thus
-    # `Iposition.start` will be point to range in `rs` on right side to `I` and
-    # `Iposition.stop` will be point to range in `rs` on left side to `I`.
-    Iposition = searchsortedrange(rs, I.start)
-    @boundscheck @assert Iposition == searchsortedrange(rs, I.stop) "FIXME: I Am an error in program logic."
+    # `first(Iposition)` will be point to range in `rs` on right side to `I` and
+    # `last(Iposition)` will be point to range in `rs` on left side to `I`.
+    Iposition = searchsortedrange(rs, first(I))
+    @boundscheck @assert Iposition == searchsortedrange(rs, last(I)) "FIXME: I Am an error in program logic."
 
-    Iposition_left = Iposition.stop
-    Iposition_right = Iposition.start
+    Iposition_left = last(Iposition)
+    Iposition_right = first(Iposition)
     Iposition_left_range_stop = Iposition_left != beforestartindex(rs) ? get_range_stop(rs, Iposition_left) : Ti(0)
     Iposition_right_range_start = Iposition_right != pastendindex(rs) ? get_range_start(rs, Iposition_right) : Ti(0)
 
     # `I` is adjoined in both sides with `rs` ranges, thus join them all
-    if Iposition_left != beforestartindex(rs) && Iposition_left_range_stop + 1 == I.start &&
-       Iposition_right != pastendindex(rs) && Iposition_right_range_start - 1 == I.stop
+    if Iposition_left != beforestartindex(rs) && Iposition_left_range_stop + 1 == first(I) &&
+       Iposition_right != pastendindex(rs) && Iposition_right_range_start - 1 == last(I)
         rs.ranges[Iposition_left] = get_range_stop(rs, Iposition_right)
         delete!((rs.ranges, Iposition_right))
 
     # `I` is adjoin with `rs` range on left side, thus append to left range
-    elseif Iposition_left != beforestartindex(rs) && Iposition_left_range_stop + 1 == I.start &&
-           Iposition_right != pastendindex(rs) && Iposition_right_range_start - 1 != I.stop
-        rs.ranges[Iposition_left] = I.stop
+    elseif Iposition_left != beforestartindex(rs) && Iposition_left_range_stop + 1 == first(I) &&
+           Iposition_right != pastendindex(rs) && Iposition_right_range_start - 1 != last(I)
+        rs.ranges[Iposition_left] = last(I)
 
     # `I` is adjoin with `rs` range on right side, thus prepend to right range
-    elseif Iposition_left != beforestartindex(rs) && Iposition_left_range_stop + 1 != I.start &&
-           Iposition_right != pastendindex(rs) && Iposition_right_range_start - 1 == I.stop
-        rs.ranges[I.start] = get_range_stop(rs, Iposition_right)
+    elseif Iposition_left != beforestartindex(rs) && Iposition_left_range_stop + 1 != first(I) &&
+           Iposition_right != pastendindex(rs) && Iposition_right_range_start - 1 == last(I)
+        rs.ranges[first(I)] = get_range_stop(rs, Iposition_right)
         delete!((rs.ranges, Iposition_right))
 
     # `I` is separate from both sides, insert it
-    elseif Iposition_left != beforestartindex(rs) && Iposition_left_range_stop + 1 != I.start &&
-           Iposition_right != pastendindex(rs) && Iposition_right_range_start - 1 != I.stop
-        rs.ranges[I.start] = I.stop
+    elseif Iposition_left != beforestartindex(rs) && Iposition_left_range_stop + 1 != first(I) &&
+           Iposition_right != pastendindex(rs) && Iposition_right_range_start - 1 != last(I)
+        rs.ranges[first(I)] = last(I)
 
     # `I` is first range in `rs` and adjoin with range on right side, thus prepend `I` to right range
     elseif Iposition_left == beforestartindex(rs) &&
-           Iposition_right != pastendindex(rs) && Iposition_right_range_start - 1 == I.stop
-        rs.ranges[I.start] = get_range_stop(rs, Iposition_right)
+           Iposition_right != pastendindex(rs) && Iposition_right_range_start - 1 == last(I)
+        rs.ranges[first(I)] = get_range_stop(rs, Iposition_right)
         delete!((rs.ranges, Iposition_right))
 
     # `I` is separate first range in `rs`, insert it
     elseif Iposition_left == beforestartindex(rs) &&
-           Iposition_right != pastendindex(rs) && Iposition_right_range_start - 1 != I.stop
-        rs.ranges[I.start] = I.stop
+           Iposition_right != pastendindex(rs) && Iposition_right_range_start - 1 != last(I)
+        rs.ranges[first(I)] = last(I)
 
     # `I` is last range in `rs` and adjoin with range on left side, thus append `I` to left range
-    elseif Iposition_left != beforestartindex(rs) && Iposition_left_range_stop + 1 == I.start &&
+    elseif Iposition_left != beforestartindex(rs) && Iposition_left_range_stop + 1 == first(I) &&
            Iposition_right == pastendindex(rs)
-        rs.ranges[Iposition_left] = I.stop
+        rs.ranges[Iposition_left] = last(I)
 
     # `I` is separate last range in `rs`, insert it
-    elseif Iposition_left != beforestartindex(rs) && Iposition_left_range_stop + 1 != I.start &&
+    elseif Iposition_left != beforestartindex(rs) && Iposition_left_range_stop + 1 != first(I) &&
            Iposition_right == pastendindex(rs)
-        rs.ranges[I.start] = I.stop
+        rs.ranges[first(I)] = last(I)
 
     # `rs` is empty
     elseif Iposition_left == beforestartindex(rs) && Iposition_right == pastendindex(rs)
-        rs.ranges[I.start] = I.stop
+        rs.ranges[first(I)] = last(I)
 
     else
         throw(AssertionError("FIXME: I Am an error in program logic."))
@@ -737,7 +737,7 @@ function Base.push!(rs::UnitRangesSortedVector{Ti}, idx) where {Ti}
     r = get_range(rs, st)
 
     if i >= rs.rstarts[end]  # the index `i` is after the last range start
-        if i > r.stop + 1  # there is will be the gap in indices after inserting
+        if i > last(r) + 1  # there is will be the gap in indices after inserting
             push!(rs.rstarts, i)
             push!(rs.rstops, i)
         else  # just append to last range
@@ -751,16 +751,16 @@ function Base.push!(rs::UnitRangesSortedVector{Ti}, idx) where {Ti}
     stnext = advance(rs, st)
     rnext = get_range(rs, stnext)
 
-    if rnext.start - r.stop == 2  # join ranges
-        rs.rstarts[st] = r.start
-        rs.rstops[st] = rnext.stop
+    if first(rnext) - last(r) == 2  # join ranges
+        rs.rstarts[st] = first(r)
+        rs.rstops[st] = last(rnext)
         deleteat!(rs.rstarts, stnext)
         deleteat!(rs.rstops, stnext)
         rs.lastusedrangeindex = st
-    elseif i - r.stop == 1  # append to left range
+    elseif i - last(r) == 1  # append to left range
         rs.rstops[st] += 1
         rs.lastusedrangeindex = st
-    elseif rnext.start - i == 1  # prepend to right range
+    elseif first(rnext) - i == 1  # prepend to right range
         rs.rstarts[stnext] -= 1
         rs.lastusedrangeindex = stnext
     else  # insert single element chunk
@@ -789,10 +789,10 @@ function Base.push!(rs::UnitRangesSortedSet{Ti}, idx) where {Ti}
     if st == beforestartindex(rs)  # the index `i` is before the first index
         stnext = advance(rs, st)
         rnext = get_range(rs, stnext)
-        if rnext.start - i > 1  # there is will be gap in indices after inserting
+        if first(rnext) - i > 1  # there is will be gap in indices after inserting
             rs.ranges[i] = i
         else  # prepend to first range
-            rs.ranges[i] = rnext.stop
+            rs.ranges[i] = last(rnext)
             delete!((rs.ranges, stnext))
         end
         rs.lastusedrangeindex = firstindex(rs)
@@ -801,11 +801,11 @@ function Base.push!(rs::UnitRangesSortedSet{Ti}, idx) where {Ti}
 
     r = get_range(rs, st)
 
-    if i > last(rs).stop # the index `i` is after the last range end index
-        if r.stop + 1 < i  # there is will be the gap in indices after inserting
+    if i > last(last(rs)) # the index `i` is after the last range end index
+        if last(r) + 1 < i  # there is will be the gap in indices after inserting
             rs.ranges[i] = i
         else  # just append to last range
-            rs.ranges[st] = r.stop+1
+            rs.ranges[st] = last(r)+1
         end
         rs.lastusedrangeindex = lastindex(rs)
         return rs
@@ -817,14 +817,14 @@ function Base.push!(rs::UnitRangesSortedSet{Ti}, idx) where {Ti}
     stnext = advance(rs, st)
     rnext = get_range(rs, stnext)
 
-    if rnext.start - r.stop == 2  # join ranges
-        rs.ranges[st] = rnext.stop
+    if first(rnext) - last(r) == 2  # join ranges
+        rs.ranges[st] = last(rnext)
         delete!((rs.ranges, stnext))
-    elseif i - r.stop == 1  # append to left range
+    elseif i - last(r) == 1  # append to left range
         rs.ranges[st] = i
         rs.lastusedrangeindex = st
-    elseif rnext.start - i == 1  # prepend to right range
-        rs.ranges[i] = rnext.stop
+    elseif first(rnext) - i == 1  # prepend to right range
+        rs.ranges[i] = last(rnext)
         delete!((rs.ranges, stnext))
     else  # insert single element range
         rs.ranges[i] = i
@@ -846,8 +846,8 @@ function Base.delete!(rs::UnitRangesSortedVector{Ti}, II::UnitRange) where {Ti}
     rs.lastusedrangeindex = beforestartindex(rs)
 
     # delete all concluded ranges
-    todelete1 = get_range_start(rs, Iposition.start) < I.start ? Iposition.start + 1 : Iposition.start
-    todelete2 = get_range_stop(rs, Iposition.stop) > I.stop ? Iposition.stop - 1 : Iposition.stop
+    todelete1 = get_range_start(rs, first(Iposition)) < first(I) ? first(Iposition) + 1 : first(Iposition)
+    todelete2 = get_range_stop(rs, last(Iposition)) > last(I) ? last(Iposition) - 1 : last(Iposition)
     splice!(rs.rstarts, todelete1:todelete2)
     splice!(rs.rstops, todelete1:todelete2)
 
@@ -856,31 +856,31 @@ function Base.delete!(rs::UnitRangesSortedVector{Ti}, II::UnitRange) where {Ti}
     Iposition = searchsortedrange(rs, I)
     length(Iposition) == 0 && return rs
 
-    Iposition_range_start = get_range_start(rs, Iposition.start)
-    Iposition_range_stop = get_range_stop(rs, Iposition.stop)
+    Iposition_range_start = get_range_start(rs, first(Iposition))
+    Iposition_range_stop = get_range_stop(rs, last(Iposition))
 
     # inside one range, thus split it
     if length(Iposition) == 1 &&
-       Iposition_range_start < I.start && I.stop < Iposition_range_stop
-        insert!(rs.rstarts, advance(rs, Iposition.start), I.stop + 1)
-        insert!(rs.rstops, Iposition.start, I.start - 1)
+       Iposition_range_start < first(I) && last(I) < Iposition_range_stop
+        insert!(rs.rstarts, advance(rs, first(Iposition)), last(I) + 1)
+        insert!(rs.rstops, first(Iposition), first(I) - 1)
 
     # `I` is whole range, delete it
     elseif length(Iposition) == 1 &&
-           Iposition_range_start >= I.start && I.stop >= Iposition_range_stop
-        deleteat!(rs.rstarts, Iposition.start)
-        deleteat!(rs.rstops, Iposition.start)
+           Iposition_range_start >= first(I) && last(I) >= Iposition_range_stop
+        deleteat!(rs.rstarts, first(Iposition))
+        deleteat!(rs.rstops, first(Iposition))
 
     # `I` intersects with or inside in one range from left side, thus shrink from left side
     elseif length(Iposition) == 1 &&
-           Iposition_range_start >= I.start && I.stop < Iposition_range_stop
-        rs.rstarts[Iposition.start] = I.stop + 1
+           Iposition_range_start >= first(I) && last(I) < Iposition_range_stop
+        rs.rstarts[first(Iposition)] = last(I) + 1
 
     # `I` intersects with or inside in one range from right side, thus shrink from right side
     # inside one range, ended to left side, thus shrink from right side
     elseif length(Iposition) == 1 &&
-           Iposition_range_start < I.start && I.stop >= Iposition_range_stop
-        rs.rstops[Iposition.start] = I.start - 1
+           Iposition_range_start < first(I) && last(I) >= Iposition_range_stop
+        rs.rstops[first(Iposition)] = first(I) - 1
 
     # All remaining cases are with two ranges from `rs`
     elseif length(Iposition) != 2
@@ -889,23 +889,23 @@ function Base.delete!(rs::UnitRangesSortedVector{Ti}, II::UnitRange) where {Ti}
     else
 
         # delete whole second range
-        if I.stop >= Iposition_range_stop
-            deleteat!(rs.rstarts, Iposition.stop)
-            deleteat!(rs.rstops, Iposition.stop)
+        if last(I) >= Iposition_range_stop
+            deleteat!(rs.rstarts, last(Iposition))
+            deleteat!(rs.rstops, last(Iposition))
 
         # or shrink it from left side
         else
-            rs.rstarts[Iposition.stop] = I.stop + 1
+            rs.rstarts[last(Iposition)] = last(I) + 1
         end
 
         # delete whole first range
-        if Iposition_range_start >= I.start
-            deleteat!(rs.rstarts, Iposition.start)
-            deleteat!(rs.rstops, Iposition.start)
+        if Iposition_range_start >= first(I)
+            deleteat!(rs.rstarts, first(Iposition))
+            deleteat!(rs.rstops, first(Iposition))
 
         # or shrink it from right side
         else
-            rs.rstops[Iposition.start] = I.start - 1
+            rs.rstops[first(Iposition)] = first(I) - 1
         end
 
     end
@@ -925,8 +925,8 @@ function Base.delete!(rs::UnitRangesSortedSet{Ti}, II::UnitRange) where {Ti}
     rs.lastusedrangeindex = beforestartindex(rs)
 
     # delete all concluded ranges
-    todelete1 = get_range_start(rs, Iposition.start) < I.start ? advance(rs, Iposition.start) : Iposition.start
-    todelete2 = get_range_stop(rs, Iposition.stop) > I.stop ? regress(rs, Iposition.stop) : Iposition.stop
+    todelete1 = get_range_start(rs, first(Iposition)) < first(I) ? advance(rs, first(Iposition)) : first(Iposition)
+    todelete2 = get_range_stop(rs, last(Iposition)) > last(I) ? regress(rs, last(Iposition)) : last(Iposition)
     for st in onlysemitokens(inclusive(rs.ranges, todelete1, todelete2))
         delete!((rs.ranges, st))
     end
@@ -936,31 +936,31 @@ function Base.delete!(rs::UnitRangesSortedSet{Ti}, II::UnitRange) where {Ti}
     Iposition = searchsortedrange(rs, I)
     length(Iposition) == 0 && return rs
 
-    Iposition_range_start = get_range_start(rs, Iposition.start)
-    Iposition_range_stop = get_range_stop(rs, Iposition.stop)
+    Iposition_range_start = get_range_start(rs, first(Iposition))
+    Iposition_range_stop = get_range_stop(rs, last(Iposition))
 
     # inside one range, thus split it
     if length(Iposition) == 1 &&
-       Iposition_range_start < I.start && I.stop < Iposition_range_stop
-        rs.ranges[I.stop + 1] = Iposition_range_stop
-        rs.ranges[Iposition.start] = I.start - 1
+       Iposition_range_start < first(I) && last(I) < Iposition_range_stop
+        rs.ranges[last(I) + 1] = Iposition_range_stop
+        rs.ranges[first(Iposition)] = first(I) - 1
 
     # `I` is whole range, delete it
     elseif length(Iposition) == 1 &&
-           Iposition_range_start >= I.start && I.stop >= Iposition_range_stop
-        delete!((rs.ranges, Iposition.start))
+           Iposition_range_start >= first(I) && last(I) >= Iposition_range_stop
+        delete!((rs.ranges, first(Iposition)))
 
     # `I` intersects with or inside in one range from left side, thus shrink from left side
     elseif length(Iposition) == 1 &&
-           Iposition_range_start >= I.start && I.stop < Iposition_range_stop
-        rs.ranges[I.stop + 1] = Iposition_range_stop
-        delete!((rs.ranges, Iposition.start))
+           Iposition_range_start >= first(I) && last(I) < Iposition_range_stop
+        rs.ranges[last(I) + 1] = Iposition_range_stop
+        delete!((rs.ranges, first(Iposition)))
 
     # `I` intersects with or inside in one range from right side, thus shrink from right side
     # inside one range, ended to left side, thus shrink from right side
     elseif length(Iposition) == 1 &&
-           Iposition_range_start < I.start && I.stop >= Iposition_range_stop
-        rs.ranges[Iposition.start] = I.start - 1
+           Iposition_range_start < first(I) && last(I) >= Iposition_range_stop
+        rs.ranges[first(Iposition)] = first(I) - 1
 
     # All remaining cases are with two ranges from `rs`
     elseif length(Iposition) != 2
@@ -969,22 +969,22 @@ function Base.delete!(rs::UnitRangesSortedSet{Ti}, II::UnitRange) where {Ti}
     else
 
         # delete whole second range
-        if I.stop >= Iposition_range_stop
-            delete!((rs.ranges, Iposition.stop))
+        if last(I) >= Iposition_range_stop
+            delete!((rs.ranges, last(Iposition)))
 
         # or shrink it from left side
         else
-            rs.ranges[I.stop + 1] = Iposition_range_stop
-            delete!((rs.ranges, Iposition.stop))
+            rs.ranges[last(I) + 1] = Iposition_range_stop
+            delete!((rs.ranges, last(Iposition)))
         end
 
         # delete whole first range
-        if Iposition_range_start >= I.start
-            delete!((rs.ranges, Iposition.start))
+        if Iposition_range_start >= first(I)
+            delete!((rs.ranges, first(Iposition)))
 
         # or shrink it from right side
         else
-            rs.ranges[Iposition.start] = I.start - 1
+            rs.ranges[first(Iposition)] = first(I) - 1
         end
 
     end
@@ -1006,20 +1006,20 @@ function Base.delete!(rs::UnitRangesSortedVector{Ti}, idx) where {Ti}
 
     r = get_range(rs, st)
 
-    if i > r.stop  # the index `i` is outside of range
+    if i > last(r)  # the index `i` is outside of range
         return rs
     end
 
-    if r.stop - r.start + 1 == 1
+    if last(r) - first(r) + 1 == 1
         deleteat!(rs.rstarts, st)
         deleteat!(rs.rstops, st)
-    elseif i == r.stop  # last index in range
+    elseif i == last(r)  # last index in range
         rs.rstops[st] -= 1
-    elseif i == r.start  # first index in range
+    elseif i == first(r)  # first index in range
         rs.rstarts[st] += 1
     else
         insert!(rs.rstarts, advance(rs, st), i+1)
-        insert!(rs.rstops, advance(rs, st), r.stop)
+        insert!(rs.rstops, advance(rs, st), last(r))
         rs.rstops[st] = i-1
     end
 
@@ -1042,20 +1042,20 @@ function Base.delete!(rs::UnitRangesSortedSet{Ti}, idx) where {Ti}
 
     r = get_range(rs, st)
 
-    if i > r.stop  # the index `i` is outside of range
+    if i > last(r)  # the index `i` is outside of range
         return rs
     end
 
-    if r.stop - r.start + 1 == 1
+    if last(r) - first(r) + 1 == 1
         delete!((rs.ranges, st))
-    elseif i == r.stop  # last index in range
-        rs.ranges[st] = r.stop - 1
-    elseif i == r.start  # first index in range
+    elseif i == last(r)  # last index in range
+        rs.ranges[st] = last(r) - 1
+    elseif i == first(r)  # first index in range
         delete!((rs.ranges, st))
-        rs.ranges[i+1] = r.stop
+        rs.ranges[i+1] = last(r)
     else
         rs.ranges[st] = i - 1
-        rs.ranges[i+1] = r.stop
+        rs.ranges[i+1] = last(r)
     end
 
     rs.lastusedrangeindex = beforestartindex(rs)
@@ -1170,7 +1170,7 @@ Base.show(io::IO, ur::URSSUnitRange) = print(io, repr(first(ur)), ':', length(ur
 
 function Base.show(io::IO, ::MIME"text/plain", x::URSSUnitRange)
     len = length(x)
-    print(io, len, "-element range ", x.start, ":", x.stop, " for ", typeof(x.parent))
+    print(io, len, "-element range ", first(x), ":", last(x), " for ", typeof(x.parent))
     if len != 0
         println(io, " containing:")
         show(IOContext(io, :typeinfo => eltype(x)), x)
