@@ -109,73 +109,73 @@ end
 
                 i = searchsortedlastrange(rs, 1)
                 @test i != beforestartindex(rs) &&
-                      getindexrange(rs, i) == UnitRange{$Ti}(1, 2) &&
+                      getindex(rs, i) == UnitRange{$Ti}(1, 2) &&
                       i == firstindex(rs)
 
                 i = searchsortedlastrange(rs, 2)
                 @test i != beforestartindex(rs) &&
-                      getindexrange(rs, i) == UnitRange{$Ti}(1, 2) &&
+                      getindex(rs, i) == UnitRange{$Ti}(1, 2) &&
                       i == firstindex(rs)
 
                 i = searchsortedlastrange(rs, 3)
                 @test i != beforestartindex(rs) &&
-                      getindexrange(rs, i) == UnitRange{$Ti}(1, 2) &&
+                      getindex(rs, i) == UnitRange{$Ti}(1, 2) &&
                       i == firstindex(rs)
 
                 i = searchsortedlastrange(rs, 4)
                 @test i != beforestartindex(rs) &&
-                      getindexrange(rs, i) == UnitRange{$Ti}(4, 4) &&
+                      getindex(rs, i) == UnitRange{$Ti}(4, 4) &&
                       i != firstindex(rs) && i != lastindex(rs)
 
                 i = searchsortedlastrange(rs, 5)
                 @test i != beforestartindex(rs) &&
-                      getindexrange(rs, i) == UnitRange{$Ti}(4, 4) &&
+                      getindex(rs, i) == UnitRange{$Ti}(4, 4) &&
                       i != firstindex(rs) && i != lastindex(rs)
 
                 i = searchsortedlastrange(rs, 6)
                 @test i != beforestartindex(rs) &&
-                      getindexrange(rs, i) == UnitRange{$Ti}(6, 6) &&
+                      getindex(rs, i) == UnitRange{$Ti}(6, 6) &&
                       i == lastindex(rs)
 
                 i = searchsortedlastrange(rs, 7)
                 @test i != beforestartindex(rs) &&
-                      getindexrange(rs, i) == UnitRange{$Ti}(6, 6) &&
+                      getindex(rs, i) == UnitRange{$Ti}(6, 6) &&
                       i == lastindex(rs)
 
 
                 i = searchsortedfirstrange(rs, 0)
                 @test i != pastendindex(rs) &&
-                      getindexrange(rs, i) == UnitRange{$Ti}(1, 2) &&
+                      getindex(rs, i) == UnitRange{$Ti}(1, 2) &&
                       i == firstindex(rs)
 
                 i = searchsortedfirstrange(rs, 1)
                 @test i != pastendindex(rs) &&
-                      getindexrange(rs, i) == UnitRange{$Ti}(1, 2) &&
+                      getindex(rs, i) == UnitRange{$Ti}(1, 2) &&
                       i == firstindex(rs)
 
                 i = searchsortedfirstrange(rs, 2)
                 @test i != pastendindex(rs) &&
-                      getindexrange(rs, i) == UnitRange{$Ti}(1, 2) &&
+                      getindex(rs, i) == UnitRange{$Ti}(1, 2) &&
                       i == firstindex(rs)
 
                 i = searchsortedfirstrange(rs, 3)
                 @test i != pastendindex(rs) &&
-                      getindexrange(rs, i) == UnitRange{$Ti}(4, 4) &&
+                      getindex(rs, i) == UnitRange{$Ti}(4, 4) &&
                       i != firstindex(rs) && i != lastindex(rs)
 
                 i = searchsortedfirstrange(rs, 4)
                 @test i != pastendindex(rs) &&
-                      getindexrange(rs, i) == UnitRange{$Ti}(4, 4) &&
+                      getindex(rs, i) == UnitRange{$Ti}(4, 4) &&
                       i != firstindex(rs) && i != lastindex(rs)
 
                 i = searchsortedfirstrange(rs, 5)
                 @test i != pastendindex(rs) &&
-                      getindexrange(rs, i) == UnitRange{$Ti}(6, 6) &&
+                      getindex(rs, i) == UnitRange{$Ti}(6, 6) &&
                       i == lastindex(rs)
 
                 i = searchsortedfirstrange(rs, 6)
                 @test i != pastendindex(rs) &&
-                      getindexrange(rs, i) == UnitRange{$Ti}(6, 6) &&
+                      getindex(rs, i) == UnitRange{$Ti}(6, 6) &&
                       i == lastindex(rs)
 
                 i = searchsortedfirstrange(rs, 7)
@@ -186,26 +186,26 @@ end
                 rs = $TypeURSS{$Ti}((1:2, 4:4))
 
                 ii = searchsortedrange(rs, 0)
-                @test length(ii) == 0 && getindexrange(rs, first(ii)) == UnitRange{$Ti}(1, 2) &&
+                @test length(ii) == 0 && getindex(rs, first(ii)) == UnitRange{$Ti}(1, 2) &&
                                          first(ii) == firstindex(rs) &&
                                          last(ii) == beforestartindex(rs)
 
                 ii = searchsortedrange(rs, 1)
-                @test length(ii) == 1 && getindexrange(rs, first(ii)) == UnitRange{$Ti}(1, 2) &&
+                @test length(ii) == 1 && getindex(rs, first(ii)) == UnitRange{$Ti}(1, 2) &&
                                          first(ii) == firstindex(rs)
 
                 ii = searchsortedrange(rs, 2)
-                @test length(ii) == 1 && getindexrange(rs, first(ii)) == UnitRange{$Ti}(1, 2)
+                @test length(ii) == 1 && getindex(rs, first(ii)) == UnitRange{$Ti}(1, 2)
 
                 ii = searchsortedrange(rs, 3)
-                @test length(ii) == 0 && getindexrange(rs, first(ii)) == UnitRange{$Ti}(4, 4) &&
-                                         getindexrange(rs, last(ii)) == UnitRange{$Ti}(1, 2)
+                @test length(ii) == 0 && getindex(rs, first(ii)) == UnitRange{$Ti}(4, 4) &&
+                                         getindex(rs, last(ii)) == UnitRange{$Ti}(1, 2)
 
                 ii = searchsortedrange(rs, 4)
-                @test length(ii) == 1 && getindexrange(rs, first(ii)) == UnitRange{$Ti}(4, 4)
+                @test length(ii) == 1 && getindex(rs, first(ii)) == UnitRange{$Ti}(4, 4)
 
                 ii = searchsortedrange(rs, 5)
-                @test length(ii) == 0 && getindexrange(rs, last(ii)) == UnitRange{$Ti}(4, 4) &&
+                @test length(ii) == 0 && getindex(rs, last(ii)) == UnitRange{$Ti}(4, 4) &&
                                          first(ii) == pastendindex(rs) &&
                                          last(ii) == lastindex(rs)
 
@@ -328,11 +328,11 @@ end
                 @test union($TypeURSS{$Ti}((0:0, 2:4)), (2:3, 5:6)) == $TypeURSS{$Ti}((0:0, 2:6))
                 @test union($TypeURSS{$Ti}((0:0, 2:4)), 1) == $TypeURSS{$Ti}((0:4))
 
-                #@test intersect($TypeURSS{$Ti}((0:0, 2:4)), $TypeURSS{$Ti}((2:3, 5:6))) == $TypeURSS{$Ti}((2:3))
-                #@test intersect($TypeURSS{$Ti}((0:0, 2:4)), (2:3, 5:6)) == $TypeURSS{$Ti}((2:3))
-                #@test intersect($TypeURSS{$Ti}((0:0, 2:4)), 2) == $TypeURSS{$Ti}((2:2))
-                #rs = $TypeURSS{$Ti}((0:0, 2:4))
-                #@test (intersect!(rs, $TypeURSS{$Ti}((2:3, 5:6))); rs == $TypeURSS{$Ti}((2:3)))
+                @test intersect($TypeURSS{$Ti}((0:0, 2:4)), $TypeURSS{$Ti}((2:3, 5:6))) == $TypeURSS{$Ti}((2:3))
+                @test intersect($TypeURSS{$Ti}((0:0, 2:4)), (2:3, 5:6)) == $TypeURSS{$Ti}((2:3))
+                @test intersect($TypeURSS{$Ti}((0:0, 2:4)), 2) == $TypeURSS{$Ti}((2:2))
+                rs = $TypeURSS{$Ti}((0:0, 2:4))
+                @test (intersect!(rs, $TypeURSS{$Ti}((2:3, 5:6, 8:8))); rs == $TypeURSS{$Ti}((2:3)))
 
                 rs = $TypeURSS{$Ti}((0:0, 2:4))
                 @test (union!(rs, $TypeURSS{$Ti}((0:0, 6:6))); rs == $TypeURSS{$Ti}((0:0, 2:4, 6:6)))
@@ -347,6 +347,7 @@ end
                 @test rs == $TypeURSS{$Ti}((4:4, 6:6))
                 @test pop!(rs, 4:4, UInt64(1)) == UnitRange{$Ti}(4, 4)
                 @test pop!(rs, 4:4, UInt64(1)) === UInt64(1)
+                @test empty(rs) == $TypeURSS{$Ti}()
                 empty!(rs)
                 @test rs == $TypeURSS{$Ti}()
 
@@ -355,12 +356,17 @@ end
                 @test issubset(0:0, rs)
                 @test !issubset(0:1, rs)
                 @test !issubset([0:1, 2:4], rs)
+                @test issubset(rs, [0:1, 2:4])
                 @test issubset([0:0, 2:4], rs)
+                @test issubset(rs, [0:0, 2:4])
+                @test !issubset(rs, [0:0, 3:4])
+                @test issubset(rs, 0:4)
+                @test !issubset(rs, 0:3)
                 rs2 = copy(rs)
                 @test rs2 == rs && rs2 !== rs
-                rs2 = Base.emptymutable(rs)
+                rs2 = empty(rs)
                 @test rs2 == $TypeURSS{$Ti}()
-                rs2 = Base.copymutable(rs)
+                rs2 = copy(rs)
                 @test rs2 == rs && rs2 !== rs
                 @test issubset(rs2, rs)
                 @test issubset(rs, rs2)
