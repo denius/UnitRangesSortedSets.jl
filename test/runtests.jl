@@ -210,11 +210,11 @@ end
                                          last(ii) == lastindex(rs)
 
                 rs = $TypeURSS{$Ti}((1:2, 4:4))
-                @test findrange(rs, 0) === nothing
-                @test findrange(rs, 1) == UnitRange{$Ti}(1, 1)
-                @test findrange(rs, 1:1) == UnitRange{$Ti}(1, 1)
-                @test findrange(rs, 1:2) == UnitRange{$Ti}(1, 2)
-                @test findrange(rs, 1:3) === nothing
+                @test getrange(rs, 0) === nothing
+                @test getrange(rs, 1) == UnitRange{$Ti}(1, 1)
+                @test getrange(rs, 1:1) == UnitRange{$Ti}(1, 1)
+                @test getrange(rs, 1:2) == UnitRange{$Ti}(1, 2)
+                @test getrange(rs, 1:3) === nothing
             end
         end
     end
@@ -326,6 +326,9 @@ end
 
                 @test union($TypeURSS{$Ti}((0:0, 2:4)), $TypeURSS{$Ti}((2:3, 5:6))) == $TypeURSS{$Ti}((0:0, 2:6))
                 @test union($TypeURSS{$Ti}((0:0, 2:4)), (2:3, 5:6)) == $TypeURSS{$Ti}((0:0, 2:6))
+                @test union($TypeURSS{$Ti}((0:0, 2:4)), (2, 3, 5, 6)) == $TypeURSS{$Ti}((0:0, 2:6))
+                @test union($TypeURSS{$Ti}((0:0, 2:4)), [2:3, 5:6]) == $TypeURSS{$Ti}((0:0, 2:6))
+                @test union($TypeURSS{$Ti}((0:0, 2:4)), [2, 3, 5, 6]) == $TypeURSS{$Ti}((0:0, 2:6))
                 @test union($TypeURSS{$Ti}((0:0, 2:4)), 1) == $TypeURSS{$Ti}((0:4))
 
                 @test intersect($TypeURSS{$Ti}((0:0, 2:4)), $TypeURSS{$Ti}((2:3, 5:6))) == $TypeURSS{$Ti}((2:3))
@@ -333,6 +336,8 @@ end
                 @test intersect($TypeURSS{$Ti}((0:0, 2:4)), 2) == $TypeURSS{$Ti}((2:2))
                 rs = $TypeURSS{$Ti}((0:0, 2:4))
                 @test (intersect!(rs, $TypeURSS{$Ti}((2:3, 5:6, 8:8))); rs == $TypeURSS{$Ti}((2:3)))
+                rs = [0:0, 2:4]
+                @test (intersect!(rs, $TypeURSS{$Ti}((2:3, 5:6, 8:8))); rs == [2:3])
 
                 rs = $TypeURSS{$Ti}((0:0, 2:4))
                 @test (union!(rs, $TypeURSS{$Ti}((0:0, 6:6))); rs == $TypeURSS{$Ti}((0:0, 2:4, 6:6)))

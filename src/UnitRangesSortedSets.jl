@@ -3,7 +3,7 @@ module UnitRangesSortedSets
 export AbstractUnitRangesSortedSet, UnitRangesSortedVector, UnitRangesSortedSet, SubUnitRangesSortedSet, URSSUnitRange
 export testfun_create, testfun_createSV, testfun_createVL, testfun_create_seq, testfun_create_dense, testfun_delete!,
        testfun_in, testfun_in_outer, testfun_in_rand, testfun_in_seq, testfun_nzgetindex, testfun_setindex!
-export searchsortedrange, searchsortedfirstrange, searchsortedlastrange, findrange, getindex, beforestartindex, pastendindex
+export searchsortedrange, searchsortedfirstrange, searchsortedlastrange, getrange, getindex, beforestartindex, pastendindex
 
 
 import Base: ForwardOrdering, Forward
@@ -59,7 +59,8 @@ struct SubUnitRangesSortedSet{Ti,P,Tidx} <: AbstractUnitRangesSortedSet{Ti}
     numranges::Int
 end
 
-function Base.intersect(rs::Tp, II::AbstractRange) where {Tp<:AbstractUnitRangesSortedSet{Ti}} where Ti
+function subset(rs::Tp, II::AbstractRange) where {Tp<:AbstractUnitRangesSortedSet{Ti}} where Ti
+#function Base.intersect(rs::Tp, II::AbstractRange) where {Tp<:AbstractUnitRangesSortedSet{Ti}} where Ti
     I = UnitRange{Ti}(first(II), last(II))
     ir = searchsortedrange(rs, I)
     if length(I) == 0 && length(ir) == 1
@@ -166,6 +167,35 @@ function (::Type{T})(values::Union{AbstractVector, AbstractSet, Tuple}) where {T
     rs
 end
 
+function Base.convert(::Type{T}, rs::AbstractUnitRangesSortedSet) where {T<:AbstractVector{Tv}} where {Tv<:AbstractUnitRange}
+    V = T(undef, length(rs))
+    for (i, r) in enumerate(rs)
+        V[i] = r
+    end
+    V
+end
+function Base.convert(::Type{T}, rs::AbstractUnitRangesSortedSet) where {T<:AbstractVector{Tv}} where {Tv}
+    V = T(undef, sum(length(r) for r in rs))
+    i = 0
+    for r in rs, v in r
+        V[i+=1] = v
+    end
+    V
+end
+function Base.convert(::Type{T}, rs::AbstractUnitRangesSortedSet) where {T<:AbstractSet{Tv}} where {Tv<:AbstractUnitRange}
+    S = T()
+    for r in rs
+        push!(S, r)
+    end
+    S
+end
+function Base.convert(::Type{T}, rs::AbstractUnitRangesSortedSet) where {T<:AbstractSet{Tv}} where {Tv}
+    S = T()
+    for r in rs, v in r
+        push!(S, v)
+    end
+    S
+end
 
 "Type of `UnitRange` for `DataStructures.Tokens.IntSemiToken`."
 struct URSSUnitRange{Trs,Tidx} <: AbstractUnitRange{Tidx}
@@ -219,12 +249,12 @@ end
                    {Trsl<:UnitRangesSortedVector,Tidxl,Trsr<:UnitRangesSortedSet,Tidxr} = false
 @inline Base.:(==)(l::URSSUnitRange{Trsl,Tidxl}, r::URSSUnitRange{Trsr,Tidxr}) where
                    {Trsl<:UnitRangesSortedVector,Tidxl,Trsr<:UnitRangesSortedVector,Tidxr} =
-    l.parent === r.parent &&
+    #l.parent === r.parent &&
     l.start == r.start &&
     l.stop == r.stop
 @inline Base.:(==)(l::URSSUnitRange{Trsl,Tidxl}, r::URSSUnitRange{Trsr,Tidxr}) where
                    {Trsl<:UnitRangesSortedSet,Tidxl,Trsr<:UnitRangesSortedSet,Tidxr} =
-    l.parent === r.parent &&
+    #l.parent === r.parent &&
     compare(l.parent.ranges, l.start, r.start) == 0 &&
     compare(l.parent.ranges, l.stop, r.stop) == 0
 
@@ -291,7 +321,7 @@ end
     compare(rs.parent.ranges, i, j)
 
 
-@inline function findrange(rs::AbstractUnitRangesSortedSet{Ti}, i) where Ti
+@inline function getrange(rs::AbstractUnitRangesSortedSet{Ti}, i) where Ti
     if in(i, rs)
         return UnitRange{Ti}(first(i), last(i))
     else
@@ -1238,7 +1268,7 @@ function Base.delete!(rs::UnitRangesSortedSet{Ti}, key) where {Ti}
 end
 
 function Base.pop!(rs::AbstractUnitRangesSortedSet, k)
-    if (r = findrange(rs, k)) !== nothing
+    if (r = getrange(rs, k)) !== nothing
         delete!(rs, k)
         return r
     else
@@ -1246,7 +1276,7 @@ function Base.pop!(rs::AbstractUnitRangesSortedSet, k)
     end
 end
 function Base.pop!(rs::AbstractUnitRangesSortedSet, k, default)
-    if (r = findrange(rs, k)) !== nothing
+    if (r = getrange(rs, k)) !== nothing
         delete!(rs, k)
         return r
     else
@@ -1323,7 +1353,7 @@ function Base.issubset(rs1::AbstractUnitRangesSortedSet, rs2::Union{AbstractSet,
     end
     return true
 end
-function Base.issubset(rs1::AbstractUnitRangesSortedSet, rs2::Union{AbstractSet{T},AbstractVector{T},Tuple{T}}) where {T<:AbstractRange}
+function Base.issubset(rs1::AbstractUnitRangesSortedSet, rs2::Union{AbstractSet{T},AbstractVector{T},NTuple{N,T}}) where {T<:AbstractRange,N}
     for r1 in rs1
         findfirst(s->issubset(r1, s), rs2) != nothing || return false
     end
@@ -1358,6 +1388,7 @@ end
 function Base.intersect!(rs1::AbstractUnitRangesSortedSet, rs2::AbstractUnitRangesSortedSet)
     length(rs2) == 0 && return rs1
 
+    # cut both sides up to `rs2` indices
     intersect!(rs1, getindex_rangestart(rs2, firstindex(rs2)):getindex_rangestop(rs2, lastindex(rs2)))
 
     length(rs2) == 1 && return rs1
@@ -1371,7 +1402,90 @@ function Base.intersect!(rs1::AbstractUnitRangesSortedSet, rs2::AbstractUnitRang
     rs1
 end
 
+# AbstractSet ambiguity resolving
+Base.intersect!(rs1::AbstractUnitRangesSortedSet, rs2::AbstractSet) = _intersect!(rs1, rs2)
+Base.intersect!(rs1::AbstractUnitRangesSortedSet, rs2::AbstractVector) = _intersect!(rs1, rs2)
+function _intersect!(rs1::AbstractUnitRangesSortedSet, rs2)
+    length(rs2) == 0 && return rs1
+
+    rv2 = collect(rs2)
+    sort!(rv2)
+
+    intersect!(rs1, first(rv2):last(rv2))
+
+    length(rv2) == 1 && return rs1
+
+    rprev, rs2tail = Iterators.peel(rv2)
+    for r in rs2tail
+        delete!(rs1, rprev+1:r-1)
+        rprev = r
+    end
+
+    rs1
+end
+
+function Base.intersect!(rs1::AbstractUnitRangesSortedSet, rs2::Union{AbstractSet{T},AbstractVector{T},NTuple{N,T}}) where {T<:AbstractRange,N}
+    length(rs2) == 0 && return rs1
+
+    rv2 = collect(rs2)
+    sort!(rv2)
+
+    intersect!(rs1, first(rv2[firstindex(rv2)]):last(rv2[lastindex(rv2)]))
+
+    length(rv2) == 1 && return rs1
+
+    rprev, rs2tail = Iterators.peel(rv2)
+    for r in rs2tail
+        delete!(rs1, last(rprev)+1:first(r)-1)
+        rprev = r
+    end
+
+    rs1
+end
+
+function Base.intersect!(rs1::AbstractVector, rs2::AbstractUnitRangesSortedSet)
+    rs = UnitRangesSortedSet(rs1)
+    intersect!(rs, rs2)
+    if eltype(rs1) <: AbstractRange
+        resize!(rs1, length(rs))
+        for (i, r) in enumerate(rs)
+            rs1[i] = r
+        end
+    else
+        resize!(rs1, sum(length(r) for r in rs))
+        i = 0
+        for r in rs, v in r
+            rs1[i+=1] = v
+        end
+    end
+    rs1
+end
+function Base.intersect!(rs1::AbstractSet, rs2::AbstractUnitRangesSortedSet)
+    rs = UnitRangesSortedSet(rs1)
+    intersect!(rs, rs2)
+    empty!(rs1)
+    if eltype(rs1) <: AbstractRange
+        for r in rs
+            push!(rs1, r)
+        end
+    else
+        for r in rs, v in r
+            push!(rs1, v)
+        end
+    end
+    rs1
+end
+
+Base.intersect(rs1::AbstractUnitRangesSortedSet, rs2) = intersect!(copy(rs1), rs2)
 Base.intersect(rs1::AbstractUnitRangesSortedSet, rs2::AbstractUnitRangesSortedSet) = intersect!(copy(rs1), rs2)
+# AbstractSet ambiguity resolving
+Base.intersect(rs1::AbstractSet, rs2::AbstractUnitRangesSortedSet) = _intersect(rs1, rs2)
+Base.intersect(rs1::AbstractVector, rs2::AbstractUnitRangesSortedSet) = _intersect(rs1, rs2)
+function _intersect(rs1, rs2::AbstractUnitRangesSortedSet)
+    rs = UnitRangesSortedSet(rs1)
+    intersect!(rs, rs2)
+    return convert(typeof(rs1), rs)
+end
 
 
 #
