@@ -1,9 +1,11 @@
 
 module UnitRangesSortedSets
-export AbstractUnitRangesSortedSet, UnitRangesSortedVector, UnitRangesSortedSet, SubUnitRangesSortedSet, URSSUnitRange
+export AbstractUnitRangesSortedSet, AbstractSubUnitRangesSortedSet, AbstractUnitRangesSortedContainer
+export UnitRangesSortedVector, UnitRangesSortedSet, SubUnitRangesSortedSet, URSSUnitRange
 export testfun_create, testfun_createSV, testfun_createVL, testfun_create_seq, testfun_create_dense, testfun_delete!,
        testfun_in, testfun_in_outer, testfun_in_rand, testfun_in_seq, testfun_nzgetindex, testfun_setindex!
 export searchsortedrange, searchsortedfirstrange, searchsortedlastrange, getrange, getindex, beforestartindex, pastendindex
+export subset
 
 
 import Base: ForwardOrdering, Forward
@@ -17,8 +19,10 @@ using Random
 
 
 abstract type AbstractUnitRangesSortedSet{Ti} <: AbstractSet{Ti} end
+abstract type AbstractUnitRangesSortedContainer{Ti} <: AbstractUnitRangesSortedSet{Ti} end
+abstract type AbstractSubUnitRangesSortedSet{Ti} <: AbstractUnitRangesSortedSet{Ti} end
 
-struct Sub0UnitRangesSortedSet{Ti,P,Tidx} <: AbstractUnitRangesSortedSet{Ti}
+struct Sub0UnitRangesSortedSet{Ti,P,Tidx} <: AbstractSubUnitRangesSortedSet{Ti}
     data::UnitRange{Ti}
     parent::P
     start::Ti
@@ -32,7 +36,7 @@ struct Sub0UnitRangesSortedSet{Ti,P,Tidx} <: AbstractUnitRangesSortedSet{Ti}
     numranges::Int
 end
 
-struct Sub1UnitRangesSortedSet{Ti,P,Tidx} <: AbstractUnitRangesSortedSet{Ti}
+struct Sub1UnitRangesSortedSet{Ti,P,Tidx} <: AbstractSubUnitRangesSortedSet{Ti}
     data::UnitRange{Ti}
     parent::P
     start::Ti
@@ -46,7 +50,7 @@ struct Sub1UnitRangesSortedSet{Ti,P,Tidx} <: AbstractUnitRangesSortedSet{Ti}
     numranges::Int
 end
 
-struct SubUnitRangesSortedSet{Ti,P,Tidx} <: AbstractUnitRangesSortedSet{Ti}
+struct SubUnitRangesSortedSet{Ti,P,Tidx} <: AbstractSubUnitRangesSortedSet{Ti}
     parent::P
     start::Ti
     stop::Ti
@@ -59,8 +63,8 @@ struct SubUnitRangesSortedSet{Ti,P,Tidx} <: AbstractUnitRangesSortedSet{Ti}
     numranges::Int
 end
 
+#function subset(rs::Tp, II::AbstractRange) where {Tp<:AbstractUnitRangesSortedContainer{Ti}} where Ti
 function subset(rs::Tp, II::AbstractRange) where {Tp<:AbstractUnitRangesSortedSet{Ti}} where Ti
-#function Base.intersect(rs::Tp, II::AbstractRange) where {Tp<:AbstractUnitRangesSortedSet{Ti}} where Ti
     I = UnitRange{Ti}(first(II), last(II))
     ir = searchsortedrange(rs, I)
     if length(I) == 0 && length(ir) == 1
@@ -90,12 +94,7 @@ function subset(rs::Tp, II::AbstractRange) where {Tp<:AbstractUnitRangesSortedSe
     end
 end
 
-Base.copy(rs::T) where {T<:Union{Sub0UnitRangesSortedSet,Sub1UnitRangesSortedSet,SubUnitRangesSortedSet}} =
-    T(rs.parent, rs.start, rs.stop, rs.firstindex, rs.lastindex, rs.firstindexnext, rs.lastindexprev,
-      rs.beforestartindex, rs.pastendindex, rs.numranges)
-Base.deepcopy(rs::T) where {T<:Union{Sub0UnitRangesSortedSet,Sub1UnitRangesSortedSet,SubUnitRangesSortedSet}} =
-    T(deepcopy(rs.parent), rs.start, rs.stop, rs.firstindex, rs.lastindex, rs.firstindexnext, rs.lastindexprev,
-      rs.beforestartindex, rs.pastendindex, rs.numranges)
+Base.copy(rs::T) where {T<:AbstractSubUnitRangesSortedSet} = intersect(rs.parent, UnitRange(rs.start, rs.stop))
 
 """
 Inserting zero, or negative length ranges does nothing.
@@ -103,7 +102,7 @@ $(TYPEDEF)
 Mutable struct fields:
 $(TYPEDFIELDS)
 """
-mutable struct UnitRangesSortedVector{Ti} <: AbstractUnitRangesSortedSet{Ti}
+mutable struct UnitRangesSortedVector{Ti} <: AbstractUnitRangesSortedContainer{Ti}
     "Index of last used range"
     lastusedrangeindex::Int
     "Storage for ranges"
@@ -128,7 +127,7 @@ $(TYPEDEF)
 Mutable struct fields:
 $(TYPEDFIELDS)
 """
-mutable struct UnitRangesSortedSet{Ti} <: AbstractUnitRangesSortedSet{Ti}
+mutable struct UnitRangesSortedSet{Ti} <: AbstractUnitRangesSortedContainer{Ti}
     "Index of last used range"
     lastusedrangeindex::DataStructures.Tokens.IntSemiToken
     "Storage for ranges: the ket of Dict is `first(range)`, and the value of Dict is the `last(range)`"
@@ -148,7 +147,7 @@ function UnitRangesSortedSet(rs::AbstractUnitRangesSortedSet{Ti}) where {Ti}
 end
 
 
-function (::Type{T})(values::Union{AbstractVector, AbstractSet, Tuple}) where {T<:AbstractUnitRangesSortedSet}
+function (::Type{T})(values::Union{AbstractVector, AbstractSet, Tuple}) where {T<:AbstractUnitRangesSortedContainer}
     if eltype(values) <: AbstractRange
         rs = T{eltype(eltype(values))}()
     else
@@ -159,7 +158,7 @@ function (::Type{T})(values::Union{AbstractVector, AbstractSet, Tuple}) where {T
     end
     rs
 end
-function (::Type{T})(values::Union{AbstractVector, AbstractSet, Tuple}) where {T<:AbstractUnitRangesSortedSet{Ti}} where Ti
+function (::Type{T})(values::Union{AbstractVector, AbstractSet, Tuple}) where {T<:AbstractUnitRangesSortedContainer{Ti}} where Ti
     rs = T()
     for r in values
         push!(rs, r)
@@ -167,14 +166,14 @@ function (::Type{T})(values::Union{AbstractVector, AbstractSet, Tuple}) where {T
     rs
 end
 
-function Base.convert(::Type{T}, rs::AbstractUnitRangesSortedSet) where {T<:AbstractVector{Tv}} where {Tv<:AbstractUnitRange}
+function Base.convert(::Type{T}, rs::Union{UnitRangesSortedVector,UnitRangesSortedSet}) where {T<:AbstractVector{Tv}} where {Tv<:AbstractUnitRange}
     V = T(undef, length(rs))
     for (i, r) in enumerate(rs)
         V[i] = r
     end
     V
 end
-function Base.convert(::Type{T}, rs::AbstractUnitRangesSortedSet) where {T<:AbstractVector{Tv}} where {Tv}
+function Base.convert(::Type{T}, rs::Union{UnitRangesSortedVector,UnitRangesSortedSet}) where {T<:AbstractVector{Tv}} where {Tv}
     V = T(undef, sum(length(r) for r in rs))
     i = 0
     for r in rs, v in r
@@ -182,14 +181,14 @@ function Base.convert(::Type{T}, rs::AbstractUnitRangesSortedSet) where {T<:Abst
     end
     V
 end
-function Base.convert(::Type{T}, rs::AbstractUnitRangesSortedSet) where {T<:AbstractSet{Tv}} where {Tv<:AbstractUnitRange}
+function Base.convert(::Type{T}, rs::Union{UnitRangesSortedVector,UnitRangesSortedSet}) where {T<:AbstractSet{Tv}} where {Tv<:AbstractUnitRange}
     S = T()
     for r in rs
         push!(S, r)
     end
     S
 end
-function Base.convert(::Type{T}, rs::AbstractUnitRangesSortedSet) where {T<:AbstractSet{Tv}} where {Tv}
+function Base.convert(::Type{T}, rs::Union{UnitRangesSortedVector,UnitRangesSortedSet}) where {T<:AbstractSet{Tv}} where {Tv}
     S = T()
     for r in rs, v in r
         push!(S, v)
@@ -281,7 +280,7 @@ end
 
 Base.length(rs::UnitRangesSortedVector) = length(rs.rstarts)
 Base.length(rs::UnitRangesSortedSet) = length(rs.ranges)
-Base.length(rs::Union{Sub0UnitRangesSortedSet,Sub1UnitRangesSortedSet,SubUnitRangesSortedSet}) = rs.numranges
+Base.length(rs::AbstractSubUnitRangesSortedSet) = rs.numranges
 Base.haslength(rs::AbstractUnitRangesSortedSet) = true
 Base.hasfastin(rs::AbstractUnitRangesSortedSet) = true
 Base.isempty(rs::AbstractUnitRangesSortedSet) = length(rs) == 0
@@ -389,13 +388,15 @@ end
 @inline getindex_rangestop(rs::UnitRangesSortedVector, i) = rs.rstops[i]
 @inline getindex_rangestart(rs::UnitRangesSortedSet, i) = deref_key((rs.ranges, i))
 @inline getindex_rangestop(rs::UnitRangesSortedSet, i) = deref_value((rs.ranges, i))
+@inline getindex_rangestart(rs::AbstractSubUnitRangesSortedSet, i) = first(getindex(rs, i))
+@inline getindex_rangestop(rs::AbstractSubUnitRangesSortedSet, i) = last(getindex(rs, i))
 
 @inline Base.firstindex(rs::UnitRangesSortedVector) = firstindex(rs.rstarts)
 @inline Base.firstindex(rs::UnitRangesSortedSet) = startof(rs.ranges)
-@inline Base.firstindex(rs::Union{Sub0UnitRangesSortedSet,Sub1UnitRangesSortedSet,SubUnitRangesSortedSet}) = rs.firstindex
+@inline Base.firstindex(rs::AbstractSubUnitRangesSortedSet) = rs.firstindex
 @inline Base.lastindex(rs::UnitRangesSortedVector) = lastindex(rs.rstarts)
-@inline Base.lastindex(rs::AbstractUnitRangesSortedSet) = lastindex(rs.ranges)
-@inline Base.lastindex(rs::Union{Sub0UnitRangesSortedSet,Sub1UnitRangesSortedSet,SubUnitRangesSortedSet}) = rs.lastindex
+@inline Base.lastindex(rs::UnitRangesSortedSet) = lastindex(rs.ranges)
+@inline Base.lastindex(rs::AbstractSubUnitRangesSortedSet) = rs.lastindex
 @inline Base.first(rs::UnitRangesSortedVector) = UnitRange(rs.rstarts[1], rs.rstops[1])
 @inline Base.first(rs::UnitRangesSortedSet) = UnitRange(deref((rs.ranges, startof(rs.ranges)))...)
 @inline Base.first(rs::Sub0UnitRangesSortedSet) = rs.parent
@@ -425,19 +426,17 @@ end
 
 @inline beforestartindex(rs::UnitRangesSortedVector) = firstindex(rs.rstarts) - 1
 @inline beforestartindex(rs::UnitRangesSortedSet) = beforestartsemitoken(rs.ranges)
-@inline beforestartindex(rs::Union{Sub0UnitRangesSortedSet,Sub1UnitRangesSortedSet,SubUnitRangesSortedSet}) = rs.beforestartindex
+@inline beforestartindex(rs::AbstractSubUnitRangesSortedSet) = rs.beforestartindex
 @inline pastendindex(rs::UnitRangesSortedVector) = lastindex(rs.rstarts) + 1
 @inline pastendindex(rs::UnitRangesSortedSet) = pastendsemitoken(rs.ranges)
-@inline pastendindex(rs::Union{Sub0UnitRangesSortedSet,Sub1UnitRangesSortedSet,SubUnitRangesSortedSet}) = rs.pastendindex
+@inline pastendindex(rs::AbstractSubUnitRangesSortedSet) = rs.pastendindex
 
 @inline DataStructures.advance(rs::UnitRangesSortedVector, state) = state + 1
 @inline DataStructures.advance(rs::UnitRangesSortedSet, state) = advance((rs.ranges, state))
-@inline DataStructures.advance(rs::Union{Sub0UnitRangesSortedSet,Sub1UnitRangesSortedSet,SubUnitRangesSortedSet}, state) =
-    advance(rs.parent, state)
+@inline DataStructures.advance(rs::AbstractSubUnitRangesSortedSet, state) = advance(rs.parent, state)
 @inline DataStructures.regress(rs::UnitRangesSortedVector, state) = state - 1
 @inline DataStructures.regress(rs::UnitRangesSortedSet, state) = regress((rs.ranges, state))
-@inline DataStructures.regress(rs::Union{Sub0UnitRangesSortedSet,Sub1UnitRangesSortedSet,SubUnitRangesSortedSet}, state) =
-    regress(rs.parent, state)
+@inline DataStructures.regress(rs::AbstractSubUnitRangesSortedSet, state) = regress(rs.parent, state)
 
 # Derived from julia/base/sort.jl, for increasing sorted vectors.
 function bisectionsearchlast(V::AbstractVector, val)
@@ -718,7 +717,7 @@ end
 
 #@inline Base.haskey(rs::AbstractUnitRangesSortedSet, key) = in(key, rs)
 
-function Base.push!(rs::AbstractUnitRangesSortedSet, II::AbstractUnitRangesSortedSet)
+function Base.push!(rs::AbstractUnitRangesSortedContainer, II::AbstractUnitRangesSortedSet)
     for r in II
         push!(rs, r)
     end
@@ -753,7 +752,7 @@ function Base.push!(rs::UnitRangesSortedVector{Ti}, II::AbstractRange) where Ti
     # `first(Iposition)` will be point to range in `rs` on right side to `I` and
     # `last(Iposition)` will be point to range in `rs` on left side to `I`.
     Iposition = searchsortedrange(rs, first(I))
-    @boundscheck @assert Iposition == searchsortedrange(rs, last(I)) "FIXME: I Am an error in program logic."
+    @boundscheck @assert Iposition == searchsortedrange(rs, last(I)) "FIXME: Something went wrong."
 
     Iposition_left = last(Iposition)
     Iposition_right = first(Iposition)
@@ -809,7 +808,7 @@ function Base.push!(rs::UnitRangesSortedVector{Ti}, II::AbstractRange) where Ti
         insert!(rs.rstops, 1, last(I))
 
     else
-        throw(AssertionError("FIXME: I Am an error in program logic."))
+        throw(AssertionError("FIXME: Something went wrong."))
     end
 
     return rs
@@ -843,7 +842,7 @@ function Base.push!(rs::UnitRangesSortedSet{Ti}, II::AbstractRange) where Ti
     # `first(Iposition)` will be point to range in `rs` on right side to `I` and
     # `last(Iposition)` will be point to range in `rs` on left side to `I`.
     Iposition = searchsortedrange(rs, first(I))
-    @boundscheck @assert Iposition == searchsortedrange(rs, last(I)) "FIXME: I Am an error in program logic."
+    @boundscheck @assert Iposition == searchsortedrange(rs, last(I)) "FIXME: Something went wrong."
 
     Iposition_left = last(Iposition)
     Iposition_right = first(Iposition)
@@ -900,7 +899,7 @@ function Base.push!(rs::UnitRangesSortedSet{Ti}, II::AbstractRange) where Ti
         rs.ranges[first(I)] = last(I)
 
     else
-        throw(AssertionError("FIXME: I Am an error in program logic."))
+        throw(AssertionError("FIXME: Something went wrong."))
     end
 
     return rs
@@ -1060,7 +1059,7 @@ function Base.push!(rs::UnitRangesSortedSet{Ti}, key) where {Ti}
 end
 
 
-function Base.delete!(rs::AbstractUnitRangesSortedSet, II::AbstractUnitRangesSortedSet)
+function Base.delete!(rs::AbstractUnitRangesSortedContainer, II::AbstractUnitRangesSortedSet)
     for r in II
         delete!(rs, r)
     end
@@ -1109,7 +1108,7 @@ function Base.delete!(rs::UnitRangesSortedVector{Ti}, II::AbstractRange) where {
             rs.rstops[first(Iposition)] = first(I) - 1
 
         else
-            throw(AssertionError("FIXME: I Am an error in program logic."))
+            throw(AssertionError("FIXME: Something went wrong."))
         end
 
     # All remaining cases are with two ranges from `rs`,
@@ -1123,7 +1122,7 @@ function Base.delete!(rs::UnitRangesSortedVector{Ti}, II::AbstractRange) where {
         rs.rstops[first(Iposition)] = first(I) - 1
 
     else
-        throw(AssertionError("FIXME: I Am an error in program logic."))
+        throw(AssertionError("FIXME: Something went wrong."))
     end
 
     return rs
@@ -1174,7 +1173,7 @@ function Base.delete!(rs::UnitRangesSortedSet{Ti}, II::AbstractRange) where {Ti}
             rs.ranges[first(Iposition)] = first(I) - 1
 
         else
-            throw(AssertionError("FIXME: I Am an error in program logic."))
+            throw(AssertionError("FIXME: Something went wrong."))
         end
 
     # All remaining cases are with two ranges from `rs`,
@@ -1190,7 +1189,7 @@ function Base.delete!(rs::UnitRangesSortedSet{Ti}, II::AbstractRange) where {Ti}
         rs.ranges[first(Iposition)] = first(I) - 1
 
     else
-        throw(AssertionError("FIXME: I Am an error in program logic."))
+        throw(AssertionError("FIXME: Something went wrong."))
     end
 
     return rs
@@ -1267,7 +1266,7 @@ function Base.delete!(rs::UnitRangesSortedSet{Ti}, key) where {Ti}
     return rs
 end
 
-function Base.pop!(rs::AbstractUnitRangesSortedSet, k)
+function Base.pop!(rs::AbstractUnitRangesSortedContainer, k)
     if (r = getrange(rs, k)) !== nothing
         delete!(rs, k)
         return r
@@ -1275,7 +1274,7 @@ function Base.pop!(rs::AbstractUnitRangesSortedSet, k)
         throw(KeyError(k))
     end
 end
-function Base.pop!(rs::AbstractUnitRangesSortedSet, k, default)
+function Base.pop!(rs::AbstractUnitRangesSortedContainer, k, default)
     if (r = getrange(rs, k)) !== nothing
         delete!(rs, k)
         return r
@@ -1289,7 +1288,7 @@ end
 # setdiff already exist in julia/base/abstractset.jl
 
 
-Base.empty(rs::T) where {T<:AbstractUnitRangesSortedSet} = T()
+Base.empty(rs::T) where {T<:AbstractUnitRangesSortedContainer} = T()
 
 function Base.empty!(rs::UnitRangesSortedVector)
     empty!(rs.rstarts)
@@ -1297,7 +1296,7 @@ function Base.empty!(rs::UnitRangesSortedVector)
     rs.lastusedrangeindex = beforestartindex(rs)
     rs
 end
-function Base.empty!(rs::AbstractUnitRangesSortedSet)
+function Base.empty!(rs::AbstractUnitRangesSortedContainer)
     empty!(rs.ranges)
     rs.lastusedrangeindex = beforestartindex(rs)
     rs
@@ -1306,15 +1305,15 @@ end
 Base.copy(rs::T) where {T<:UnitRangesSortedVector} = T(rs.lastusedrangeindex, copy(rs.rstarts), copy(rs.rstops))
 Base.copy(rs::T) where {T<:UnitRangesSortedSet} = T(rs.lastusedrangeindex, packcopy(rs.ranges))
 
-#Base.deepcopy(rs::AbstractUnitRangesSortedSet) = copy(rs)
+#Base.deepcopy(rs::AbstractUnitRangesSortedContainer) = copy(rs)
 
 
 
 Base.union(rs::AbstractUnitRangesSortedSet, rss...) = union!(copy(rs), rss...)
 Base.union(rs::AbstractUnitRangesSortedSet, rs2) = union!(copy(rs), rs2)
 
-@inline Base.union!(rs::AbstractUnitRangesSortedSet, rss...) = union!(union!(rs, rss[1]), Base.tail(rss)...)
-function Base.union!(rs::AbstractUnitRangesSortedSet, rs2)
+@inline Base.union!(rs::AbstractUnitRangesSortedContainer, rss...) = union!(union!(rs, rss[1]), Base.tail(rss)...)
+function Base.union!(rs::AbstractUnitRangesSortedContainer, rs2)
     issubset(rs2, rs) && return rs
     for r in rs2
         push!(rs, r)
@@ -1322,7 +1321,7 @@ function Base.union!(rs::AbstractUnitRangesSortedSet, rs2)
     return rs
 end
 
-@inline Base.union!(rs::AbstractUnitRangesSortedSet, r::AbstractRange) = push!(rs, r)
+@inline Base.union!(rs::AbstractUnitRangesSortedContainer, r::AbstractRange) = push!(rs, r)
 
 @inline Base.:(==)(rs1::T1, rs2::T2) where {T1<:AbstractUnitRangesSortedSet, T2<:AbstractUnitRangesSortedSet} =
     T1 == T2 && isequal(rs1, rs2)
@@ -1361,22 +1360,22 @@ function Base.issubset(rs1::AbstractUnitRangesSortedSet, rs2::Union{AbstractSet{
 end
 
 
-function Base.filter(pred::Function, rs::AbstractUnitRangesSortedSet)
+function Base.filter(pred::Function, rs::AbstractUnitRangesSortedContainer)
     res = empty(rs)
     for r in rs
         pred(r) && push!(res, r)
     end
     res
 end
-function Base.filter!(pred::Function, rs::AbstractUnitRangesSortedSet)
+function Base.filter!(pred::Function, rs::AbstractUnitRangesSortedContainer)
     for r in Iterators.reverse(rs)
         pred(r) || delete!(rs, r)
     end
     rs
 end
 
-function Base.intersect!(rs::AbstractUnitRangesSortedSet{Ti}, II::AbstractRange) where Ti
-    length(II) == 0 && return rs
+function Base.intersect!(rs::AbstractUnitRangesSortedContainer{Ti}, II::AbstractRange) where Ti
+    length(II) == 0 && return empty!(rs)
     I = UnitRange{Ti}(first(II), last(II))
 
     delete!(rs, getindex_rangestart(rs, firstindex(rs)):first(I) - 1)
@@ -1385,8 +1384,8 @@ function Base.intersect!(rs::AbstractUnitRangesSortedSet{Ti}, II::AbstractRange)
     rs
 end
 
-function Base.intersect!(rs1::AbstractUnitRangesSortedSet, rs2::AbstractUnitRangesSortedSet)
-    length(rs2) == 0 && return rs1
+function Base.intersect!(rs1::AbstractUnitRangesSortedContainer, rs2::AbstractUnitRangesSortedSet)
+    length(rs2) == 0 && return empty!(rs)
 
     # cut both sides up to `rs2` indices
     intersect!(rs1, getindex_rangestart(rs2, firstindex(rs2)):getindex_rangestop(rs2, lastindex(rs2)))
@@ -1403,10 +1402,10 @@ function Base.intersect!(rs1::AbstractUnitRangesSortedSet, rs2::AbstractUnitRang
 end
 
 # AbstractSet ambiguity resolving
-Base.intersect!(rs1::AbstractUnitRangesSortedSet, rs2::AbstractSet) = _intersect!(rs1, rs2)
-Base.intersect!(rs1::AbstractUnitRangesSortedSet, rs2::AbstractVector) = _intersect!(rs1, rs2)
-function _intersect!(rs1::AbstractUnitRangesSortedSet, rs2)
-    length(rs2) == 0 && return rs1
+Base.intersect!(rs1::AbstractUnitRangesSortedContainer, rs2::AbstractSet) = _intersect!(rs1, rs2)
+Base.intersect!(rs1::AbstractUnitRangesSortedContainer, rs2::AbstractVector) = _intersect!(rs1, rs2)
+function _intersect!(rs1::AbstractUnitRangesSortedContainer, rs2)
+    length(rs2) == 0 && return empty!(rs)
 
     rv2 = collect(rs2)
     sort!(rv2)
@@ -1424,8 +1423,8 @@ function _intersect!(rs1::AbstractUnitRangesSortedSet, rs2)
     rs1
 end
 
-function Base.intersect!(rs1::AbstractUnitRangesSortedSet, rs2::Union{AbstractSet{T},AbstractVector{T},NTuple{N,T}}) where {T<:AbstractRange,N}
-    length(rs2) == 0 && return rs1
+function Base.intersect!(rs1::AbstractUnitRangesSortedContainer, rs2::Union{AbstractSet{T},AbstractVector{T},NTuple{N,T}}) where {T<:AbstractRange,N}
+    length(rs2) == 0 && return empty!(rs)
 
     rv2 = collect(rs2)
     sort!(rv2)
@@ -1531,8 +1530,29 @@ function Base.show(io::IOContext, x::URSSUnitRange)
     end
 end
 
+function Base.show(io::IO, x::T) where {T<:AbstractSubUnitRangesSortedSet}
+    print(io, "subset(", typeof(x.parent), ", ", x.firstindex, ":", x.lastindex,  "): (")
+    if length(x) > 0
+        el1, restx = Iterators.peel(x)
+        print(io, repr(first(el1)), ":", repr(last(el1)))
+        for r in restx
+            print(io, ", ", repr(first(r)), ":", repr(last(r)))
+        end
+    end
+    print(io, ")")
+end
 
-function Base.show(io::IO, x::AbstractUnitRangesSortedSet)
+function Base.show(io::IO, ::MIME"text/plain", x::T) where {T<:AbstractSubUnitRangesSortedSet}
+    len = length(x)
+    print(io, len, "-element subset(", typeof(x.parent), ", ", x.firstindex, ":", x.lastindex, ")")
+    if len != 0
+        println(io, ":")
+        show(IOContext(io, :typeinfo => eltype(x)), x)
+    end
+end
+
+
+function Base.show(io::IO, x::T) where {T<:AbstractUnitRangesSortedSet}
     print(io, typeof(x), "(")
     if length(x) > 0
         el1, restx = Iterators.peel(x)
@@ -1545,7 +1565,7 @@ function Base.show(io::IO, x::AbstractUnitRangesSortedSet)
 end
 
 # derived from stdlib/SparseArrays/src/sparsevector.jl
-function Base.show(io::IO, ::MIME"text/plain", x::AbstractUnitRangesSortedSet)
+function Base.show(io::IO, ::MIME"text/plain", x::T) where {T<:AbstractUnitRangesSortedSet}
     len = length(x)
     print(io, typeof(x), "()")
     if len != 0
@@ -1554,7 +1574,10 @@ function Base.show(io::IO, ::MIME"text/plain", x::AbstractUnitRangesSortedSet)
     end
 end
 
-function Base.show(io::IOContext, x::AbstractUnitRangesSortedSet)
+Base.show(io::IOContext, x::T) where {T<:AbstractSubUnitRangesSortedSet} = _display_AURSS(io, x)
+Base.show(io::IOContext, x::T) where {T<:AbstractUnitRangesSortedSet} = _display_AURSS(io, x)
+
+function _display_AURSS(io, x)
     ranges = [v for v in x]
     n = length(ranges)
     if isempty(ranges)
