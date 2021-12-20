@@ -29,8 +29,6 @@ struct Sub0UnitRangesSortedSet{Ti,P,Tidx} <: AbstractSubUnitRangesSortedSet{Ti,P
     stop::Ti
     firstindex::Tidx
     lastindex::Tidx
-    firstindexnext::Tidx
-    lastindexprev::Tidx
     beforestartindex::Tidx
     pastendindex::Tidx
     numranges::Int
@@ -43,8 +41,6 @@ struct Sub1UnitRangesSortedSet{Ti,P,Tidx} <: AbstractSubUnitRangesSortedSet{Ti,P
     stop::Ti
     firstindex::Tidx
     lastindex::Tidx
-    firstindexnext::Tidx
-    lastindexprev::Tidx
     beforestartindex::Tidx
     pastendindex::Tidx
     numranges::Int
@@ -56,28 +52,27 @@ struct SubUnitRangesSortedSet{Ti,P,Tidx} <: AbstractSubUnitRangesSortedSet{Ti,P}
     stop::Ti
     firstindex::Tidx
     lastindex::Tidx
-    firstindexnext::Tidx
-    lastindexprev::Tidx
     beforestartindex::Tidx
     pastendindex::Tidx
     numranges::Int
 end
 
-#function subset(rs::Tp, II::AbstractRange) where {Tp<:AbstractUnitRangesSortedContainer{Ti}} where Ti
-function subset(rs::Tp, II::AbstractRange) where {Tp<:AbstractUnitRangesSortedSet{Ti}} where Ti
+subset(rs::P, II::AbstractRange) where {P<:AbstractSubUnitRangesSortedSet} = subset(rs.parent, II)
+function subset(rs::P, II::AbstractRange) where {P<:AbstractUnitRangesSortedContainer{Ti}} where Ti
+    if first(II) > last(II)
+
+    end
     I = UnitRange{Ti}(first(II), last(II))
     ir = searchsortedrange(rs, I)
     if length(I) == 0 && length(ir) == 1
         ir = UnitRange(first(ir) + 1, last(ir))
     end
-    next = advance(rs, first(ir))
-    prev = regress(rs, last(ir))
     beforestart = first(ir) != beforestartindex(rs) ? regress(rs, first(ir)) : first(ir)
     pastend = last(ir) != pastendindex(rs) ? advance(rs, last(ir)) : last(ir)
     if length(I) == 0 || length(ir) == 0
         rdata = UnitRange(first(I), last(I))
-        return Sub0UnitRangesSortedSet{Ti,Tp,typeof(first(ir))}(rdata, rs, first(I), last(I), first(ir), last(ir),
-                                                               next, prev, beforestart, pastend, length(ir))
+        return Sub0UnitRangesSortedSet{Ti,P,typeof(first(ir))}(rdata, rs, first(I), last(I), first(ir), last(ir),
+                                                               beforestart, pastend, length(ir))
     elseif length(ir) == 1
         rdata = getindex(rs, first(ir))
         if first(rdata) < first(I)
@@ -86,11 +81,11 @@ function subset(rs::Tp, II::AbstractRange) where {Tp<:AbstractUnitRangesSortedSe
         if last(I) < last(rdata)
             rdata = UnitRange(first(rdata), last(I))
         end
-        return Sub1UnitRangesSortedSet{Ti,Tp,typeof(first(ir))}(rdata, rs, first(I), last(I),
-                                                               first(ir), last(ir), next, prev, beforestart, pastend, length(ir))
+        return Sub1UnitRangesSortedSet{Ti,P,typeof(first(ir))}(rdata, rs, first(I), last(I),
+                                                               first(ir), last(ir), beforestart, pastend, length(ir))
     else
-        return SubUnitRangesSortedSet{Ti,Tp,typeof(first(ir))}(rs, first(I), last(I), first(ir), last(ir),
-                                                              next, prev, beforestart, pastend, length(ir))
+        return SubUnitRangesSortedSet{Ti,P,typeof(first(ir))}(rs, first(I), last(I), first(ir), last(ir),
+                                                              beforestart, pastend, length(ir))
     end
 end
 
@@ -345,7 +340,7 @@ end
     end
 end
 @inline function Base.getindex(rs::SubUnitRangesSortedSet, i)
-    if indexcompare(rs, i, rs.firstindexnext) == -1
+    if indexcompare(rs, i, rs.firstindex) != 1
         return getindexhelper_firstrange(rs, i)
     elseif indexcompare(rs, i, rs.lastindex) == -1
         return getindex(rs.parent, i)
