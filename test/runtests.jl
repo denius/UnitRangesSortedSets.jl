@@ -17,80 +17,80 @@ end
             @eval begin
 
                 rs = $TypeURSS{$Ti}()
-                @test eltype(rs) == $Ti
-                @test typeof(rs) === $TypeURSS{$Ti}
+                @test eltype(rs) == UnitRange{$Ti}
+                @test typeof(rs) === $TypeURSS{$Ti,UnitRange{$Ti}}
                 @test length(rs) == 0
                 @test test_iseqial(rs, Vector{UnitRange{$Ti}}(undef, 0))
 
                 v = [1, 2]
                 vu = [1:2]
                 rs = $TypeURSS{$Ti}(v)
-                @test eltype(rs) == $Ti
-                @test typeof(rs) === $TypeURSS{$Ti}
+                @test eltype(rs) == UnitRange{$Ti}
+                @test typeof(rs) === $TypeURSS{$Ti,UnitRange{$Ti}}
                 @test length(rs) == 1
                 @test test_iseqial(rs, vu)
 
                 v = [1, 3, 4]
                 vu = [1:1, 3:4]
                 rs = $TypeURSS{$Ti}(v)
-                @test eltype(rs) == $Ti
-                @test typeof(rs) === $TypeURSS{$Ti}
+                @test eltype(rs) == UnitRange{$Ti}
+                @test typeof(rs) === $TypeURSS{$Ti,UnitRange{$Ti}}
                 @test length(rs) == 2
                 @test test_iseqial(rs, vu)
 
                 v = [$Ti(1), $Ti(3), $Ti(4)]
                 vu = [1:1, 3:4]
                 rs = $TypeURSS(v)
-                @test eltype(rs) == $Ti
-                @test typeof(rs) === $TypeURSS{$Ti}
+                @test eltype(rs) == UnitRange{$Ti}
+                @test typeof(rs) === $TypeURSS{$Ti,UnitRange{$Ti}}
                 @test length(rs) == 2
                 @test test_iseqial(rs, vu)
 
                 v = [3:4, 1:1]
                 vu = [1:1, 3:4]
                 rs = $TypeURSS{$Ti}(v)
-                @test eltype(rs) == $Ti
-                @test typeof(rs) === $TypeURSS{$Ti}
+                @test eltype(rs) == UnitRange{$Ti}
+                @test typeof(rs) === $TypeURSS{$Ti,UnitRange{$Ti}}
                 @test length(rs) == 2
                 @test test_iseqial(rs, vu)
 
                 v = [$Ti(3):$Ti(4), $Ti(1):$Ti(1)]
                 vu = [1:1, 3:4]
                 rs = $TypeURSS(v)
-                @test eltype(rs) == $Ti
-                @test typeof(rs) === $TypeURSS{$Ti}
+                @test eltype(rs) == UnitRange{$Ti}
+                @test typeof(rs) === $TypeURSS{$Ti,UnitRange{$Ti}}
                 @test length(rs) == 2
                 @test test_iseqial(rs, vu)
 
                 v = [3:4, 2:5, 1:1]
                 vu = [1:5]
                 rs = $TypeURSS{$Ti}(v)
-                @test eltype(rs) == $Ti
-                @test typeof(rs) === $TypeURSS{$Ti}
+                @test eltype(rs) == UnitRange{$Ti}
+                @test typeof(rs) === $TypeURSS{$Ti,UnitRange{$Ti}}
                 @test length(rs) == 1
                 @test test_iseqial(rs, vu)
 
                 v = [UInt64(3):UInt64(4), UInt64(1):UInt64(1)]
                 vu = [UInt64(1):UInt64(1), UInt64(3):UInt64(4)]
                 rs = $TypeURSS{$Ti}(v)
-                @test eltype(rs) == $Ti
-                @test typeof(rs) === $TypeURSS{$Ti}
+                @test eltype(rs) == UnitRange{$Ti}
+                @test typeof(rs) === $TypeURSS{$Ti,UnitRange{$Ti}}
                 @test length(rs) == 2
                 @test test_iseqial(rs, vu)
 
                 v = [UInt64(3), UInt64(4), UInt64(1)]
                 vu = [UInt64(1):UInt64(1), UInt64(3):UInt64(4)]
                 rs = $TypeURSS(v)
-                @test eltype(rs) == UInt64
-                @test typeof(rs) === $TypeURSS{UInt64}
+                @test eltype(rs) == UnitRange{UInt64}
+                @test typeof(rs) === $TypeURSS{UInt64,UnitRange{UInt64}}
                 @test length(rs) == 2
                 @test test_iseqial(rs, vu)
 
                 v = [UInt64(3):UInt64(4), UInt64(1):UInt64(1)]
                 vu = [UInt64(1):UInt64(1), UInt64(3):UInt64(4)]
                 rs = $TypeURSS(v)
-                @test eltype(rs) == UInt64
-                @test typeof(rs) === $TypeURSS{UInt64}
+                @test eltype(rs) == UnitRange{UInt64}
+                @test typeof(rs) === $TypeURSS{UInt64,UnitRange{UInt64}}
                 @test length(rs) == 2
                 @test test_iseqial(rs, vu)
             end
