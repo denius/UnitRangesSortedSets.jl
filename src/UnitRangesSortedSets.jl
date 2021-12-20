@@ -1,7 +1,7 @@
 
 module UnitRangesSortedSets
 export AbstractUnitRangesSortedSet, AbstractSubUnitRangesSortedSet, AbstractUnitRangesSortedContainer
-export UnitRangesSortedVector, UnitRangesSortedSet, SubUnitRangesSortedSet, URSSUnitRange
+export UnitRangesSortedVector, UnitRangesSortedSet, SubUnitRangesSortedSet, URSSIndexURange
 export testfun_create, testfun_createSV, testfun_createVL, testfun_create_seq, testfun_create_dense, testfun_delete!,
        testfun_in, testfun_in_outer, testfun_in_rand, testfun_in_seq, testfun_nzgetindex, testfun_setindex!
 export searchsortedrange, searchsortedfirstrange, searchsortedlastrange, getrange, getindex, beforestartindex, pastendindex
@@ -13,47 +13,96 @@ const FOrd = ForwardOrdering
 
 using DocStringExtensions
 using DataStructures
+import DataStructures: DataStructures.Tokens.IntSemiToken
 using IterTools
 using Setfield
 using Random
+
+
+@inline create_range(::Type{TU}, l, r) where {TU<:UnitRange{Ti}} where Ti = TU(l, r)
+@inline create_range(::Type{TU}, II::AbstractRange) where {TU<:UnitRange{Ti}} where Ti = TU(first(II), last(II))
+@inline create_range(::Type{TU}, l, r) where {TU<:StepRange{Ti,Tst}} where {Ti,Tst} = TU(l, Tst(1), r)
+@inline create_range(::Type{TU}, II::AbstractRange) where {TU<:StepRange{Ti,Tst}} where {Ti,Tst} = TU(first(II), Tst(1), last(II))
+
+
+@inline evalrangetype(::Type{Ti}) where {Ti<:Real} = UnitRange{Ti}
+@inline function evalrangetype(::Type{Ti}) where Ti
+    T = typeof(Ti(0):Ti(0))
+    return T <: StepRange ? StepRange{Ti,Int8} : T
+end
 
 
 abstract type AbstractUnitRangesSortedSet{Ti,TU} <: AbstractSet{TU} end
 abstract type AbstractUnitRangesSortedContainer{Ti,TU} <: AbstractUnitRangesSortedSet{Ti,TU} end
 abstract type AbstractSubUnitRangesSortedSet{Ti,TU,P} <: AbstractUnitRangesSortedSet{Ti,TU} end
 
+"""
+$(TYPEDEF)
+Immutable struct fields:
+$(TYPEDFIELDS)
+"""
 struct Sub0UnitRangesSortedSet{Ti,TU,P,Tix} <: AbstractSubUnitRangesSortedSet{Ti,TU,P}
+    "Empty range `kstart:kstop` for simplicity."
     data::TU
+    "The `<:AbstractUnitRangesSortedSet` which subset point to."
     parent::P
-    start::Ti
-    stop::Ti
+    "`kstart:kstop` is the bounds of subset."
+    kstart::Ti
+    kstop::Ti
+    "Empty range `firstindex:lastindex` locates the point in `parent` where `kstart:kstop` should be inserted."
     firstindex::Tix
     lastindex::Tix
+    "Pre `firstindex` position, used for acceleration of `iteration`."
     beforestartindex::Tix
+    "Post `lastindex` position, used for acceleration of `iteration`."
     pastendindex::Tix
+    "Length of subset."
     numranges::Int
 end
 
+"""
+$(TYPEDEF)
+Immutable struct fields:
+$(TYPEDFIELDS)
+"""
 struct Sub1UnitRangesSortedSet{Ti,TU,P,Tix} <: AbstractSubUnitRangesSortedSet{Ti,TU,P}
+    "Continuous range `kstart:kstop` for simplicity."
     data::TU
+    "The `<:AbstractUnitRangesSortedSet` which subset point to."
     parent::P
-    start::Ti
-    stop::Ti
+    "`kstart:kstop` is the bounds of subset."
+    kstart::Ti
+    kstop::Ti
+    "Range `firstindex:lastindex` locates the point in `parent` where `kstart:kstop` should be inserted."
     firstindex::Tix
     lastindex::Tix
+    "Pre `firstindex` position, used for acceleration of `iteration`."
     beforestartindex::Tix
+    "Post `lastindex` position, used for acceleration of `iteration`."
     pastendindex::Tix
+    "Length of subset."
     numranges::Int
 end
 
+"""
+$(TYPEDEF)
+Immutable struct fields:
+$(TYPEDFIELDS)
+"""
 struct SubUnitRangesSortedSet{Ti,TU,P,Tix} <: AbstractSubUnitRangesSortedSet{Ti,TU,P}
+    "The `<:AbstractUnitRangesSortedSet` which subset point to."
     parent::P
-    start::Ti
-    stop::Ti
+    "`kstart:kstop` is the bounds of subset."
+    kstart::Ti
+    kstop::Ti
+    "Range `firstindex:lastindex` locates the point in `parent` where `kstart:kstop` should be inserted."
     firstindex::Tix
     lastindex::Tix
+    "Pre `firstindex` position, used for acceleration of `iteration`."
     beforestartindex::Tix
+    "Post `lastindex` position, used for acceleration of `iteration`."
     pastendindex::Tix
+    "Length of subset."
     numranges::Int
 end
 
@@ -62,24 +111,24 @@ function subset(rs::P, II::AbstractRange) where {P<:AbstractUnitRangesSortedCont
     if first(II) > last(II)
 
     end
-    I = TU(first(II), last(II))
+    I = create_range(TU, II)
     ir = searchsortedrange(rs, I)
     if length(I) == 0 && length(ir) == 1
-        ir = UnitRange(first(ir) + 1, last(ir)) # CHECKME: zero UnitRange{SemiToken}
+        ir = create_indexrange(rs, first(ir), regress(rs, last(ir)))
     end
     beforestart = first(ir) != beforestartindex(rs) ? regress(rs, first(ir)) : first(ir)
     pastend = last(ir) != pastendindex(rs) ? advance(rs, last(ir)) : last(ir)
     if length(I) == 0 || length(ir) == 0
-        rdata = TU(first(I), last(I))
+        rdata = create_range(TU, I)
         return Sub0UnitRangesSortedSet{Ti,TU,P,typeof(first(ir))}(rdata, rs, first(I), last(I), first(ir), last(ir),
                                                                beforestart, pastend, length(ir))
     elseif length(ir) == 1
         rdata = getindex(rs, first(ir))
         if first(rdata) < first(I)
-            rdata = TU(first(I), last(rdata))
+            rdata = create_range(TU, first(I), last(rdata))
         end
         if last(I) < last(rdata)
-            rdata = TU(first(rdata), last(I))
+            rdata = create_range(TU, first(rdata), last(I))
         end
         return Sub1UnitRangesSortedSet{Ti,TU,P,typeof(first(ir))}(rdata, rs, first(I), last(I),
                                                                first(ir), last(ir), beforestart, pastend, length(ir))
@@ -89,7 +138,8 @@ function subset(rs::P, II::AbstractRange) where {P<:AbstractUnitRangesSortedCont
     end
 end
 
-Base.copy(rs::T) where {T<:AbstractSubUnitRangesSortedSet} = intersect(rs.parent, UnitRange(rs.start, rs.stop))
+@inline Base.copy(rs::T) where {T<:AbstractSubUnitRangesSortedSet{Ti,TU}} where {Ti,TU} =
+    intersect(rs.parent, create_range(TU, rs.kstart, rs.kstop))
 
 """
 Inserting zero, or negative length ranges does nothing.
@@ -98,15 +148,16 @@ Mutable struct fields:
 $(TYPEDFIELDS)
 """
 mutable struct UnitRangesSortedVector{Ti,TU} <: AbstractUnitRangesSortedContainer{Ti,TU}
-    "Index of last used range"
+    "Index of last used range."
     lastusedrangeindex::Int
-    "Storage for ranges"
+    "Storage for ranges starts,"
     rstarts::Vector{Ti}
+    "and stops."
     rstops::Vector{Ti}
 end
 
 UnitRangesSortedVector{Ti,TU}() where {Ti,TU} = UnitRangesSortedVector{Ti,TU}(0, Vector{Ti}(undef, 0), Vector{Ti}(undef, 0))
-UnitRangesSortedVector{Ti}() where {Ti} = UnitRangesSortedVector{Ti,UnitRange{Ti}}()
+UnitRangesSortedVector{Ti}() where {Ti} = UnitRangesSortedVector{Ti,evalrangetype(Ti)}()
 function UnitRangesSortedVector(rs::AbstractUnitRangesSortedSet{Ti,TU}) where {Ti,TU}
     rstarts = Vector{Ti}(undef, length(rs))
     rstops = Vector{Ti}(undef, length(rs))
@@ -124,9 +175,9 @@ Mutable struct fields:
 $(TYPEDFIELDS)
 """
 mutable struct UnitRangesSortedSet{Ti,TU} <: AbstractUnitRangesSortedContainer{Ti,TU}
-    "Index of last used range"
-    lastusedrangeindex::DataStructures.Tokens.IntSemiToken
-    "Storage for ranges: the ket of Dict is `first(range)`, and the value of Dict is the `last(range)`"
+    "Index of last used range."
+    lastusedrangeindex::IntSemiToken
+    "Storage for ranges: the ket of Dict is the `first(range)`, and the value of Dict is the `last(range)`."
     ranges::SortedDict{Ti,Ti,FOrd}
 end
 
@@ -134,7 +185,7 @@ function UnitRangesSortedSet{Ti,TU}() where {Ti,TU}
     ranges = SortedDict{Ti,Ti,FOrd}(Forward)
     UnitRangesSortedSet{Ti,TU}(beforestartsemitoken(ranges), ranges)
 end
-UnitRangesSortedSet{Ti}() where {Ti} = UnitRangesSortedSet{Ti,UnitRange{Ti}}()
+UnitRangesSortedSet{Ti}() where {Ti} = UnitRangesSortedSet{Ti,evalrangetype(Ti)}()
 function UnitRangesSortedSet(rs::AbstractUnitRangesSortedSet{Ti,TU}) where {Ti,TU}
     ranges = SortedDict{Ti,Ti,FOrd}(Forward)
     for r in rs
@@ -148,7 +199,7 @@ end
     eltype(values) <: AbstractRange ? T{eltype(eltype(values))}(values) : T{eltype(values)}(values)
 
 (::Type{T})(values::Union{AbstractVector, AbstractSet, Tuple}) where {T<:AbstractUnitRangesSortedContainer{Ti}} where {Ti} =
-    T{UnitRange{Ti}}(values)
+    T{evalrangetype(Ti)}(values)
 
 function (::Type{T})(values::Union{AbstractVector, AbstractSet, Tuple}) where {T<:AbstractUnitRangesSortedContainer{Ti,TU}} where {Ti,TU}
     rs = T()
@@ -158,10 +209,10 @@ function (::Type{T})(values::Union{AbstractVector, AbstractSet, Tuple}) where {T
     rs
 end
 
-function Base.convert(::Type{T}, rs::Union{UnitRangesSortedVector,UnitRangesSortedSet}) where {T<:AbstractVector{Tv}} where {Tv<:AbstractUnitRange}
+function Base.convert(::Type{T}, rs::Union{UnitRangesSortedVector,UnitRangesSortedSet}) where {T<:AbstractVector{Tv}} where {Tv<:AbstractRange}
     V = T(undef, length(rs))
     for (i, r) in enumerate(rs)
-        V[i] = r
+        V[i] = create_range(Tv, r)
     end
     V
 end
@@ -173,10 +224,10 @@ function Base.convert(::Type{T}, rs::Union{UnitRangesSortedVector,UnitRangesSort
     end
     V
 end
-function Base.convert(::Type{T}, rs::Union{UnitRangesSortedVector,UnitRangesSortedSet}) where {T<:AbstractSet{Tv}} where {Tv<:AbstractUnitRange}
+function Base.convert(::Type{T}, rs::Union{UnitRangesSortedVector,UnitRangesSortedSet}) where {T<:AbstractSet{Tv}} where {Tv<:AbstractRange}
     S = T()
     for r in rs
-        push!(S, r)
+        push!(S, create_range(Tv, r))
     end
     S
 end
@@ -188,8 +239,8 @@ function Base.convert(::Type{T}, rs::Union{UnitRangesSortedVector,UnitRangesSort
     S
 end
 
-"Type of `UnitRange` for `DataStructures.Tokens.IntSemiToken`."
-struct URSSUnitRange{P,Tix} <: AbstractUnitRange{Tix}
+"Type `UnitRange` for `DataStructures.Tokens.IntSemiToken`."
+struct URSSIndexURange{P,Tix} <: AbstractUnitRange{Tix}
     start::Tix
     stop::Tix
     parent::P
@@ -197,9 +248,21 @@ struct URSSUnitRange{P,Tix} <: AbstractUnitRange{Tix}
 end
 
 
-@inline function URSSUnitRange(rs::P, l::Tix, r::Tix) where {P<:UnitRangesSortedVector, Tix}
-    l < beforestartindex(rs) || l > pastendindex(rs) && return throw(BoundsError(rs, l))
-    r < beforestartindex(rs) || r > pastendindex(rs) && return throw(BoundsError(rs, r))
+
+"""
+Returns `UnitRange` and `UnitRange`-alike ranges which are used for searching and indexing ranges in `AbstractUnitRangesSortedSet`.
+Returned by `searchsorted()` function to point sought or missing ranges in given set.
+The usual `searchsorted()` function returns just `UnitRange`, but `UnitRangesSortedSet` uses
+`DataStructures.Tokens.IntSemiToken` to indexing keys/values and it is not possible to create `UnitRange{IntSemiToken}`,
+thus was created custom one named `URSSIndexURange`.
+"""
+@inline create_indexrange(parent::P, l, r) where {P<:UnitRangesSortedVector{Ti,TU}} where {Ti,TU} = UnitRange{Int}(l, r)
+@inline create_indexrange(parent::P, l, r) where {P<:UnitRangesSortedSet{Ti,TU}} where {Ti,TU} = URSSIndexURange(parent, l, r)
+
+
+@inline function URSSIndexURange(rs::P, l::Tix, r::Tix) where {P<:UnitRangesSortedVector, Tix}
+    @boundscheck l < beforestartindex(rs) || l > pastendindex(rs) && return throw(BoundsError(rs, l))
+    @boundscheck r < beforestartindex(rs) || r > pastendindex(rs) && return throw(BoundsError(rs, r))
     if l == pastendindex(rs) ||
        r == beforestartindex(rs) ||
        l > r
@@ -207,12 +270,12 @@ end
     else
         len = r - l + 1
     end
-    URSSUnitRange{P,Tix}(l, r, rs, len)
+    URSSIndexURange{P,Tix}(l, r, rs, len)
 end
 
-@inline function URSSUnitRange(rs::P, l::Tix, r::Tix) where {P<:UnitRangesSortedSet, Tix<:DataStructures.Tokens.IntSemiToken}
-    status((rs.ranges, l)) == 0 && return throw(KeyError(l))
-    status((rs.ranges, r)) == 0 && return throw(KeyError(r))
+@inline function URSSIndexURange(rs::P, l::Tix, r::Tix) where {P<:UnitRangesSortedSet, Tix<:IntSemiToken}
+    @boundscheck status((rs.ranges, l)) == 0 && return throw(KeyError(l))
+    @boundscheck status((rs.ranges, r)) == 0 && return throw(KeyError(r))
     if l == pastendindex(rs) ||
        r == beforestartindex(rs) ||
        compare(rs.ranges, l, r) == 1
@@ -225,47 +288,41 @@ end
             i = advance(rs, i)
         end
     end
-    URSSUnitRange{P,Tix}(l, r, rs, len)
+    URSSIndexURange{P,Tix}(l, r, rs, len)
 end
 
-@inline Base.length(ur::URSSUnitRange) = ur.len
-@inline Base.step(rs::URSSUnitRange) = 1
+@inline Base.length(ur::URSSIndexURange) = ur.len
+@inline Base.step(rs::URSSIndexURange) = 1
 
-@inline Base.:(==)(l::URSSUnitRange{Pl,Tixl}, r::URSSUnitRange{Pr,Tixr}) where
+@inline Base.:(==)(l::URSSIndexURange{Pl,Tixl}, r::URSSIndexURange{Pr,Tixr}) where
                    {Pl<:UnitRangesSortedSet,Tixl,Pr<:UnitRangesSortedVector,Tixr} = false
-@inline Base.:(==)(l::URSSUnitRange{Pl,Tixl}, r::URSSUnitRange{Pr,Tixr}) where
+@inline Base.:(==)(l::URSSIndexURange{Pl,Tixl}, r::URSSIndexURange{Pr,Tixr}) where
                    {Pl<:UnitRangesSortedVector,Tixl,Pr<:UnitRangesSortedSet,Tixr} = false
-@inline Base.:(==)(l::URSSUnitRange{Pl,Tixl}, r::URSSUnitRange{Pr,Tixr}) where
+@inline Base.:(==)(l::URSSIndexURange{Pl,Tixl}, r::URSSIndexURange{Pr,Tixr}) where
                    {Pl<:UnitRangesSortedVector,Tixl,Pr<:UnitRangesSortedVector,Tixr} =
     #l.parent === r.parent &&
     l.start == r.start &&
     l.stop == r.stop
-@inline Base.:(==)(l::URSSUnitRange{Pl,Tixl}, r::URSSUnitRange{Pr,Tixr}) where
+@inline Base.:(==)(l::URSSIndexURange{Pl,Tixl}, r::URSSIndexURange{Pr,Tixr}) where
                    {Pl<:UnitRangesSortedSet,Tixl,Pr<:UnitRangesSortedSet,Tixr} =
     #l.parent === r.parent &&
     compare(l.parent.ranges, l.start, r.start) == 0 &&
     compare(l.parent.ranges, l.stop, r.stop) == 0
 
-@inline Base.firstindex(ur::URSSUnitRange) = ur.start
-@inline Base.lastindex(ur::URSSUnitRange) = ur.stop
-@inline DataStructures.advance(ur::URSSUnitRange, st::DataStructures.Tokens.IntSemiToken) = advance((ur.parent, st))
-@inline DataStructures.regress(ur::URSSUnitRange, st::DataStructures.Tokens.IntSemiToken) = regress((ur.parent, st))
-@inline beforestartindex(ur::URSSUnitRange) = beforestartsemitoken(ur.parent)
-@inline pastendindex(ur::URSSUnitRange) = pastendsemitoken(ur.parent)
+#@inline Base.first(ur::URSSIndexURange) = ur.start
+#@inline Base.last(ur::URSSIndexURange) = ur.stop
+#@inline Base.firstindex(ur::URSSIndexURange) = ur.start
+#@inline Base.lastindex(ur::URSSIndexURange) = ur.stop
 
-@inline function Base.iterate(ur::URSSUnitRange, state = (firstindex(ur), 1))
-    st, i = state[1], state[2]
-    if i <= length(ur)
-        return (st, (advance(ur.parent, st), i + 1))
-    else
-        return nothing
-    end
-end
-
-#@inline Base.collect(ur::URSSUnitRange{P,Tix}) where {P<:UnitRangesSortedVector,Tix} =
+#@inline Base.collect(ur::URSSIndexURange{P,Tix}) where {P<:UnitRangesSortedVector,Tix} =
 #    map(s->getindex(ur.parent, s), ur.start:ur.stop)
-#@inline Base.collect(ur::URSSUnitRange{P,Tix}) where {P<:UnitRangesSortedSet,Tix} =
+#@inline Base.collect(ur::URSSIndexURange{P,Tix}) where {P<:UnitRangesSortedSet,Tix} =
 #    map(s->getindex(ur.parent, s), onlysemitokens(inclusive(ur.parent.ranges, ur.start, ur.stop)))
+
+@inline DataStructures.advance(ur::URSSIndexURange, st::IntSemiToken) = advance((ur.parent, st))
+@inline DataStructures.regress(ur::URSSIndexURange, st::IntSemiToken) = regress((ur.parent, st))
+@inline beforestartindex(ur::URSSIndexURange) = beforestartsemitoken(ur.parent)
+@inline pastendindex(ur::URSSIndexURange) = pastendsemitoken(ur.parent)
 
 Base.length(rs::UnitRangesSortedVector) = length(rs.rstarts)
 Base.length(rs::UnitRangesSortedSet) = length(rs.ranges)
@@ -279,11 +336,11 @@ Base.eltype(::AbstractUnitRangesSortedSet{Ti,TU}) where {Ti,TU} = TU
 #Base.IndexStyle(::AbstractUnitRangesSortedSet) = IndexLinear()
 
 
-function Base.collect(::Type{ElType}, rs::AbstractUnitRangesSortedSet) where ElType
-    res = Vector{UnitRange{ElType}}(undef, length(rs))
+function Base.collect(::Type{ElType}, rs::AbstractUnitRangesSortedSet{Ti,TU}) where {ElType,Ti,TU}
+    res = Vector{TU{ElType}}(undef, length(rs))
     i = 0
     for r in rs
-        res[i+=1] = UnitRange(ElType(first(r)), ElType(last(r)))
+        res[i+=1] = create_range(TU{ElType}, ElType(first(r)), ElType(last(r)))
     end
     return res
 end
@@ -291,7 +348,7 @@ function Base.collect(rs::AbstractUnitRangesSortedSet{Ti,TU}) where {Ti,TU}
     res = Vector{TU}(undef, length(rs))
     i = 0
     for r in rs
-        res[i+=1] = TU(first(r), last(r))
+        res[i+=1] = create_range(TU, r)
     end
     return res
 end
@@ -311,27 +368,24 @@ end
 
 @inline function getrange(rs::AbstractUnitRangesSortedSet{Ti,TU}, i) where {Ti,TU}
     if in(i, rs)
-        return TU(first(i), last(i))
+        return create_range(TU, first(i), last(i))
     else
         return nothing
     end
 end
 
 @inline getindex_tuple(rs::UnitRangesSortedVector, i) = (rs.rstarts[i], rs.rstops[i])
-@inline getindex_tuple(rs::UnitRangesSortedSet, i::DataStructures.Tokens.IntSemiToken) = tuple(deref((rs.ranges, i))...)
-@inline getindex_tuple(rs::Sub0UnitRangesSortedSet, i) = (rs.start, rs.stop)
+@inline getindex_tuple(rs::UnitRangesSortedSet, i::IntSemiToken) = tuple(deref((rs.ranges, i))...)
+@inline getindex_tuple(rs::Sub0UnitRangesSortedSet, i) = (rs.kstart, rs.kstop)
 @inline getindex_tuple(rs::Sub1UnitRangesSortedSet, i) = (r = getindex(rs, i); tuple(first(r), last(r)))
 @inline getindex_tuple(rs::SubUnitRangesSortedSet, i) = (r = getindex(rs, i); tuple(first(r), last(r)))
-@inline Base.getindex(ur::URSSUnitRange, i) = getindex(ur.parent, i)
-@inline Base.getindex(rs::UnitRangesSortedVector, i) = UnitRange(rs.rstarts[i], rs.rstops[i])
-@inline Base.getindex(rs::UnitRangesSortedSet, i::DataStructures.Tokens.IntSemiToken) = UnitRange(deref((rs.ranges, i))...)
+@inline Base.getindex(ur::URSSIndexURange, i) = getindex(ur.parent, i)
+@inline Base.getindex(rs::UnitRangesSortedVector{Ti,TU}, i) where {Ti,TU} = create_range(TU, rs.rstarts[i], rs.rstops[i])
+@inline Base.getindex(rs::UnitRangesSortedSet{Ti,TU}, i::IntSemiToken) where {Ti,TU} = create_range(TU, deref((rs.ranges, i))...)
 @inline Base.getindex(rs::Sub0UnitRangesSortedSet, i) = rs.data
-@inline function Base.getindex(rs::Sub1UnitRangesSortedSet, i)
-    if i == rs.firstindex
-        return rs.data
-    else
-        return UnitRange(rs.stop, rs.start)
-    end
+@inline function Base.getindex(rs::Sub1UnitRangesSortedSet{Ti,TU}, i) where {Ti,TU}
+    @boundscheck beforestartindex(rs) < i < pastendindex(rs) || throw(BoundsError(rs, i))
+    i == rs.firstindex ? rs.data : create_range(TU, rs.kstop, rs.kstart)
 end
 @inline function Base.getindex(rs::SubUnitRangesSortedSet, i)
     if indexcompare(rs, i, rs.firstindex) != 1
@@ -343,30 +397,31 @@ end
     end
 end
 
-function getindexhelper_firstrange(rs::SubUnitRangesSortedSet, i)
+function getindexhelper_firstrange(rs::SubUnitRangesSortedSet{Ti,TU}, i) where {Ti,TU}
     if indexcompare(rs, i, rs.firstindex) == -1
-        return UnitRange(rs.start + 1, rs.start) # zero range
+        return create_range(TU, rs.kstart, rs.kstart - 1) # zero range
+        #return create_range(TU, rs.kstart + 1, rs.kstart) # zero range
     else
         r = getindex(rs.parent, i)
-        if first(r) < rs.start
-            r = UnitRange(rs.start, last(r))
+        if first(r) < rs.kstart
+            r = create_range(TU, rs.kstart, last(r))
         end
-        if rs.stop < last(r)
-            r = UnitRange(first(r), rs.stop)
+        if rs.kstop < last(r)
+            r = create_range(TU, first(r), rs.kstop)
         end
         return r
     end
 end
-function getindexhelper_lastrange(rs::SubUnitRangesSortedSet, i)
+function getindexhelper_lastrange(rs::SubUnitRangesSortedSet{Ti,TU}, i) where {Ti,TU}
     if indexcompare(rs, rs.lastindex, i) == -1
-        return UnitRange(rs.stop, rs.stop - 1) # zero range
+        return create_range(TU, rs.kstop, rs.kstop - 1) # zero range
     else
         r = getindex(rs.parent, i)
-        if rs.stop < last(r)
-            r = UnitRange(first(r), rs.stop)
+        if rs.kstop < last(r)
+            r = create_range(TU, first(r), rs.kstop)
         end
-        if first(r) < rs.start
-            r = UnitRange(rs.start, last(r))
+        if first(r) < rs.kstart
+            r = create_range(TU, rs.kstart, last(r))
         end
         return r
     end
@@ -386,13 +441,13 @@ end
 @inline Base.lastindex(rs::UnitRangesSortedVector) = lastindex(rs.rstarts)
 @inline Base.lastindex(rs::UnitRangesSortedSet) = lastindex(rs.ranges)
 @inline Base.lastindex(rs::AbstractSubUnitRangesSortedSet) = rs.lastindex
-@inline Base.first(rs::UnitRangesSortedVector) = UnitRange(rs.rstarts[1], rs.rstops[1])
-@inline Base.first(rs::UnitRangesSortedSet) = UnitRange(deref((rs.ranges, startof(rs.ranges)))...)
+@inline Base.first(rs::UnitRangesSortedVector{Ti,TU}) where {Ti,TU} = create_range(TU, rs.rstarts[1], rs.rstops[1])
+@inline Base.first(rs::UnitRangesSortedSet{Ti,TU}) where {Ti,TU} = create_range(TU, deref((rs.ranges, startof(rs.ranges)))...)
 @inline Base.first(rs::Sub0UnitRangesSortedSet) = rs.data
 @inline Base.first(rs::Sub1UnitRangesSortedSet) = rs.data
 @inline Base.first(rs::SubUnitRangesSortedSet) = getindex(rs, firstindex(rs))
-@inline Base.last(rs::UnitRangesSortedVector) = UnitRange(rs.rstarts[end], rs.rstops[end])
-@inline Base.last(rs::UnitRangesSortedSet) = UnitRange(deref((rs.ranges, lastindex(rs.ranges)))...)
+@inline Base.last(rs::UnitRangesSortedVector{Ti,TU}) where {Ti,TU} = create_range(TU, rs.rstarts[end], rs.rstops[end])
+@inline Base.last(rs::UnitRangesSortedSet{Ti,TU}) where {Ti,TU} = create_range(TU, deref((rs.ranges, lastindex(rs.ranges)))...)
 @inline Base.last(rs::Sub0UnitRangesSortedSet) = rs.data
 @inline Base.last(rs::Sub1UnitRangesSortedSet) = rs.data
 @inline Base.last(rs::SubUnitRangesSortedSet) = getindex(rs, lastindex(rs))
@@ -469,18 +524,12 @@ function bisectionsearchfirst(V::AbstractVector, val, lo::T, hi::T) where T
 end
 
 
-#@inline searchsortedlastrange(rs::UnitRangesSortedVector, k) = searchsortedlast(rs.rstarts, k; lt=<)
 "Returns index of range in which, or after, `k` is placed."
 @inline searchsortedlastrange(rs::UnitRangesSortedVector, k) = bisectionsearchlast(rs.rstarts, k)
+#@inline searchsortedlastrange(rs::UnitRangesSortedVector, k) = searchsortedlast(rs.rstarts, k; lt=<)
 @inline searchsortedlastrange(rs::UnitRangesSortedSet, k) = searchsortedlast(rs.ranges, k)
 @inline searchsortedlastrange(rs::Sub0UnitRangesSortedSet, k) = rs.beforestartindex
-@inline function searchsortedlastrange(rs::Sub1UnitRangesSortedSet, k)
-    if k >= rs.start
-        return rs.firstindex
-    else
-        return rs.beforestartindex
-    end
-end
+@inline searchsortedlastrange(rs::Sub1UnitRangesSortedSet, k) = k >= rs.kstart ? rs.firstindex : rs.beforestartindex
 @inline searchsortedlastrange(rs::SubUnitRangesSortedSet{Ti,TU,P,Tix}, k) where {Ti,TU,P<:UnitRangesSortedVector,Tix} =
     bisectionsearchlast(rs.parent.rstarts, k, rs.firstindex, rs.lastindex)
 @inline function searchsortedlastrange(rs::SubUnitRangesSortedSet{Ti,TU,P,Tix}, k) where {Ti,TU,P<:UnitRangesSortedSet,Tix}
@@ -503,13 +552,7 @@ end
     end
 end
 @inline searchsortedfirstrange(rs::Sub0UnitRangesSortedSet, k) = rs.pastendindex
-@inline function searchsortedfirstrange(rs::Sub1UnitRangesSortedSet, k)
-    if k <= rs.stop
-        return rs.lastindex
-    else
-        return rs.pastendindex
-    end
-end
+@inline searchsortedfirstrange(rs::Sub1UnitRangesSortedSet, k) = k <= rs.kstop ? rs.lastindex : rs.pastendindex
 @inline searchsortedfirstrange(rs::SubUnitRangesSortedSet{Ti,TU,P,Tix}, k) where {Ti,TU,P<:UnitRangesSortedVector,Tix} =
     bisectionsearchfirst(rs.parent.rstops, k, rs.firstindex, rs.lastindex)
 @inline function searchsortedfirstrange(rs::SubUnitRangesSortedSet{Ti,TU,P,Tix}, k) where {Ti,TU,P<:UnitRangesSortedSet,Tix}
@@ -522,44 +565,19 @@ end
 end
 
 "Returns range of `rs` indexes which coincide or concluded in `I` range."
-@inline searchsortedrange(rs::UnitRangesSortedVector, I::AbstractRange) =
-    UnitRange(searchsortedfirstrange(rs, first(I)), searchsortedlastrange(rs, last(I)))
-@inline searchsortedrange(rs::UnitRangesSortedSet, I::AbstractRange) =
-    URSSUnitRange(rs, searchsortedfirstrange(rs, first(I)), searchsortedlastrange(rs, last(I)))
-
-#@inline searchsortedrange(rs::Sub0UnitRangesSortedSet{Ti,TU,P,Tix}, I::AbstractRange) where {Ti,TU,P<:UnitRangesSortedVector,Tix} =
-#    UnitRange(searchsortedfirstrange(rs, first(I)), searchsortedlastrange(rs, last(I)))
-#@inline searchsortedrange(rs::Sub0UnitRangesSortedSet{Ti,TU,P,Tix}, I::AbstractRange) where {Ti,TU,P<:UnitRangesSortedSet,Tix} =
-#    URSSUnitRange(rs, searchsortedfirstrange(rs, first(I)), searchsortedlastrange(rs, last(I)))
-#@inline searchsortedrange(rs::Sub1UnitRangesSortedSet{Ti,TU,P,Tix}, I::AbstractRange) where {Ti,TU,P<:UnitRangesSortedVector,Tix} =
-#    UnitRange(searchsortedfirstrange(rs, first(I)), searchsortedlastrange(rs, last(I)))
-#@inline searchsortedrange(rs::Sub1UnitRangesSortedSet{Ti,TU,P,Tix}, I::AbstractRange) where {Ti,TU,P<:UnitRangesSortedSet,Tix} =
-#    URSSUnitRange(rs, searchsortedfirstrange(rs, first(I)), searchsortedlastrange(rs, last(I)))
-#@inline searchsortedrange(rs::SubUnitRangesSortedSet{Ti,TU,P,Tix}, I::AbstractRange) where {Ti,TU,P<:UnitRangesSortedVector,Tix} =
-#    UnitRange(searchsortedfirstrange(rs, first(I)), searchsortedlastrange(rs, last(I)))
-#@inline searchsortedrange(rs::SubUnitRangesSortedSet{Ti,TU,P,Tix}, I::AbstractRange) where {Ti,TU,P<:UnitRangesSortedSet,Tix} =
-#    URSSUnitRange(rs, searchsortedfirstrange(rs, first(I)), searchsortedlastrange(rs, last(I)))
-@inline searchsortedrange(rs::AbstractSubUnitRangesSortedSet{Ti,TU,P}, I::AbstractRange) where {Ti,TU,P<:UnitRangesSortedVector} =
-    UnitRange(searchsortedfirstrange(rs, first(I)), searchsortedlastrange(rs, last(I)))
-@inline searchsortedrange(rs::AbstractSubUnitRangesSortedSet{Ti,TU,P}, I::AbstractRange) where {Ti,TU,P<:UnitRangesSortedSet} =
-    URSSUnitRange(rs, searchsortedfirstrange(rs, first(I)), searchsortedlastrange(rs, last(I)))
+@inline searchsortedrange(rs::AbstractUnitRangesSortedContainer, I::AbstractRange) =
+    create_indexrange(rs, searchsortedfirstrange(rs, first(I)), searchsortedlastrange(rs, last(I)))
+@inline searchsortedrange(rs::AbstractSubUnitRangesSortedSet, I::AbstractRange) =
+    create_indexrange(rs.parent, searchsortedfirstrange(rs, first(I)), searchsortedlastrange(rs, last(I)))
 
 "Returns indexes of range in `rs` in which `k` may be inserted. Or negative range in the case of `k` is
  between `rs` ranges, and indices of resulted range is the indexes of that neighbors."
-@inline function searchsortedrange(rs::UnitRangesSortedVector, k)
+@inline function searchsortedrange(rs::AbstractUnitRangesSortedContainer, k)
     st = searchsortedlastrange(rs, k)
     if st != beforestartindex(rs) && in(k, getindex(rs, st))
-        return UnitRange(st, st)
+        return create_indexrange(rs, st, st)
     else
-        return UnitRange(advance(rs, st), st)
-    end
-end
-@inline function searchsortedrange(rs::UnitRangesSortedSet, k)
-    st = searchsortedlastrange(rs, k)
-    if st != beforestartindex(rs) && in(k, getindex(rs, st))
-        return URSSUnitRange(rs, st, st)
-    else
-        return URSSUnitRange(rs, advance(rs, st), st)
+        return create_indexrange(rs, advance(rs, st), st)
     end
 end
 
@@ -598,6 +616,14 @@ end
     end
 end
 
+@inline function Base.iterate(ur::URSSIndexURange, state = (first(ur), 1))
+    st, i = state[1], state[2]
+    if i - 1 < length(ur)
+        return (st, (advance(ur.parent, st), i + 1))
+    else
+        return nothing
+    end
+end
 
 @inline function eachindexiterate(rs::AbstractUnitRangesSortedSet, state = firstindex(rs))
     if state != pastendindex(rs)
@@ -645,8 +671,11 @@ Base.eachindex(rs::T) where {T<:AbstractSubUnitRangesSortedSet} = eachindexitera
 # Assignments
 #
 
-@inline function Base.in(II::AbstractRange, rs::AbstractUnitRangesSortedSet{Ti,TU}) where {Ti,TU}
-    I = TU(first(II), last(II))
+
+@inline Base.in(II::AbstractRange, rs::AbstractUnitRangesSortedSet{Ti,TU}) where {Ti,TU} = _in(create_range(TU, II), rs)
+@inline Base.in(II::TU, rs::AbstractUnitRangesSortedSet{Ti,TU}) where {Ti,TU} = _in(II, rs)
+
+@inline function _in(I::TU, rs::AbstractUnitRangesSortedSet{Ti,TU}) where {Ti,TU}
     # fast check for cached range index
     if (st = rs.lastusedrangeindex) != beforestartindex(rs)
         if issubset(I, getindex(rs, st))
@@ -689,11 +718,13 @@ end
 
 @inline Base.in(II::AbstractRange, su::Sub0UnitRangesSortedSet) = false
 @inline Base.in(key, su::Sub0UnitRangesSortedSet) = false
-@inline Base.in(II::AbstractRange, su::Sub1UnitRangesSortedSet{Ti,TU}) where {Ti,TU} = issubset(TU(first(II), last(II)), su.data)
+@inline Base.in(II::AbstractRange, su::Sub1UnitRangesSortedSet{Ti,TU}) where {Ti,TU} = issubset(create_range(TU, II), su.data)
+@inline Base.in(II::TU, su::Sub1UnitRangesSortedSet{Ti,TU}) where {Ti,TU} = issubset(II, su.data)
 @inline Base.in(key, su::Sub1UnitRangesSortedSet{Ti}) where {Ti} = in(Ti(key), su.data)
 
-@inline function Base.in(II::AbstractRange, su::SubUnitRangesSortedSet{Ti,TU}) where {Ti,TU}
-    I = TU(first(II), last(II))
+@inline Base.in(II::AbstractRange, su::SubUnitRangesSortedSet{Ti,TU}) where {Ti,TU} = _in(create_range(TU, II), su)
+@inline Base.in(II::TU, su::SubUnitRangesSortedSet{Ti,TU}) where {Ti,TU} = _in(II, su)
+@inline function _in(I::TU, su::SubUnitRangesSortedSet{Ti,TU}) where {Ti,TU}
     # fast check for cached range index
     if (st = su.parent.lastusedrangeindex) != beforestartindex(su.parent)
         if issubset(I, getindex(su, st))
@@ -744,14 +775,11 @@ function Base.push!(rs::UnitRangesSortedVector{Ti,TU}, II::Union{AbstractVector,
     rs
 end
 
-convert_to_range(::Type{TU}, II::AbstractRange) where {TU<:UnitRange{Ti}} where Ti = TU(first(II), last(II))
-convert_to_range(::Type{TU}, II::AbstractRange) where {TU<:StepRange{Ti,Tst}} where {Ti,Tst} = TU(first(II), Tst(1), last(II))
 
-Base.push!(rs::UnitRangesSortedVector{Ti,TU}, II::AbstractRange) where {Ti,TU} = _push!(rs, convert_to_range(TU, II))
-Base.push!(rs::UnitRangesSortedVector{Ti,TU}, II::TU) where {Ti,TU} = _push!(rs, II)
+@inline Base.push!(rs::UnitRangesSortedVector{Ti,TU}, II::AbstractRange) where {Ti,TU} = _push!(rs, create_range(TU, II))
+@inline Base.push!(rs::UnitRangesSortedVector{Ti,TU}, II::TU) where {Ti,TU} = _push!(rs, II)
 
 function _push!(rs::UnitRangesSortedVector{Ti,TU}, I::TU) where {Ti,TU}
-    #I = TU(first(II), last(II))
 
     if length(I) < 2
         for i in I
@@ -847,8 +875,9 @@ function Base.push!(rs::UnitRangesSortedSet{Ti,TU}, II::Union{AbstractVector,Abs
     rs
 end
 
-function Base.push!(rs::UnitRangesSortedSet{Ti,TU}, II::AbstractRange) where {Ti,TU}
-    I = TU(first(II), last(II))
+@inline Base.push!(rs::UnitRangesSortedSet{Ti,TU}, II::AbstractRange) where {Ti,TU} = _push!(rs, create_range(TU, II))
+@inline Base.push!(rs::UnitRangesSortedSet{Ti,TU}, II::TU) where {Ti,TU} = _push!(rs, II)
+function _push!(rs::UnitRangesSortedSet{Ti,TU}, I::TU) where {Ti,TU}
 
     if length(I) < 2
         for i in I
@@ -1105,10 +1134,10 @@ function Base.delete!(rs::UnitRangesSortedVector{Ti,TU}, II::T) where {Ti,TU, T<
     rs
 end
 
-function Base.delete!(rs::UnitRangesSortedVector{Ti,TU}, II::AbstractRange) where {Ti,TU}
-    length(II) == 0 && return rs
-
-    I = TU(first(II), last(II))
+@inline Base.delete!(rs::UnitRangesSortedVector{Ti,TU}, II::AbstractRange) where {Ti,TU} = _delete!(rs, create_range(TU, II))
+@inline Base.delete!(rs::UnitRangesSortedVector{Ti,TU}, II::TU) where {Ti,TU} = _delete!(rs, II)
+function _delete!(rs::UnitRangesSortedVector{Ti,TU}, I::TU) where {Ti,TU}
+    length(I) == 0 && return rs
 
     Iposition = searchsortedrange(rs, I)
     length(Iposition) == 0 && return rs
@@ -1175,10 +1204,10 @@ function Base.delete!(rs::UnitRangesSortedSet{Ti,TU}, II::Union{AbstractVector,A
     rs
 end
 
-function Base.delete!(rs::UnitRangesSortedSet{Ti,TU}, II::AbstractRange) where {Ti,TU}
-    length(II) == 0 && return rs
-
-    I = TU(first(II), last(II))
+@inline Base.delete!(rs::UnitRangesSortedSet{Ti,TU}, II::AbstractRange) where {Ti,TU} = _delete!(rs, create_range(TU, II))
+@inline Base.delete!(rs::UnitRangesSortedSet{Ti,TU}, II::TU) where {Ti,TU} = _delete!(rs, II)
+function _delete!(rs::UnitRangesSortedSet{Ti,TU}, I::TU) where {Ti,TU}
+    length(I) == 0 && return rs
 
     Iposition = searchsortedrange(rs, I)
     length(Iposition) == 0 && return rs
@@ -1475,13 +1504,12 @@ function Base.filter!(pred::Function, rs::AbstractUnitRangesSortedContainer)
     rs
 end
 
-function Base.intersect!(rs::AbstractUnitRangesSortedContainer{Ti,TU}, II::AbstractRange) where {Ti,TU}
-    length(II) == 0 && return empty!(rs)
-    I = TU(first(II), last(II))
-
+@inline Base.intersect!(rs::AbstractUnitRangesSortedContainer{Ti,TU}, II::AbstractRange) where {Ti,TU} = __intersect!(rs, create_range(TU,II))
+@inline Base.intersect!(rs::AbstractUnitRangesSortedContainer{Ti,TU}, II::TU) where {Ti,TU} = __intersect!(rs, II)
+function __intersect!(rs::AbstractUnitRangesSortedContainer{Ti,TU}, I::TU) where {Ti,TU}
+    length(I) == 0 && return empty!(rs)
     delete!(rs, last(I) + 1:getindex_rangestop(rs, lastindex(rs)))
     delete!(rs, getindex_rangestart(rs, firstindex(rs)):first(I) - 1)
-
     rs
 end
 
@@ -1620,9 +1648,9 @@ end
 unionallname(T::Type) = string(T.name.wrapper)
 datatypeshortname(x) = (T = typeof(x); unionallname(T) * "{" * string(eltype(eltype(T))) * "}")
 
-Base.show(io::IO, ur::URSSUnitRange) = print(io, repr(first(ur)), ':', length(ur) == 0 ? "0" : "1" , ':', repr(last(ur)))
+Base.show(io::IO, ur::URSSIndexURange) = print(io, repr(first(ur)), ':', length(ur) == 0 ? "0" : "1" , ':', repr(last(ur)))
 
-function Base.show(io::IO, ::MIME"text/plain", x::URSSUnitRange)
+function Base.show(io::IO, ::MIME"text/plain", x::URSSIndexURange)
     len = length(x)
     print(io, len, "-element range ", first(x), ":", last(x), " in ", datatypeshortname(x.parent))
     if len != 0
@@ -1631,7 +1659,7 @@ function Base.show(io::IO, ::MIME"text/plain", x::URSSUnitRange)
     end
 end
 
-function Base.show(io::IOContext, x::URSSUnitRange)
+function Base.show(io::IOContext, x::URSSIndexURange)
     ranges = [getindex(x, s) for s in x]
 
     n = length(ranges)
