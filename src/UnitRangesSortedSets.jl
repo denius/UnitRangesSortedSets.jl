@@ -339,7 +339,7 @@ end
 @inline Base.getindex(rs::Sub0UnitRangesSortedSet, i) = rs.data
 @inline function Base.getindex(rs::Sub1UnitRangesSortedSet, i)
     if i == rs.firstindex
-        return rs.parent
+        return rs.data
     else
         return UnitRange(rs.stop, rs.start)
     end
@@ -399,8 +399,8 @@ end
 @inline Base.lastindex(rs::AbstractSubUnitRangesSortedSet) = rs.lastindex
 @inline Base.first(rs::UnitRangesSortedVector) = UnitRange(rs.rstarts[1], rs.rstops[1])
 @inline Base.first(rs::UnitRangesSortedSet) = UnitRange(deref((rs.ranges, startof(rs.ranges)))...)
-@inline Base.first(rs::Sub0UnitRangesSortedSet) = rs.parent
-@inline Base.first(rs::Sub1UnitRangesSortedSet) = rs.parent
+@inline Base.first(rs::Sub0UnitRangesSortedSet) = rs.data
+@inline Base.first(rs::Sub1UnitRangesSortedSet) = rs.data
 @inline function Base.first(rs::SubUnitRangesSortedSet{Ti,P,Tidx}) where {Ti,P,Tidx}
     if length(rs) != 0
         return getindex(rs, firstindex(rs))
@@ -412,8 +412,8 @@ end
 end
 @inline Base.last(rs::UnitRangesSortedVector) = UnitRange(rs.rstarts[end], rs.rstops[end])
 @inline Base.last(rs::UnitRangesSortedSet) = UnitRange(deref((rs.ranges, lastindex(rs.ranges)))...)
-@inline Base.last(rs::Sub0UnitRangesSortedSet) = rs.parent
-@inline Base.last(rs::Sub1UnitRangesSortedSet) = rs.parent
+@inline Base.last(rs::Sub0UnitRangesSortedSet) = rs.data
+@inline Base.last(rs::Sub1UnitRangesSortedSet) = rs.data
 @inline function Base.last(rs::SubUnitRangesSortedSet{Ti,P,Tidx}) where {Ti,P,Tidx}
     if length(rs) != 0
         getindex(rs, lastindex(rs))
@@ -1386,6 +1386,61 @@ end
 
 @inline Base.union!(rs::AbstractUnitRangesSortedContainer, r::AbstractRange) = push!(rs, r)
 
+
+Base.setdiff(rs::AbstractUnitRangesSortedSet, rss...) = setdiff!(copy(rs), rss...)
+Base.setdiff(rs::AbstractUnitRangesSortedSet, rs2) = setdiff!(copy(rs), rs2)
+
+@inline Base.setdiff!(rs::AbstractUnitRangesSortedContainer, rss...) = setdiff!(setdiff!(rs, rss[1]), Base.tail(rss)...)
+function Base.setdiff!(rs::AbstractUnitRangesSortedContainer, rs2)
+    if hasmethod(Iterators.reverse, Tuple{typeof(rs2)})
+        for r in Iterators.reverse(rs2)
+            delete!(rs, r)
+        end
+    else
+        for r in rs2
+            delete!(rs, r)
+        end
+    end
+    return rs
+end
+
+Base.symdiff(rs::AbstractUnitRangesSortedSet, sets...) = symdiff!(empty(rs), rs, sets...)
+Base.symdiff(rs::AbstractUnitRangesSortedSet, s) = symdiff!(copy(rs), s)
+
+#function Base.symdiff!(rs::AbstractUnitRangesSortedSet, itrs...)
+#    for x in itrs
+#        symdiff!(rs, x)
+#    end
+#    return rs
+#end
+
+@inline Base.symdiff!(rs::AbstractUnitRangesSortedContainer, rss...) = symdiff!(symdiff!(rs, rss[1]), Base.tail(rss)...)
+function Base.symdiff!(rs1::AbstractUnitRangesSortedContainer, rs2)
+    for r in rs2
+        ss = subset(rs1, r)
+        vv = collect(ss)
+        if length(vv) == 0
+            push!(rs1, r)
+        elseif length(vv) == 1
+            delete!(rs1, vv[1])
+            push!(rs1, first(r):first(vv[1])-1)
+            push!(rs1, last(vv[1])+1:last(r))
+        else
+            push!(rs1, first(r):first(vv[1])-1)
+            push!(rs1, last(vv[end])+1:last(r))
+            rnext, rhead = Iterators.peel(Iterators.reverse(vv))
+            delete!(rs1, rnext)
+            for rr in rhead
+                delete!(rs1, rr)
+                push!(rs1, last(rr)+1:first(rnext)-1)
+                rnext = rr
+            end
+        end
+    end
+    return rs1
+end
+
+
 @inline Base.:(==)(rs1::T1, rs2::T2) where {T1<:AbstractUnitRangesSortedSet, T2<:AbstractUnitRangesSortedSet} =
     T1 == T2 && isequal(rs1, rs2)
 
@@ -1455,10 +1510,18 @@ function Base.intersect!(rs1::AbstractUnitRangesSortedContainer, rs2::AbstractUn
 
     length(rs2) == 1 && return rs1
 
-    rprev, rs2tail = Iterators.peel(rs2)
-    for r in rs2tail
-        delete!(rs1, last(rprev)+1:first(r)-1)
-        rprev = r
+    if hasmethod(Iterators.reverse, Tuple{typeof(rs2)})
+        rnext, rs2head = Iterators.peel(Iterators.reverse(rs2))
+        for r in rs2head
+            delete!(rs1, last(r)+1:first(rnext)-1)
+            rnext = r
+        end
+    else
+        rprev, rs2tail = Iterators.peel(rs2)
+        for r in rs2tail
+            delete!(rs1, last(rprev)+1:first(r)-1)
+            rprev = r
+        end
     end
 
     rs1
@@ -1477,10 +1540,18 @@ function _intersect!(rs1::AbstractUnitRangesSortedContainer, rs2)
 
     length(rv2) == 1 && return rs1
 
-    rprev, rs2tail = Iterators.peel(rv2)
-    for r in rs2tail
-        delete!(rs1, rprev+1:r-1)
-        rprev = r
+    if hasmethod(Iterators.reverse, Tuple{typeof(rv2)})
+        rnext, rv2head = Iterators.peel(Iterators.reverse(rv2))
+        for r in rv2head
+            delete!(rs1, r+1:rnext-1)
+            rnext = r
+        end
+    else
+        rprev, rv2tail = Iterators.peel(rv2)
+        for r in rv2tail
+            delete!(rs1, rprev+1:r-1)
+            rprev = r
+        end
     end
 
     rs1
@@ -1496,11 +1567,20 @@ function Base.intersect!(rs1::AbstractUnitRangesSortedContainer, rs2::Union{Abst
 
     length(rv2) == 1 && return rs1
 
-    rprev, rs2tail = Iterators.peel(rv2)
-    for r in rs2tail
-        delete!(rs1, last(rprev)+1:first(r)-1)
-        rprev = r
+    if hasmethod(Iterators.reverse, Tuple{typeof(rv2)})
+        rnext, rv2head = Iterators.peel(Iterators.reverse(rv2))
+        for r in rv2head
+            delete!(rs1, last(r)+1:first(rnext)-1)
+            rnext = r
+        end
+    else
+        rprev, rv2tail = Iterators.peel(rv2)
+        for r in rv2tail
+            delete!(rs1, last(rprev)+1:first(r)-1)
+            rprev = r
+        end
     end
+
 
     rs1
 end
