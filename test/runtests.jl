@@ -1,5 +1,5 @@
-using .UnitRangesSortedSets
-import .UnitRangesSortedSets: inferrangetype, to_urange
+using UnitRangesSortedSets
+import UnitRangesSortedSets: inferrangetype, to_urange
 using Test
 
 # https://github.com/JuliaLang/julia/issues/39952
