@@ -230,8 +230,8 @@ function (::Type{T})(values::Union{AbstractVector, AbstractSet, Tuple}) where {T
     rs
 end
 
-Base.convert(::Type{<:UnitRangesSortedVector}, rs::UnitRangesSortedVector) = rs
-Base.convert(::Type{<:UnitRangesSortedSet}, rs::UnitRangesSortedSet) = rs
+Base.convert(::Type{<:UnitRangesSortedVector{K}}, rs::UnitRangesSortedVector{K}) where K = rs
+Base.convert(::Type{<:UnitRangesSortedSet{K}}, rs::UnitRangesSortedSet{K}) where K = rs
 function Base.convert(::Type{T}, rs::Union{UnitRangesSortedVector,UnitRangesSortedSet}) where {T<:AbstractVector{Tv}} where {Tv<:AbstractRange}
     V = T(undef, length(rs))
     for (i, r) in enumerate(rs)
@@ -425,7 +425,7 @@ end
     getindex(ur.parent, i)
 end
 @inline Base.getindex(rs::Sub0UnitRangesSortedSet{K,TU}, i) where {K,TU} =
-    (throw(BoundsError(rs)); to_urange(TU, typemin(K), typemin(K)))
+    (throw(BoundsError(rs)); to_urange(TU, rs.kstart, rs.kstop))
 @inline function Base.getindex(rs::Sub1UnitRangesSortedSet, i)
     @boundscheck i == rs.firstindex || throw(BoundsError(rs, i))
     rs.singlerange
@@ -631,9 +631,9 @@ Base.findall(pred::Function, rs::AbstractUnitRangesSortedSet) = collect(r for r 
 
 @inline Base.iterate(rs::Sub0UnitRangesSortedSet{K,TU}, state = 1) where {K,TU} =
     # for type inference
-    rs.kstart > rs.kstop ? nothing : (to_urange(TU, typemin(K), typemin(K)), state)
+    rs.kstart > rs.kstop ? nothing : (to_urange(TU, rs.kstart, rs.kstop), state)
 @inline Base.iterate(rrs::Base.Iterators.Reverse{T}, state = 1) where {T<:Sub0UnitRangesSortedSet{K,TU}} where {K,TU} =
-    rrs.itr.kstart > rrs.itr.kstop ? nothing : (to_urange(TU, typemin(K), typemin(K)), state)
+    rrs.itr.kstart > rrs.itr.kstop ? nothing : (to_urange(TU, rrs.itr.kstart, rrs.itr.kstop), state)
 
 
 @inline Base.iterate(rs::Sub1UnitRangesSortedSet) = (rs.singlerange, rs.firstindex)
@@ -889,10 +889,10 @@ end
 
 function _push!(rs::UnitRangesSortedVector{K,TU}, I::TU) where {K,TU}
 
-    if length(I) < 2
-        for i in I
-            push!(rs, i)
-        end
+    if length(I) == 0
+        return rs
+    elseif length(I) == 1
+        push!(rs, first(I))
         return rs
     end
 
@@ -987,10 +987,10 @@ end
 @inline Base.push!(rs::UnitRangesSortedSet{K,TU}, II::TU) where {K,TU} = _push!(rs, II)
 function _push!(rs::UnitRangesSortedSet{K,TU}, I::TU) where {K,TU}
 
-    if length(I) < 2
-        for i in I
-            push!(rs, i)
-        end
+    if length(I) == 0
+        return rs
+    elseif length(I) == 1
+        push!(rs, first(I))
         return rs
     end
 
@@ -1016,10 +1016,12 @@ function _push!(rs::UnitRangesSortedSet{K,TU}, I::TU) where {K,TU}
 
     Iposition_left = last(Iposition)
     Iposition_right = first(Iposition)
-    Iposition_left_rangestop = Iposition_left != beforestartindex(rs) ? getindex_rangestop(rs, Iposition_left) :
-                                                                         typemin(K)
-    Iposition_right_rangestart = Iposition_right != pastendindex(rs) ? getindex_rangestart(rs, Iposition_right) :
-                                                                        typemax(K)
+    Iposition_left_rangestop = Iposition_left != beforestartindex(rs) ? getindex_rangestop(rs, Iposition_left) : K(0)
+    Iposition_right_rangestart = Iposition_right != pastendindex(rs) ? getindex_rangestart(rs, Iposition_right) : K(0)
+    #Iposition_left_rangestop = Iposition_left != beforestartindex(rs) ?
+    #                                             getindex_rangestop(rs, Iposition_left) : typemin(K)
+    #Iposition_right_rangestart = Iposition_right != pastendindex(rs) ?
+    #                                                getindex_rangestart(rs, Iposition_right) : typemax(K)
 
     # `I` is adjoined in both sides with `rs` ranges, thus join them all
     if Iposition_left != beforestartindex(rs) && Iposition_left_rangestop + 1 == first(I) &&
