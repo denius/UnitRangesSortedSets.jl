@@ -412,9 +412,8 @@ end
 
 
 @testset "`subset`" begin
-
-    for K in (Int, UInt64, UInt16, Float64)
-        for TypeURSS in (UnitRangesSortedVector, UnitRangesSortedSet)
+    for K in list_of_Ti_to_test
+        for TypeURSS in list_of_containers_types_to_test
             @eval begin
 
                 rs = $TypeURSS{$K}((1:6, 8:16, 20:33, 35:47, 49:50))
@@ -474,8 +473,8 @@ end
 
 
 @testset "`Set` API" begin
-    for K in (Int, UInt64, UInt16, Float64)
-        for TypeURSS in (UnitRangesSortedVector, UnitRangesSortedSet)
+    for K in list_of_Ti_to_test
+        for TypeURSS in list_of_containers_types_to_test
             @eval begin
 
                 @test union($TypeURSS{$K}((0:0, 2:4)), $TypeURSS{$K}((2:3, 5:6))) == $TypeURSS{$K}((0:0, 2:6))
@@ -515,12 +514,12 @@ end
                 @test issubset(0:0, rs)
                 @test !issubset(0:1, rs)
                 @test !issubset([0:1, 2:4], rs)
-                @test issubset(rs, [0:1, 2:4])
+                @test issubset(rs, convertinfer($K, [0:1, 2:4]))
                 @test issubset([0:0, 2:4], rs)
-                @test issubset(rs, [0:0, 2:4])
-                @test !issubset(rs, [0:0, 3:4])
-                @test issubset(rs, 0:4)
-                @test !issubset(rs, 0:3)
+                @test issubset(rs, convertinfer($K, [0:0, 2:4]))
+                @test !issubset(rs, convertinfer($K, [0:0, 3:4]))
+                @test issubset(rs, convertinfer($K, 0:4))
+                @test !issubset(rs, convertinfer($K, 0:3))
                 rs2 = copy(rs)
                 @test rs2 == rs && rs2 !== rs
                 @test issubset(rs2, rs)
@@ -536,8 +535,8 @@ end
 
 
 @testset "`show`" begin
-    for K in (Int, UInt64, UInt16, Float64)
-        for TypeURSS in (UnitRangesSortedVector, UnitRangesSortedSet)
+    for K in list_of_Ti_to_test
+        for TypeURSS in list_of_containers_types_to_test
             @eval begin
 
                 io = IOBuffer()
@@ -552,9 +551,10 @@ end
                 rs = $TypeURSS{$K}((0:0, 2:4))
                 show(io, MIME("text/plain"), rs)
                 T = $TypeURSS{$K}
+                pad = UnitRangesSortedSets.get_max_pad(rs)
                 @test String(take!(io)) == "$T():\n" *
-                                           "  " * repr($K(0)) * ":" * repr($K(0)) * "\n" *
-                                           "  " * repr($K(2)) * ":" * repr($K(4))
+                                           "  " * " "^(pad-length(repr($K(0)))) * repr($K(0)) * ":" * repr($K(0)) * "\n" *
+                                           "  " * " "^(pad-length(repr($K(2)))) * repr($K(2)) * ":" * repr($K(4))
 
             end
         end
