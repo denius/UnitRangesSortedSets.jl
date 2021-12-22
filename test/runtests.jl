@@ -11,22 +11,29 @@ const list_of_Ti_to_test = (Int, UInt64, UInt16, Float64, Char)
 const list_of_containers_types_to_test = (UnitRangesSortedVector, UnitRangesSortedSet)
 
 
-function check_isequal(rs1, rs2)
-    length(rs1) == length(rs2) || return false
-    for (r1, r2) in zip(rs1, rs2)
-        step(r1)  == step(r2)  || return false
-        first(r1) == first(r2) || return false
-        last(r1)  == last(r2)  || return false
+function check_ranges_isequal(r::AbstractRange{K}, rs...) where K
+    for rr in rs
+        step(r)  == step(rr)  || return false
+        first(r) == K(first(rr)) || return false
+        last(r)  == K(last(rr))  || return false
     end
     return true
 end
 
-function test_isequal(rs1, rs2, Tv::Type)
+function check_isequal(rs1::AbstractUnitRangesSortedContainer{K}, rs2) where K
+    length(rs1) == length(rs2) || return false
+    for (r1, r2) in zip(rs1, rs2)
+        check_ranges_isequal(r1, r2) || return false
+    end
+    return true
+end
+
+function test_isequal(rs1::AbstractUnitRangesSortedContainer{K}, rs2) where K
     @test length(rs1) == length(rs2)
     for (r1, r2) in zip(rs1, rs2)
         @test step(r1)  == step(r2)
-        @test first(r1) == Tv(first(r2))
-        @test last(r1)  == Tv(last(r2))
+        @test first(r1) == K(first(r2))
+        @test last(r1)  == K(last(r2))
     end
 end
 
@@ -34,7 +41,7 @@ function test_range_create(rs::T, vu, Tv::Type) where {T<:AbstractUnitRangesSort
     Trange = inferrangetype(Tv)
     @test eltype(rs) === Trange
     @test typeof(rs) === basetype(T){Tv,Trange}
-    test_isequal(rs, vu, Tv)
+    test_isequal(rs, vu)
 end
 
 @testset "Creating" begin
@@ -212,8 +219,8 @@ end
 end
 
 @testset "`in`" begin
-    for K in (Int, UInt64, UInt16, Float64, Char)
-        for TypeURSS in (UnitRangesSortedVector, UnitRangesSortedSet)
+    for K in list_of_Ti_to_test
+        for TypeURSS in list_of_containers_types_to_test
             @eval begin
 
                 v = [1, 2, 3, 5, 6, 8]
@@ -239,8 +246,8 @@ end
 
 
 @testset "`push!`" begin
-    for K in (Int, UInt64, UInt16, Float64)
-        for TypeURSS in (UnitRangesSortedVector, UnitRangesSortedSet)
+    for K in list_of_Ti_to_test
+        for TypeURSS in list_of_containers_types_to_test
             @eval begin
 
                 rs = $TypeURSS{$K}()
@@ -278,8 +285,8 @@ end
 
 
 @testset "`delete!`" begin
-    for K in (Int, UInt64, UInt16, Float64)
-        for TypeURSS in (UnitRangesSortedVector, UnitRangesSortedSet)
+    for K in list_of_Ti_to_test
+        for TypeURSS in list_of_containers_types_to_test
             @eval begin
 
                 rs = $TypeURSS{$K}((0:0, 2:4, 8:8, 10:12))
@@ -313,8 +320,8 @@ end
 function test_iterators(rs, vu, T::Type)
     @test basetype(typeof(rs)) == T
     @test length(rs) == length(vu)
-    @test rs[begin] == first(rs) == first(vu)
-    @test rs[end] == last(rs) == last(vu)
+    @test check_ranges_isequal(rs[begin], first(rs), first(vu))
+    @test check_ranges_isequal(rs[end], last(rs), last(vu))
     @test check_isequal(rs, vu)
     @test check_isequal(Iterators.reverse(rs), Iterators.reverse(vu))
     @test [r for r in rs] == [r for r in vu]
@@ -344,9 +351,8 @@ end
 
 
 @testset "Common functions" begin
-
-    for K in (Int, UInt64, UInt16, Float64)
-        for TypeURSS in (UnitRangesSortedVector, UnitRangesSortedSet)
+    for K in list_of_Ti_to_test
+        for TypeURSS in list_of_containers_types_to_test
             @eval begin
 
                 rs = $TypeURSS{$K}()
