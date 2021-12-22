@@ -11,16 +11,16 @@ const list_of_Ti_to_test = (Int, UInt64, UInt16, Float64, Char)
 const list_of_containers_types_to_test = (UnitRangesSortedVector, UnitRangesSortedSet)
 
 
-function check_ranges_isequal(r::AbstractRange{K}, rs...) where K
+function check_ranges_isequal(r::AbstractRange, rs...)
     for rr in rs
         step(r)  == step(rr)  || return false
-        first(r) == K(first(rr)) || return false
-        last(r)  == K(last(rr))  || return false
+        first(r) == first(rr) || return false
+        last(r)  == last(rr)  || return false
     end
     return true
 end
 
-function check_isequal(rs1::AbstractUnitRangesSortedContainer{K}, rs2) where K
+function check_isequal(rs1::AbstractUnitRangesSortedContainer, rs2)
     length(rs1) == length(rs2) || return false
     for (r1, r2) in zip(rs1, rs2)
         check_ranges_isequal(r1, r2) || return false
@@ -28,21 +28,37 @@ function check_isequal(rs1::AbstractUnitRangesSortedContainer{K}, rs2) where K
     return true
 end
 
-function test_isequal(rs1::AbstractUnitRangesSortedContainer{K}, rs2) where K
+function test_isequal(rs1::AbstractUnitRangesSortedContainer, rs2)
     @test length(rs1) == length(rs2)
     for (r1, r2) in zip(rs1, rs2)
         @test step(r1)  == step(r2)
-        @test first(r1) == K(first(r2))
-        @test last(r1)  == K(last(r2))
+        @test first(r1) == first(r2)
+        @test last(r1)  == last(r2)
     end
 end
 
-function test_range_create(rs::T, vu, Tv::Type) where {T<:AbstractUnitRangesSortedContainer{K,TU}} where {K,TU}
+function test_range_create(rs::T, vu, Tv::Type) where {T<:AbstractUnitRangesSortedContainer}
     Trange = inferrangetype(Tv)
     @test eltype(rs) === Trange
     @test typeof(rs) === basetype(T){Tv,Trange}
     test_isequal(rs, vu)
 end
+
+
+convertinfer(K::Type, rs::NTuple{N,T}) where{N,T<:AbstractRange} =
+    convert(NTuple{length(rs),inferrangetype(K)}, rs)
+
+convertinfer(K::Type, rs::NTuple{N,T}) where{N,T} =
+    convert(NTuple{length(rs),K}, rs)
+
+convertinfer(K::Type, rs::AbstractVector{T}) where{T<:AbstractRange} =
+    convert(Vector{inferrangetype(K)}, rs)
+
+convertinfer(K::Type, rs::AbstractVector{T}) where{T} =
+    convert(Vector{K}, rs)
+
+
+
 
 @testset "Creating" begin
     for K in list_of_Ti_to_test
@@ -50,43 +66,43 @@ end
             @eval begin
 
                 vu = Vector{inferrangetype($K)}(undef, 0)
-                test_range_create($TypeURSS{$K}(), vu, $K)
+                test_range_create($TypeURSS{$K}(), convertinfer($K, vu), $K)
 
                 v = [1, 2]
                 vu = [1:2]
-                test_range_create($TypeURSS{$K}(v), vu, $K)
+                test_range_create($TypeURSS{$K}(v), convertinfer($K, vu), $K)
 
                 v = [1, 3, 4]
                 vu = [1:1, 3:4]
-                test_range_create($TypeURSS{$K}(v), vu, $K)
+                test_range_create($TypeURSS{$K}(v), convertinfer($K, vu), $K)
 
                 v = [3:4, 1:1]
                 vu = [1:1, 3:4]
-                test_range_create($TypeURSS{$K}(v), vu, $K)
+                test_range_create($TypeURSS{$K}(v), convertinfer($K, vu), $K)
 
                 v = [3:4, 2:5, 1:1]
                 vu = [1:5]
-                test_range_create($TypeURSS{$K}(v), vu, $K)
+                test_range_create($TypeURSS{$K}(v), convertinfer($K, vu), $K)
 
                 v = [$K(1), $K(3), $K(4)]
                 vu = [1:1, 3:4]
-                test_range_create($TypeURSS(v), vu, $K)
+                test_range_create($TypeURSS(v), convertinfer($K, vu), $K)
 
                 v = [$K(3):$K(4), $K(1):$K(1)]
                 vu = [1:1, 3:4]
-                test_range_create($TypeURSS(v), vu, $K)
+                test_range_create($TypeURSS(v), convertinfer($K, vu), $K)
 
                 v = [UInt64(3):UInt64(4), UInt64(1):UInt64(1)]
-                vu = [UInt64(1):UInt64(1), UInt64(3):UInt64(4)]
-                test_range_create($TypeURSS{$K}(v), vu, $K)
+                vu = [1:1, 3:4]
+                test_range_create($TypeURSS{$K}(v), convertinfer($K, vu), $K)
 
                 v = [UInt64(3), UInt64(4), UInt64(1)]
-                vu = [UInt64(1):UInt64(1), UInt64(3):UInt64(4)]
-                test_range_create($TypeURSS(v), vu, UInt64)
+                vu = [1:1, 3:4]
+                test_range_create($TypeURSS(v), convertinfer(UInt64, vu), UInt64)
 
                 v = [UInt64(3):UInt64(4), UInt64(1):UInt64(1)]
-                vu = [UInt64(1):UInt64(1), UInt64(3):UInt64(4)]
-                test_range_create($TypeURSS(v), vu, UInt64)
+                vu = [1:1, 3:4]
+                test_range_create($TypeURSS(v), convertinfer(UInt64, vu), UInt64)
             end
         end
     end
