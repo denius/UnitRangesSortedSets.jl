@@ -1,5 +1,5 @@
-using UnitRangesSortedSets
-import UnitRangesSortedSets: inferrangetype, to_urange
+using .UnitRangesSortedSets
+import .UnitRangesSortedSets: inferrangetype, to_urange
 using Test
 
 # https://github.com/JuliaLang/julia/issues/39952
@@ -199,29 +199,29 @@ end
 
                 rs = $TypeURSS{$K}((1:2, 4:4))
 
-                ii = searchsortedrange(rs, 0)
-                @test length(ii) == 0 && getindex(rs, first(ii)) == convertinfer($K, 1:2) &&
-                                         first(ii) == firstindex(rs) &&
-                                         last(ii) == beforestartindex(rs)
+                iir = searchsortedrange(rs, 0)
+                @test length(iir) == 0 && getindex(rs, first(iir)) == convertinfer($K, 1:2) &&
+                                         first(iir) == firstindex(rs) &&
+                                         last(iir) == beforestartindex(rs)
 
-                ii = searchsortedrange(rs, 1)
-                @test length(ii) == 1 && getindex(rs, first(ii)) == convertinfer($K, 1:2) &&
-                                         first(ii) == firstindex(rs)
+                iir = searchsortedrange(rs, 1)
+                @test length(iir) == 1 && getindex(rs, first(iir)) == convertinfer($K, 1:2) &&
+                                         first(iir) == firstindex(rs)
 
-                ii = searchsortedrange(rs, 2)
-                @test length(ii) == 1 && getindex(rs, first(ii)) == convertinfer($K, 1:2)
+                iir = searchsortedrange(rs, 2)
+                @test length(iir) == 1 && getindex(rs, first(iir)) == convertinfer($K, 1:2)
 
-                ii = searchsortedrange(rs, 3)
-                @test length(ii) == 0 && getindex(rs, first(ii)) == convertinfer($K, 4:4) &&
-                                         getindex(rs, last(ii)) == convertinfer($K, 1:2)
+                iir = searchsortedrange(rs, 3)
+                @test length(iir) == 0 && getindex(rs, first(iir)) == convertinfer($K, 4:4) &&
+                                         getindex(rs, last(iir)) == convertinfer($K, 1:2)
 
-                ii = searchsortedrange(rs, 4)
-                @test length(ii) == 1 && getindex(rs, first(ii)) == convertinfer($K, 4:4)
+                iir = searchsortedrange(rs, 4)
+                @test length(iir) == 1 && getindex(rs, first(iir)) == convertinfer($K, 4:4)
 
-                ii = searchsortedrange(rs, 5)
-                @test length(ii) == 0 && getindex(rs, last(ii)) == convertinfer($K, 4:4) &&
-                                         first(ii) == pastendindex(rs) &&
-                                         last(ii) == lastindex(rs)
+                iir = searchsortedrange(rs, 5)
+                @test length(iir) == 0 && getindex(rs, last(iir)) == convertinfer($K, 4:4) &&
+                                         first(iir) == pastendindex(rs) &&
+                                         last(iir) == lastindex(rs)
 
                 rs = $TypeURSS{$K}((1:2, 4:4))
                 @test getrange(rs, 0) === nothing
