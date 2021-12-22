@@ -416,11 +416,23 @@ end
         for TypeURSS in list_of_containers_types_to_test
             @eval begin
 
-                rs = $TypeURSS{$K}((1:6, 8:16, 20:33, 35:47, 49:50))
+                rs = $TypeURSS{$K}((0:0, 2:6, 8:16, 20:33, 35:47, 49:50))
 
-                ss = subset(rs, 1:50)
-                vu = (1:6, 8:16, 20:33, 35:47, 49:50)
+                ss = subset(rs, :)
+                vu = (0:0, 2:6, 8:16, 20:33, 35:47, 49:50)
                 test_iterators(ss, convertinfer($K, vu), SubUnitRangesSortedSet)
+
+                ss = subset(rs, 0:50)
+                vu = (0:0, 2:6, 8:16, 20:33, 35:47, 49:50)
+                test_iterators(ss, convertinfer($K, vu), SubUnitRangesSortedSet)
+
+                ss = subset(rs, 0:0)
+                vu = (0:0,)
+                test_iterators(ss, convertinfer($K, vu), Sub1UnitRangesSortedSet)
+
+                ss = subset(rs, 0:1)
+                vu = (0:0,)
+                test_iterators(ss, convertinfer($K, vu), Sub1UnitRangesSortedSet)
 
                 ss = subset(rs, 10:40)
                 vu = (10:16, 20:33, 35:40)
@@ -466,6 +478,13 @@ end
                 vu = Vector{eltype(ss)}([])
                 test_empty_iterators(ss, convertinfer($K, vu), Sub0UnitRangesSortedSet)
 
+                @test_throws BoundsError subset(rs, 51:51)
+                vu = Vector{eltype(ss)}([])
+                test_empty_iterators(ss, convertinfer($K, vu), Sub0UnitRangesSortedSet)
+
+                delete!(rs, 0:0)
+                @test_throws BoundsError subset(rs, 0:1)
+
             end
         end
     end
@@ -489,8 +508,20 @@ end
                 @test intersect($TypeURSS{$K}((0:0, 2:4)), 2) == $TypeURSS{$K}((2:2))
                 rs = $TypeURSS{$K}((0:0, 2:4))
                 @test (intersect!(rs, $TypeURSS{$K}((2:3, 5:6, 8:8))); rs == $TypeURSS{$K}((2:3)))
-                rs = [0:0, 2:4]
-                @test (intersect!(rs, $TypeURSS{$K}((2:3, 5:6, 8:8))); rs == [2:3])
+                rs = [0:0, 2:4, 8:10, 12:12]
+                @test (intersect!(rs, $TypeURSS{$K}((2:3, 5:6, 8:8))); rs == [2:3, 8:8])
+                rs = [0, 2,3,4, 8,9,10, 12]
+                @test (intersect!(rs, $TypeURSS{$K}((2:3, 5:6, 8:8))); rs == [2,3, 8])
+
+                rs = $TypeURSS{$K}((2:3, 5:6, 8:8))
+                @test (intersect!(rs, convertinfer($K, [0:0, 2:4, 8:10, 12:12])); rs == $TypeURSS{$K}((2:3, 8:8)))
+                rs = $TypeURSS{$K}((2:3, 5:6, 8:8))
+                @test (intersect!(rs, convertinfer($K, [0, 2,3,4, 8,9,10, 12])); rs == $TypeURSS{$K}((2:3, 8:8)))
+                rs = $TypeURSS{$K}((2:3, 5:6, 8:8))
+                @test (intersect!(rs, Set(convertinfer($K, [0:0, 2:4, 8:10, 12:12]))); rs == $TypeURSS{$K}((2:3, 8:8)))
+                rs = $TypeURSS{$K}((2:3, 5:6, 8:8))
+                @test (intersect!(rs, Set(convertinfer($K, [0, 2,3,4, 8,9,10, 12]))); rs == $TypeURSS{$K}((2:3, 8:8)))
+
 
                 rs = $TypeURSS{$K}((0:0, 2:4))
                 @test (union!(rs, $TypeURSS{$K}((0:0, 6:6))); rs == $TypeURSS{$K}((0:0, 2:4, 6:6)))

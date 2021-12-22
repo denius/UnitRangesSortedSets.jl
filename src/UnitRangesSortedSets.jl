@@ -26,6 +26,14 @@ basetype(::Type{T}) where T = Base.typename(T).wrapper
 #basetype(T::DataType) = T.name.wrapper
 #basetype(T::UnionAll) = basetype(T.body)
 
+safe_add(x::T, y) where {T} = x + T(y)
+safe_add(x::T, y) where {T<:Integer} = ((z, flag) = Base.add_with_overflow(x, T(y));   !flag ? z : typemax(T))
+safe_add(x::T, y) where {T<:AbstractChar} = (z = UInt64(x) + UInt64(y);   z < UInt128(2)^(8 * sizeof(T)) ? T(z) : typemax(T))
+
+safe_sub(x::T, y) where {T} = x - T(y)
+safe_sub(x::T, y) where {T<:Integer} = ((z, flag) = Base.sub_with_overflow(x, T(y));   !flag ? z : typemin(T))
+safe_sub(x::T, y) where {T<:AbstractChar} = (z = Int64(x) - Int64(y);   z >= 0 ? T(z) : typemin(T))
+
 
 @inline to_urange(::Type{TU}, l, r) where {TU<:UnitRange} =
     TU(l, r)
@@ -122,9 +130,13 @@ struct SubUnitRangesSortedSet{K,TU,P,Tix} <: AbstractSubUnitRangesSortedSet{K,TU
     numranges::Int
 end
 
+subset(rs::P, ::Colon) where {P<:AbstractUnitRangesSortedSet{K,TU}} where {K,TU} =
+    subset(rs, to_urange(TU, first(first(rs)), last(last(rs))))
 subset(rs::P, II::AbstractRange) where {P<:AbstractSubUnitRangesSortedSet} = subset(rs.parent, II)
 function subset(rs::P, II::AbstractRange) where {P<:AbstractUnitRangesSortedContainer{K,TU}} where {K,TU}
     I = to_urange(TU, II)
+    @boundscheck length(rs) == 0 && length(I) != 0 && throw(BoundsError(rs, I))
+    @boundscheck length(rs) != 0 && (first(I) < first(first(rs)) || last(I) > last(last(rs))) && throw(BoundsError(rs, I))
     ir = searchsortedrange(rs, I)
     if length(I) == 0 || length(ir) == 0
         if length(I) == 0 && length(ir) == 1
@@ -1545,11 +1557,11 @@ function Base.symdiff!(rs1::AbstractUnitRangesSortedContainer, rs2)
             push!(rs1, r)
         elseif length(vv) == 1
             delete!(rs1, vv[1])
-            push!(rs1, first(r):first(vv[1])-1)
-            push!(rs1, last(vv[1])+1:last(r))
+            push!(rs1, first(r):safe_sub(first(vv[1]), 1))
+            push!(rs1, safe_add(last(vv[1]), 1):last(r))
         else
-            push!(rs1, first(r):first(vv[1])-1)
-            push!(rs1, last(vv[end])+1:last(r))
+            push!(rs1, first(r):safe_sub(first(vv[1]), 1))
+            push!(rs1, safe_add(last(vv[end]), 1):last(r))
             rnext, rhead = Iterators.peel(Iterators.reverse(vv))
             delete!(rs1, rnext)
             for rr in rhead
@@ -1614,13 +1626,14 @@ function Base.filter!(pred::Function, rs::AbstractUnitRangesSortedContainer)
     rs
 end
 
+
 @inline Base.intersect!(rs::AbstractUnitRangesSortedContainer{K,TU}, II::AbstractRange) where {K,TU} =
     __intersect!(rs, to_urange(TU,II))
 @inline Base.intersect!(rs::AbstractUnitRangesSortedContainer{K,TU}, II::TU) where {K,TU} = __intersect!(rs, II)
 function __intersect!(rs::AbstractUnitRangesSortedContainer{K,TU}, I::TU) where {K,TU}
     length(I) == 0 && return empty!(rs)
-    delete!(rs, last(I) + 1:getindex_rangestop(rs, lastindex(rs)))
-    delete!(rs, getindex_rangestart(rs, firstindex(rs)):first(I) - 1)
+    delete!(rs, safe_add(last(I), 1):getindex_rangestop(rs, lastindex(rs)))
+    delete!(rs, getindex_rangestart(rs, firstindex(rs)):safe_sub(first(I), 1))
     rs
 end
 
@@ -1639,6 +1652,7 @@ function Base.intersect!(rs1::AbstractUnitRangesSortedContainer, rs2::AbstractUn
             rnext = r
         end
     else
+        #throw(AssertionError("FIXME: I want `Iterators.reverse` for $(typeof(rs2))."))
         rprev, rs2tail = Iterators.peel(rs2)
         for r in rs2tail
             delete!(rs1, last(rprev)+1:first(r)-1)
@@ -1689,18 +1703,12 @@ function Base.intersect!(rs1::AbstractUnitRangesSortedContainer, rs2::Union{Abst
 
     length(rv2) == 1 && return rs1
 
-    if hasmethod(Iterators.reverse, Tuple{typeof(rv2)})
-        rnext, rv2head = Iterators.peel(Iterators.reverse(rv2))
-        for r in rv2head
-            delete!(rs1, last(r)+1:first(rnext)-1)
-            rnext = r
-        end
-    else
-        rprev, rv2tail = Iterators.peel(rv2)
-        for r in rv2tail
-            delete!(rs1, last(rprev)+1:first(r)-1)
-            rprev = r
-        end
+    hasmethod(Iterators.reverse, Tuple{typeof(rv2)}) || throw(AssertionError("FIXME: Something went wrong."))
+
+    rnext, rv2head = Iterators.peel(Iterators.reverse(rv2))
+    for r in rv2head
+        delete!(rs1, last(r)+1:first(rnext)-1)
+        rnext = r
     end
 
 
