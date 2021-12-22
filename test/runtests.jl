@@ -102,7 +102,7 @@ end
 end
 
 @testset "Searching" begin
-    for Ti in (Int, UInt64, UInt16, Float64)
+    for Ti in (Int, UInt64, UInt16, Float64, Char)
         for TypeURSS in (UnitRangesSortedVector, UnitRangesSortedSet)
             @eval begin
                 rs = $TypeURSS{$Ti}((1:2, 4:4, 6:6))
@@ -224,7 +224,7 @@ end
 end
 
 @testset "`in`" begin
-    for Ti in (Int, UInt64, UInt16, Float64)
+    for Ti in (Int, UInt64, UInt16, Float64, Char)
         for TypeURSS in (UnitRangesSortedVector, UnitRangesSortedSet)
             @eval begin
 
@@ -322,10 +322,57 @@ end
 end
 
 
+function test_iterators(rs, vu, T::Type)
+    @test basetype(typeof(rs)) == T
+    @test length(rs) == length(vu)
+    @test rs[begin] == first(rs) == first(vu)
+    @test rs[end] == last(rs) == last(vu)
+    @test test_iseqial(rs, vu)
+    @test test_iseqial(Iterators.reverse(rs), Iterators.reverse(vu))
+    @test [r for r in rs] == [r for r in vu]
+    @test [r for r in Iterators.reverse(rs)] == [r for r in Iterators.reverse(vu)]
+    @test [x for r in rs for x in r] == [x for r in vu for x in r]
+    @test [x for r in Iterators.reverse(rs) for x in r] == [x for r in Iterators.reverse(vu) for x in r]
+    @test sum(r->length(r), rs) ==
+          sum(r->length(r), Iterators.reverse(rs)) ==
+          sum(i->length(rs[i]), eachindex(rs)) ==
+          sum(i->length(rs[i]), Iterators.reverse(eachindex(rs))) ==
+          sum(r->length(r), vu)
+end
+
+function test_empty_iterators(rs, vu, T::Type)
+    @test basetype(typeof(rs)) == T
+    @test length(rs) == length(vu)
+    @test_throws BoundsError rs[begin]
+    @test_throws BoundsError rs[end]
+    @test test_iseqial(rs, vu)
+    @test test_iseqial(Iterators.reverse(rs), Iterators.reverse(vu))
+    @test [r for r in rs] == [r for r in vu]
+    @test [r for r in Iterators.reverse(rs)] == [r for r in Iterators.reverse(vu)]
+    @test [x for r in rs for x in r] == [x for r in vu for x in r]
+    @test [x for r in Iterators.reverse(rs) for x in r] == [x for r in Iterators.reverse(vu) for x in r]
+    @test_throws ArgumentError sum(r->length(r), rs)
+end
+
+
 @testset "Common functions" begin
+
     for Ti in (Int, UInt64, UInt16, Float64)
         for TypeURSS in (UnitRangesSortedVector, UnitRangesSortedSet)
             @eval begin
+
+                rs = $TypeURSS{$Ti}()
+                vu = Vector{eltype(ss)}([])
+                test_empty_iterators(rs, vu, $TypeURSS)
+
+                rs = $TypeURSS{$Ti}((1:6,))
+                vu = (1:6,)
+                test_iterators(rs, vu, $TypeURSS)
+
+                rs = $TypeURSS{$Ti}((1:6, 8:16, 20:33))
+                vu = (1:6, 8:16, 20:33)
+                test_iterators(rs, vu, $TypeURSS)
+
                 rs = $TypeURSS{$Ti}((0:0, 2:4))
                 rs2 = copy(rs)
                 @test rs2 == rs && rs2 !== rs
@@ -346,18 +393,68 @@ end
                 @test convert(Vector{$Ti}, rs) == Vector{$Ti}([0,2,3,4])
                 @test convert(Set{$Ti}, rs) == Set{$Ti}([0,2,3,4])
 
-                rs = $TypeURSS{$Ti}((1:6, 8:16, 20:33))
-                local s = 0; for r in rs, i in r s += 1 end
-                @test s == sum(r->length(r), rs) == 29
-                local s = 0; for r in Iterators.reverse(rs), i in r s += 1 end
-                @test s == sum(r->length(r), Iterators.reverse(rs)) == 29
+            end
+        end
+    end
+end
 
-                local s = 0; for i in eachindex(rs) s += length(rs[i]) end
-                @test s == sum(i->length(rs[i]), eachindex(rs)) == 29
-                local s = 0; for i in Iterators.reverse(eachindex(rs)) s += length(rs[i]) end
-                @test s == sum(i->length(rs[i]), Iterators.reverse(eachindex(rs))) == 29
 
-                @test [x for r in rs for x in r] == [x for r in (1:6, 8:16, 20:33) for x in r]
+@testset "`subset`" begin
+
+    for Ti in (Int, UInt64, UInt16, Float64)
+        for TypeURSS in (UnitRangesSortedVector, UnitRangesSortedSet)
+            @eval begin
+
+                rs = $TypeURSS{$Ti}((1:6, 8:16, 20:33, 35:47, 49:50))
+
+                ss = subset(rs, 1:50)
+                vu = (1:6, 8:16, 20:33, 35:47, 49:50)
+                test_iterators(ss, vu, SubUnitRangesSortedSet)
+
+                ss = subset(rs, 10:40)
+                vu = (10:16, 20:33, 35:40)
+                test_iterators(ss, vu, SubUnitRangesSortedSet)
+
+                ss = subset(rs, 7:40)
+                vu = (8:16, 20:33, 35:40)
+                test_iterators(ss, vu, SubUnitRangesSortedSet)
+
+                ss = subset(rs, 11:48)
+                vu = (11:16, 20:33, 35:47)
+                test_iterators(ss, vu, SubUnitRangesSortedSet)
+
+                ss = subset(rs, 7:48)
+                vu = (8:16, 20:33, 35:47)
+                test_iterators(ss, vu, SubUnitRangesSortedSet)
+
+                ss = subset(rs, 21:32)
+                vu = (21:32,)
+                test_iterators(ss, vu, Sub1UnitRangesSortedSet)
+
+                ss = subset(rs, 20:33)
+                vu = (20:33,)
+                test_iterators(ss, vu, Sub1UnitRangesSortedSet)
+
+                ss = subset(rs, 19:34)
+                vu = (20:33,)
+                test_iterators(ss, vu, Sub1UnitRangesSortedSet)
+
+                ss = subset(rs, 22:34)
+                vu = (22:33,)
+                test_iterators(ss, vu, Sub1UnitRangesSortedSet)
+
+                ss = subset(rs, 19:30)
+                vu = (20:30,)
+                test_iterators(ss, vu, Sub1UnitRangesSortedSet)
+
+                ss = subset(rs, 18:19)
+                vu = Vector{eltype(ss)}([])
+                test_empty_iterators(ss, vu, Sub0UnitRangesSortedSet)
+
+                ss = subset(rs, 21:20)
+                vu = Vector{eltype(ss)}([])
+                test_empty_iterators(ss, vu, Sub0UnitRangesSortedSet)
+
             end
         end
     end
@@ -419,96 +516,6 @@ end
                 delete!(rs2, 0)
                 @test issubset(rs2, rs)
                 @test !issubset(rs, rs2)
-
-            end
-        end
-    end
-end
-
-@testset "`subset`" begin
-
-    function test_subset(ss, vu, T::Type)
-        @test basetype(typeof(ss)) == T
-        @test length(ss) == length(vu)
-        @test ss[begin] == first(ss) == first(vu)
-        @test ss[end] == last(ss) == last(vu)
-        @test test_iseqial(ss, vu)
-        @test test_iseqial(Iterators.reverse(ss), Iterators.reverse(vu))
-        @test [r for r in ss] == [r for r in vu]
-        @test [r for r in Iterators.reverse(ss)] == [r for r in Iterators.reverse(vu)]
-        @test [x for r in ss for x in r] == [x for r in vu for x in r]
-        @test [x for r in Iterators.reverse(ss) for x in r] == [x for r in Iterators.reverse(vu) for x in r]
-        @test sum(r->length(r), ss) ==
-              sum(r->length(r), Iterators.reverse(ss)) ==
-              sum(i->length(ss[i]), eachindex(ss)) ==
-              sum(i->length(ss[i]), Iterators.reverse(eachindex(ss))) ==
-              sum(r->length(r), vu)
-    end
-
-    function test_empty_subset(ss, vu, T::Type)
-        @test basetype(typeof(ss)) == T
-        @test length(ss) == length(vu)
-        @test_throws BoundsError ss[begin]
-        @test_throws BoundsError ss[end]
-        @test_throws BoundsError ss[1]
-        @test test_iseqial(ss, vu)
-        @test test_iseqial(Iterators.reverse(ss), Iterators.reverse(vu))
-        @test [r for r in ss] == [r for r in vu]
-        @test [r for r in Iterators.reverse(ss)] == [r for r in Iterators.reverse(vu)]
-        @test [x for r in ss for x in r] == [x for r in vu for x in r]
-        @test [x for r in Iterators.reverse(ss) for x in r] == [x for r in Iterators.reverse(vu) for x in r]
-        @test_throws ArgumentError sum(r->length(r), ss)
-    end
-
-    for Ti in (Int, UInt64, UInt16, Float64)
-        for TypeURSS in (UnitRangesSortedVector, UnitRangesSortedSet)
-            @eval begin
-
-                rs = $TypeURSS{$Ti}((1:6, 8:16, 20:33, 35:47, 49:50))
-
-                ss = subset(rs, 10:40)
-                vu = (10:16, 20:33, 35:40)
-                @test basetype(typeof(ss)) == SubUnitRangesSortedSet
-                @test length(ss) == length(vu)
-                @test ss[begin] == first(ss) == first(vu)
-                @test ss[end] == last(ss) == last(vu)
-                @test test_iseqial(ss, vu)
-                @test test_iseqial(Iterators.reverse(ss), Iterators.reverse(vu))
-                @test [r for r in ss] == [r for r in vu]
-                @test [r for r in Iterators.reverse(ss)] == [r for r in Iterators.reverse(vu)]
-                @test [x for r in ss for x in r] == [x for r in vu for x in r]
-                @test [x for r in Iterators.reverse(ss) for x in r] == [x for r in Iterators.reverse(vu) for x in r]
-                @test sum(r->length(r), ss) ==
-                      sum(r->length(r), Iterators.reverse(ss)) ==
-                      sum(i->length(ss[i]), eachindex(ss)) ==
-                      sum(i->length(ss[i]), Iterators.reverse(eachindex(ss))) ==
-                      sum(r->length(r), vu)
-
-
-                ss = subset(rs, 21:32)
-                vu = (21:32,)
-                test_subset(ss, vu, Sub1UnitRangesSortedSet)
-                #@test basetype(typeof(ss)) == Sub1UnitRangesSortedSet
-                #@test length(ss) == length(vu)
-                #@test ss[begin] == first(ss) == first(vu)
-                #@test ss[end] == last(ss) == last(vu)
-                #@test test_iseqial(ss, vu)
-                #@test test_iseqial(Iterators.reverse(ss), Iterators.reverse(vu))
-                #@test [r for r in ss] == [r for r in vu]
-                #@test [r for r in Iterators.reverse(ss)] == [r for r in Iterators.reverse(vu)]
-                #@test [x for r in ss for x in r] == [x for r in vu for x in r]
-                #@test [x for r in Iterators.reverse(ss) for x in r] == [x for r in Iterators.reverse(vu) for x in r]
-                #@test sum(r->length(r), ss) ==
-                #      sum(r->length(r), Iterators.reverse(ss)) ==
-                #      sum(i->length(ss[i]), eachindex(ss)) ==
-                #      sum(i->length(ss[i]), Iterators.reverse(eachindex(ss))) ==
-                #      sum(r->length(r), vu)
-
-                ss = subset(rs, 18:19)
-                test_empty_subset(ss, Vector{eltype(ss)}([]), Sub0UnitRangesSortedSet)
-
-                ss = subset(rs, 21:20)
-                test_empty_subset(ss, Vector{eltype(ss)}([]), Sub0UnitRangesSortedSet)
 
             end
         end
