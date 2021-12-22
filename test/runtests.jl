@@ -1,32 +1,48 @@
 using .UnitRangesSortedSets
+import .UnitRangesSortedSets: inferrangetype, to_urange
 using Test
 
 # https://github.com/JuliaLang/julia/issues/39952
 basetype(::Type{T}) where T = Base.typename(T).wrapper
 
 
-function test_iseqial(rs1, rs2)
+const list_of_Ti_to_test = (Int, UInt64, UInt16, Float64, Char)
+
+const list_of_containers_types_to_test = (UnitRangesSortedVector, UnitRangesSortedSet)
+
+
+function check_isequal(rs1, rs2)
     length(rs1) == length(rs2) || return false
     for (r1, r2) in zip(rs1, rs2)
-        r1 == r2 || return false
+        step(r1)  == step(r2)  || return false
+        first(r1) == first(r2) || return false
+        last(r1)  == last(r2)  || return false
     end
     return true
 end
 
-function test_range_create(rs::T, vu, Tv::Type) where {T<:AbstractUnitRangesSortedContainer{Ti,TU}} where {Ti,TU}
-    Trange = UnitRangesSortedSets.inferrangetype(Tv)
-    @test eltype(rs) === Trange
-    @test typeof(rs) === basetype(T){Tv,Trange}
-    @test test_iseqial(rs, vu)
+function test_isequal(rs1, rs2, Tv::Type)
+    @test length(rs1) == length(rs2)
+    for (r1, r2) in zip(rs1, rs2)
+        @test step(r1)  == step(r2)
+        @test first(r1) == Tv(first(r2))
+        @test last(r1)  == Tv(last(r2))
+    end
 end
 
-@testset "Creating `Real`" begin
-    for Ti in (Int, UInt64, UInt16, Float64)
-        for TypeURSS in (UnitRangesSortedVector, UnitRangesSortedSet)
+function test_range_create(rs::T, vu, Tv::Type) where {T<:AbstractUnitRangesSortedContainer{Ti,TU}} where {Ti,TU}
+    Trange = inferrangetype(Tv)
+    @test eltype(rs) === Trange
+    @test typeof(rs) === basetype(T){Tv,Trange}
+    test_isequal(rs, vu, Tv)
+end
+
+@testset "Creating" begin
+    for Ti in list_of_Ti_to_test
+        for TypeURSS in list_of_containers_types_to_test
             @eval begin
 
-                vu = Vector{UnitRangesSortedSets.inferrangetype($Ti)}(undef, 0)
-                rs = $TypeURSS{$Ti}()
+                vu = Vector{inferrangetype($Ti)}(undef, 0)
                 test_range_create($TypeURSS{$Ti}(), vu, $Ti)
 
                 v = [1, 2]
@@ -70,13 +86,12 @@ end
 end
 
 function check_searched_range(rs::AbstractUnitRangesSortedContainer{Ti,TU}, ir, t, Tv::Type) where {Ti,TU}
-    getindex(rs, ir) == UnitRangesSortedSets.inferrangetype(Tv)(t...)
+    getindex(rs, ir) == to_urange(inferrangetype(Tv), t...)
 end
 
 @testset "Searching" begin
-    for Ti in (Int, UInt64, UInt16, Float64)
-    #for Ti in (Int, UInt64, UInt16, Float64, Char)
-        for TypeURSS in (UnitRangesSortedVector, UnitRangesSortedSet)
+    for Ti in list_of_Ti_to_test
+        for TypeURSS in list_of_containers_types_to_test
             @eval begin
                 rs = $TypeURSS{$Ti}((1:2, 4:4, 6:6))
 
@@ -187,9 +202,9 @@ end
 
                 rs = $TypeURSS{$Ti}((1:2, 4:4))
                 @test getrange(rs, 0) === nothing
-                @test getrange(rs, 1) == UnitRangesSortedSets.inferrangetype($Ti)(1, 1)
-                @test getrange(rs, 1:1) == UnitRangesSortedSets.inferrangetype($Ti)(1, 1)
-                @test getrange(rs, 1:2) == UnitRangesSortedSets.inferrangetype($Ti)(1, 2)
+                @test getrange(rs, 1) == inferrangetype($Ti)(1, 1)
+                @test getrange(rs, 1:1) == inferrangetype($Ti)(1, 1)
+                @test getrange(rs, 1:2) == inferrangetype($Ti)(1, 2)
                 @test getrange(rs, 1:3) === nothing
             end
         end
@@ -229,33 +244,33 @@ end
             @eval begin
 
                 rs = $TypeURSS{$Ti}()
-                @test test_iseqial(push!(rs, 3),  (3:3,))
-                @test test_iseqial(push!(rs, 4),  (3:4,))
-                @test test_iseqial(push!(rs, 18), (3:4, 18:18))
-                @test test_iseqial(push!(rs, 2),  (2:4, 18:18))
-                @test test_iseqial(push!(rs, 0),  (0:0, 2:4, 18:18))
-                @test test_iseqial(push!(rs, 20), (0:0, 2:4, 18:18, 20:20))
-                @test test_iseqial(push!(rs, 19), (0:0, 2:4, 18:20))
-                @test test_iseqial(push!(rs, 1),  (0:4, 18:20))
-                @test test_iseqial(push!(rs, 9),  (0:4, 9:9, 18:20))
-                @test test_iseqial(push!(rs, 9),  (0:4, 9:9, 18:20))
-                @test test_iseqial(push!(rs, 10), (0:4, 9:10, 18:20))
-                @test test_iseqial(push!(rs, 8),  (0:4, 8:10, 18:20))
+                @test check_isequal(push!(rs, 3),  (3:3,))
+                @test check_isequal(push!(rs, 4),  (3:4,))
+                @test check_isequal(push!(rs, 18), (3:4, 18:18))
+                @test check_isequal(push!(rs, 2),  (2:4, 18:18))
+                @test check_isequal(push!(rs, 0),  (0:0, 2:4, 18:18))
+                @test check_isequal(push!(rs, 20), (0:0, 2:4, 18:18, 20:20))
+                @test check_isequal(push!(rs, 19), (0:0, 2:4, 18:20))
+                @test check_isequal(push!(rs, 1),  (0:4, 18:20))
+                @test check_isequal(push!(rs, 9),  (0:4, 9:9, 18:20))
+                @test check_isequal(push!(rs, 9),  (0:4, 9:9, 18:20))
+                @test check_isequal(push!(rs, 10), (0:4, 9:10, 18:20))
+                @test check_isequal(push!(rs, 8),  (0:4, 8:10, 18:20))
 
                 rs = $TypeURSS{$Ti}()
-                @test test_iseqial(push!(rs, 13:14), (13:14,))
-                @test test_iseqial(push!(rs, 23:24), (13:14, 23:24))
-                @test test_iseqial(push!(rs, 12:12), (12:14, 23:24))
-                @test test_iseqial(push!(rs, 11:13), (11:14, 23:24))
-                @test test_iseqial(push!(rs, 8:9),   (8:9, 11:14, 23:24))
-                @test test_iseqial(push!(rs, 9:12),  (8:14, 23:24))
-                @test test_iseqial(push!(rs, 16:17),  (8:14, 16:17, 23:24))
-                @test test_iseqial(push!(rs, 25:26),  (8:14, 16:17, 23:26))
-                @test test_iseqial(push!(rs, 24:26),  (8:14, 16:17, 23:26))
-                @test test_iseqial(push!(rs, 28:29),  (8:14, 16:17, 23:26, 28:29))
-                @test test_iseqial(push!(rs, 28:29),  (8:14, 16:17, 23:26, 28:29))
-                @test test_iseqial(push!(rs, 16:15),  (8:14, 16:17, 23:26, 28:29))
-                @test test_iseqial(push!(rs, 18:19),  (8:14, 16:19, 23:26, 28:29))
+                @test check_isequal(push!(rs, 13:14), (13:14,))
+                @test check_isequal(push!(rs, 23:24), (13:14, 23:24))
+                @test check_isequal(push!(rs, 12:12), (12:14, 23:24))
+                @test check_isequal(push!(rs, 11:13), (11:14, 23:24))
+                @test check_isequal(push!(rs, 8:9),   (8:9, 11:14, 23:24))
+                @test check_isequal(push!(rs, 9:12),  (8:14, 23:24))
+                @test check_isequal(push!(rs, 16:17),  (8:14, 16:17, 23:24))
+                @test check_isequal(push!(rs, 25:26),  (8:14, 16:17, 23:26))
+                @test check_isequal(push!(rs, 24:26),  (8:14, 16:17, 23:26))
+                @test check_isequal(push!(rs, 28:29),  (8:14, 16:17, 23:26, 28:29))
+                @test check_isequal(push!(rs, 28:29),  (8:14, 16:17, 23:26, 28:29))
+                @test check_isequal(push!(rs, 16:15),  (8:14, 16:17, 23:26, 28:29))
+                @test check_isequal(push!(rs, 18:19),  (8:14, 16:19, 23:26, 28:29))
             end
         end
     end
@@ -268,26 +283,26 @@ end
             @eval begin
 
                 rs = $TypeURSS{$Ti}((0:0, 2:4, 8:8, 10:12))
-                @test test_iseqial(delete!(rs, 5),  (0:0, 2:4, 8:8, 10:12))
-                @test test_iseqial(delete!(rs, 0),  (2:4, 8:8, 10:12))
-                @test test_iseqial(delete!(rs, 0),  (2:4, 8:8, 10:12))
-                @test test_iseqial(delete!(rs, 8),  (2:4, 10:12))
-                @test test_iseqial(delete!(rs, 12), (2:4, 10:11))
-                @test test_iseqial(delete!(rs, 10), (2:4, 11:11))
-                @test test_iseqial(delete!(rs, 11), (2:4,))
-                @test test_iseqial(delete!(rs, 3),  (2:2, 4:4))
+                @test check_isequal(delete!(rs, 5),  (0:0, 2:4, 8:8, 10:12))
+                @test check_isequal(delete!(rs, 0),  (2:4, 8:8, 10:12))
+                @test check_isequal(delete!(rs, 0),  (2:4, 8:8, 10:12))
+                @test check_isequal(delete!(rs, 8),  (2:4, 10:12))
+                @test check_isequal(delete!(rs, 12), (2:4, 10:11))
+                @test check_isequal(delete!(rs, 10), (2:4, 11:11))
+                @test check_isequal(delete!(rs, 11), (2:4,))
+                @test check_isequal(delete!(rs, 3),  (2:2, 4:4))
                 @test delete!(rs, 3) === rs
 
                 rs = $TypeURSS{$Ti}((0:0, 2:6, 8:8, 10:13, 15:20))
-                @test test_iseqial(delete!(rs, 17:17),  (0:0, 2:6, 8:8, 10:13, 15:16, 18:20))
-                @test test_iseqial(delete!(rs, 16:18),  (0:0, 2:6, 8:8, 10:13, 15:15, 19:20))
-                @test test_iseqial(delete!(rs, 15:20),  (0:0, 2:6, 8:8, 10:13))
-                @test test_iseqial(delete!(rs, 7:7),  (0:0, 2:6, 8:8, 10:13))
-                @test test_iseqial(delete!(rs, 6:7),  (0:0, 2:5, 8:8, 10:13))
-                @test test_iseqial(delete!(rs, 0:1),  (2:5, 8:8, 10:13))
-                @test test_iseqial(delete!(rs, 9:10),  (2:5, 8:8, 11:13))
-                @test test_iseqial(delete!(rs, 13:14),  (2:5, 8:8, 11:12))
-                @test test_iseqial(delete!(rs, 1:3),  (4:5, 8:8, 11:12))
+                @test check_isequal(delete!(rs, 17:17),  (0:0, 2:6, 8:8, 10:13, 15:16, 18:20))
+                @test check_isequal(delete!(rs, 16:18),  (0:0, 2:6, 8:8, 10:13, 15:15, 19:20))
+                @test check_isequal(delete!(rs, 15:20),  (0:0, 2:6, 8:8, 10:13))
+                @test check_isequal(delete!(rs, 7:7),  (0:0, 2:6, 8:8, 10:13))
+                @test check_isequal(delete!(rs, 6:7),  (0:0, 2:5, 8:8, 10:13))
+                @test check_isequal(delete!(rs, 0:1),  (2:5, 8:8, 10:13))
+                @test check_isequal(delete!(rs, 9:10),  (2:5, 8:8, 11:13))
+                @test check_isequal(delete!(rs, 13:14),  (2:5, 8:8, 11:12))
+                @test check_isequal(delete!(rs, 1:3),  (4:5, 8:8, 11:12))
 
             end
         end
@@ -300,8 +315,8 @@ function test_iterators(rs, vu, T::Type)
     @test length(rs) == length(vu)
     @test rs[begin] == first(rs) == first(vu)
     @test rs[end] == last(rs) == last(vu)
-    @test test_iseqial(rs, vu)
-    @test test_iseqial(Iterators.reverse(rs), Iterators.reverse(vu))
+    @test check_isequal(rs, vu)
+    @test check_isequal(Iterators.reverse(rs), Iterators.reverse(vu))
     @test [r for r in rs] == [r for r in vu]
     @test [r for r in Iterators.reverse(rs)] == [r for r in Iterators.reverse(vu)]
     @test [x for r in rs for x in r] == [x for r in vu for x in r]
@@ -318,8 +333,8 @@ function test_empty_iterators(rs, vu, T::Type)
     @test length(rs) == length(vu)
     @test_throws BoundsError rs[begin]
     @test_throws BoundsError rs[end]
-    @test test_iseqial(rs, vu)
-    @test test_iseqial(Iterators.reverse(rs), Iterators.reverse(vu))
+    @test check_isequal(rs, vu)
+    @test check_isequal(Iterators.reverse(rs), Iterators.reverse(vu))
     @test [r for r in rs] == [r for r in vu]
     @test [r for r in Iterators.reverse(rs)] == [r for r in Iterators.reverse(vu)]
     @test [x for r in rs for x in r] == [x for r in vu for x in r]
@@ -456,16 +471,16 @@ end
 
                 rs = $TypeURSS{$Ti}((0:0, 2:4))
                 @test (union!(rs, $TypeURSS{$Ti}((0:0, 6:6))); rs == $TypeURSS{$Ti}((0:0, 2:4, 6:6)))
-                @test pop!(rs, 0) == UnitRangesSortedSets.inferrangetype($Ti)(0, 0)
+                @test pop!(rs, 0) == inferrangetype($Ti)(0, 0)
                 @test_throws KeyError pop!(rs, 0)
                 @test pop!(rs, 0, UInt64(1)) === UInt64(1)
-                @test pop!(rs, 2, UInt64(1)) === UnitRangesSortedSets.inferrangetype($Ti)(2, 2)
+                @test pop!(rs, 2, UInt64(1)) === inferrangetype($Ti)(2, 2)
                 @test pop!(rs, 2, UInt64(1)) === UInt64(1)
-                @test pop!(rs, 3:3) == UnitRangesSortedSets.inferrangetype($Ti)(3, 3)
+                @test pop!(rs, 3:3) == inferrangetype($Ti)(3, 3)
                 @test_throws KeyError pop!(rs, 3:3)
                 @test pop!(rs, 3:3, UInt64(1)) === UInt64(1)
                 @test rs == $TypeURSS{$Ti}((4:4, 6:6))
-                @test pop!(rs, 4:4, UInt64(1)) == UnitRangesSortedSets.inferrangetype($Ti)(4, 4)
+                @test pop!(rs, 4:4, UInt64(1)) == inferrangetype($Ti)(4, 4)
                 @test pop!(rs, 4:4, UInt64(1)) === UInt64(1)
                 @test empty(rs) == $TypeURSS{$Ti}()
                 empty!(rs)

@@ -554,14 +554,15 @@ end
 
 "Returns index of range in which, or after, `k` is placed."
 @inline searchsortedlastrange(rs::UnitRangesSortedVector{Ti}, k) where {Ti} = bisectionsearchlast(rs.rstarts, Ti(k))
-#@inline searchsortedlastrange(rs::UnitRangesSortedVector, k) = searchsortedlast(rs.rstarts, k; lt=<)
-@inline searchsortedlastrange(rs::UnitRangesSortedSet, k) = searchsortedlast(rs.ranges, k)
+#@inline searchsortedlastrange(rs::UnitRangesSortedVector{Ti}, k) where {Ti} = searchsortedlast(rs.rstarts, Ti(k); lt=<)
+@inline searchsortedlastrange(rs::UnitRangesSortedSet{Ti}, k) where {Ti} = searchsortedlast(rs.ranges, Ti(k))
 @inline searchsortedlastrange(rs::Sub0UnitRangesSortedSet, k) = rs.beforestartindex
-@inline searchsortedlastrange(rs::Sub1UnitRangesSortedSet, k) = k >= rs.kstart ? rs.firstindex : rs.beforestartindex
+@inline searchsortedlastrange(rs::Sub1UnitRangesSortedSet{Ti}, k) where {Ti} =
+    Ti(k) >= rs.kstart ? rs.firstindex : rs.beforestartindex
 @inline searchsortedlastrange(rs::SubUnitRangesSortedSet{Ti,TU,P,Tix}, k) where {Ti,TU,P<:UnitRangesSortedVector,Tix} =
-    bisectionsearchlast(rs.parent.rstarts, k, rs.firstindex, rs.lastindex)
+    bisectionsearchlast(rs.parent.rstarts, Ti(k), rs.firstindex, rs.lastindex)
 @inline function searchsortedlastrange(rs::SubUnitRangesSortedSet{Ti,TU,P,Tix}, k) where {Ti,TU,P<:UnitRangesSortedSet,Tix}
-    st = searchsortedlast(rs.parent.ranges, k)
+    st = searchsortedlast(rs.parent.ranges, Ti(k))
     if compare(rs.parent.ranges, st, rs.beforestartindex) == 1 && compare(rs.parent.ranges, st, rs.pastendindex) == -1
         return st
     else
@@ -570,22 +571,22 @@ end
 end
 
 "Returns index of range in which, or before, `k` is placed."
-@inline searchsortedfirstrange(rs::UnitRangesSortedVector, k) = bisectionsearchfirst(rs.rstops, k)
-@inline function searchsortedfirstrange(rs::UnitRangesSortedSet, k)
-    st = searchsortedlastrange(rs, k)
-    if st != beforestartindex(rs) && in(k, getindex(rs, st))
+@inline searchsortedfirstrange(rs::UnitRangesSortedVector{Ti}, k) where {Ti} = bisectionsearchfirst(rs.rstops, Ti(k))
+@inline function searchsortedfirstrange(rs::UnitRangesSortedSet{Ti}, k) where {Ti}
+    st = searchsortedlastrange(rs, Ti(k))
+    if st != beforestartindex(rs) && in(Ti(k), getindex(rs, st))
         return st
     else
         return advance(rs, st)
     end
 end
 @inline searchsortedfirstrange(rs::Sub0UnitRangesSortedSet, k) = rs.pastendindex
-@inline searchsortedfirstrange(rs::Sub1UnitRangesSortedSet, k) = k <= rs.kstop ? rs.lastindex : rs.pastendindex
+@inline searchsortedfirstrange(rs::Sub1UnitRangesSortedSet{Ti}, k) where {Ti} = Ti(k) <= rs.kstop ? rs.lastindex : rs.pastendindex
 @inline searchsortedfirstrange(rs::SubUnitRangesSortedSet{Ti,TU,P,Tix}, k) where {Ti,TU,P<:UnitRangesSortedVector,Tix} =
-    bisectionsearchfirst(rs.parent.rstops, k, rs.firstindex, rs.lastindex)
+    bisectionsearchfirst(rs.parent.rstops, Ti(k), rs.firstindex, rs.lastindex)
 @inline function searchsortedfirstrange(rs::SubUnitRangesSortedSet{Ti,TU,P,Tix}, k) where {Ti,TU,P<:UnitRangesSortedSet,Tix}
-    st = searchsortedlastrange(rs, k)
-    if st != beforestartindex(rs) && in(k, getindex(rs, st))
+    st = searchsortedlastrange(rs, Ti(k))
+    if st != beforestartindex(rs) && in(Ti(k), getindex(rs, st))
         return st
     else
         return advance(rs, st)
@@ -600,9 +601,9 @@ end
 
 "Returns indexes of range in `rs` in which `k` may be inserted. Or negative range in the case of `k` is
  between `rs` ranges, and indices of resulted range is the indexes of that neighbors."
-@inline function searchsortedrange(rs::AbstractUnitRangesSortedContainer, k)
-    st = searchsortedlastrange(rs, k)
-    if st != beforestartindex(rs) && in(k, getindex(rs, st))
+@inline function searchsortedrange(rs::AbstractUnitRangesSortedContainer{Ti}, k) where {Ti}
+    st = searchsortedlastrange(rs, Ti(k))
+    if st != beforestartindex(rs) && in(Ti(k), getindex(rs, st))
         return create_indexrange(rs, st, st)
     else
         return create_indexrange(rs, advance(rs, st), st)
