@@ -11,7 +11,7 @@ const list_of_Ti_to_test = (Int, UInt64, UInt16, Float64, Char)
 const list_of_containers_types_to_test = (UnitRangesSortedVector, UnitRangesSortedSet)
 
 
-function check_ranges_isequal(r::AbstractRange, rs...)
+function check_ranges_isequal(r, rs...)
     for rr in rs
         step(r)  == step(rr)  || return false
         first(r) == first(rr) || return false
@@ -20,7 +20,7 @@ function check_ranges_isequal(r::AbstractRange, rs...)
     return true
 end
 
-function check_isequal(rs1::AbstractUnitRangesSortedContainer, rs2)
+function check_isequal(rs1, rs2)
     length(rs1) == length(rs2) || return false
     for (r1, r2) in zip(rs1, rs2)
         check_ranges_isequal(r1, r2) || return false
@@ -28,7 +28,7 @@ function check_isequal(rs1::AbstractUnitRangesSortedContainer, rs2)
     return true
 end
 
-function test_isequal(rs1::AbstractUnitRangesSortedContainer, rs2)
+function test_isequal(rs1, rs2)
     @test length(rs1) == length(rs2)
     for (r1, r2) in zip(rs1, rs2)
         @test step(r1)  == step(r2)
@@ -56,6 +56,9 @@ convertinfer(K::Type, rs::AbstractVector{T}) where{T<:AbstractRange} =
 
 convertinfer(K::Type, rs::AbstractVector{T}) where{T} =
     convert(Vector{K}, rs)
+
+convertinfer(K::Type, r::AbstractRange) =
+    to_urange(inferrangetype(K), r)
 
 
 
@@ -108,9 +111,6 @@ convertinfer(K::Type, rs::AbstractVector{T}) where{T} =
     end
 end
 
-function check_searched_range(rs::AbstractUnitRangesSortedContainer{K,TU}, ir, t, Tv::Type) where {K,TU}
-    getindex(rs, ir) == to_urange(inferrangetype(Tv), t...)
-end
 
 @testset "Searching" begin
     for K in list_of_Ti_to_test
@@ -123,73 +123,73 @@ end
 
                 ir = searchsortedlastrange(rs, 1)
                 @test ir != beforestartindex(rs) &&
-                      check_searched_range(rs, ir, (1, 2), $K) &&
+                      getindex(rs, ir) == convertinfer($K, 1:2) &&
                       ir == firstindex(rs)
 
                 ir = searchsortedlastrange(rs, 2)
                 @test ir != beforestartindex(rs) &&
-                      check_searched_range(rs, ir, (1, 2), $K) &&
+                      getindex(rs, ir) == convertinfer($K, 1:2) &&
                       ir == firstindex(rs)
 
                 ir = searchsortedlastrange(rs, 3)
                 @test ir != beforestartindex(rs) &&
-                      check_searched_range(rs, ir, (1, 2), $K) &&
+                      getindex(rs, ir) == convertinfer($K, 1:2) &&
                       ir == firstindex(rs)
 
                 ir = searchsortedlastrange(rs, 4)
                 @test ir != beforestartindex(rs) &&
-                      check_searched_range(rs, ir, (4, 4), $K) &&
+                      getindex(rs, ir) == convertinfer($K, 4:4) &&
                       ir != firstindex(rs) && ir != lastindex(rs)
 
                 ir = searchsortedlastrange(rs, 5)
                 @test ir != beforestartindex(rs) &&
-                      check_searched_range(rs, ir, (4, 4), $K) &&
+                      getindex(rs, ir) == convertinfer($K, 4:4) &&
                       ir != firstindex(rs) && ir != lastindex(rs)
 
                 ir = searchsortedlastrange(rs, 6)
                 @test ir != beforestartindex(rs) &&
-                      check_searched_range(rs, ir, (6, 6), $K) &&
+                      getindex(rs, ir) == convertinfer($K, 6:6) &&
                       ir == lastindex(rs)
 
                 ir = searchsortedlastrange(rs, 7)
                 @test ir != beforestartindex(rs) &&
-                      check_searched_range(rs, ir, (6, 6), $K) &&
+                      getindex(rs, ir) == convertinfer($K, 6:6) &&
                       ir == lastindex(rs)
 
 
                 ir = searchsortedfirstrange(rs, 0)
                 @test ir != pastendindex(rs) &&
-                      check_searched_range(rs, ir, (1, 2), $K) &&
+                      getindex(rs, ir) == convertinfer($K, 1:2) &&
                       ir == firstindex(rs)
 
                 ir = searchsortedfirstrange(rs, 1)
                 @test ir != pastendindex(rs) &&
-                      check_searched_range(rs, ir, (1, 2), $K) &&
+                      getindex(rs, ir) == convertinfer($K, 1:2) &&
                       ir == firstindex(rs)
 
                 ir = searchsortedfirstrange(rs, 2)
                 @test ir != pastendindex(rs) &&
-                      check_searched_range(rs, ir, (1, 2), $K) &&
+                      getindex(rs, ir) == convertinfer($K, 1:2) &&
                       ir == firstindex(rs)
 
                 ir = searchsortedfirstrange(rs, 3)
                 @test ir != pastendindex(rs) &&
-                      check_searched_range(rs, ir, (4, 4), $K) &&
+                      getindex(rs, ir) == convertinfer($K, 4:4) &&
                       ir != firstindex(rs) && ir != lastindex(rs)
 
                 ir = searchsortedfirstrange(rs, 4)
                 @test ir != pastendindex(rs) &&
-                      check_searched_range(rs, ir, (4, 4), $K) &&
+                      getindex(rs, ir) == convertinfer($K, 4:4) &&
                       ir != firstindex(rs) && ir != lastindex(rs)
 
                 ir = searchsortedfirstrange(rs, 5)
                 @test ir != pastendindex(rs) &&
-                      check_searched_range(rs, ir, (6, 6), $K) &&
+                      getindex(rs, ir) == convertinfer($K, 6:6) &&
                       ir == lastindex(rs)
 
                 ir = searchsortedfirstrange(rs, 6)
                 @test ir != pastendindex(rs) &&
-                      check_searched_range(rs, ir, (6, 6), $K) &&
+                      getindex(rs, ir) == convertinfer($K, 6:6) &&
                       ir == lastindex(rs)
 
                 ir = searchsortedfirstrange(rs, 7)
@@ -200,34 +200,34 @@ end
                 rs = $TypeURSS{$K}((1:2, 4:4))
 
                 ii = searchsortedrange(rs, 0)
-                @test length(ii) == 0 && check_searched_range(rs, first(ii), (1, 2), $K) &&
+                @test length(ii) == 0 && getindex(rs, first(ii)) == convertinfer($K, 1:2) &&
                                          first(ii) == firstindex(rs) &&
                                          last(ii) == beforestartindex(rs)
 
                 ii = searchsortedrange(rs, 1)
-                @test length(ii) == 1 && check_searched_range(rs, first(ii), (1, 2), $K) &&
+                @test length(ii) == 1 && getindex(rs, first(ii)) == convertinfer($K, 1:2) &&
                                          first(ii) == firstindex(rs)
 
                 ii = searchsortedrange(rs, 2)
-                @test length(ii) == 1 && check_searched_range(rs, first(ii), (1, 2), $K)
+                @test length(ii) == 1 && getindex(rs, first(ii)) == convertinfer($K, 1:2)
 
                 ii = searchsortedrange(rs, 3)
-                @test length(ii) == 0 && check_searched_range(rs, first(ii), (4, 4), $K) &&
-                                         check_searched_range(rs, last(ii), (1, 2), $K)
+                @test length(ii) == 0 && getindex(rs, first(ii)) == convertinfer($K, 4:4) &&
+                                         getindex(rs, last(ii)) == convertinfer($K, 1:2)
 
                 ii = searchsortedrange(rs, 4)
-                @test length(ii) == 1 && check_searched_range(rs, first(ii), (4, 4), $K)
+                @test length(ii) == 1 && getindex(rs, first(ii)) == convertinfer($K, 4:4)
 
                 ii = searchsortedrange(rs, 5)
-                @test length(ii) == 0 && check_searched_range(rs, last(ii), (4, 4), $K) &&
+                @test length(ii) == 0 && getindex(rs, last(ii)) == convertinfer($K, 4:4) &&
                                          first(ii) == pastendindex(rs) &&
                                          last(ii) == lastindex(rs)
 
                 rs = $TypeURSS{$K}((1:2, 4:4))
                 @test getrange(rs, 0) === nothing
-                @test getrange(rs, 1) == to_urange(inferrangetype($K), 1, 1)
-                @test getrange(rs, 1:1) == to_urange(inferrangetype($K), 1, 1)
-                @test getrange(rs, 1:2) == to_urange(inferrangetype($K), 1, 2)
+                @test getrange(rs, 1) == convertinfer($K, 1:1)
+                @test getrange(rs, 1:1) == convertinfer($K, 1:1)
+                @test getrange(rs, 1:2) == convertinfer($K, 1:2)
                 @test getrange(rs, 1:3) === nothing
             end
         end
@@ -267,33 +267,33 @@ end
             @eval begin
 
                 rs = $TypeURSS{$K}()
-                @test check_isequal(push!(rs, 3),  (3:3,))
-                @test check_isequal(push!(rs, 4),  (3:4,))
-                @test check_isequal(push!(rs, 18), (3:4, 18:18))
-                @test check_isequal(push!(rs, 2),  (2:4, 18:18))
-                @test check_isequal(push!(rs, 0),  (0:0, 2:4, 18:18))
-                @test check_isequal(push!(rs, 20), (0:0, 2:4, 18:18, 20:20))
-                @test check_isequal(push!(rs, 19), (0:0, 2:4, 18:20))
-                @test check_isequal(push!(rs, 1),  (0:4, 18:20))
-                @test check_isequal(push!(rs, 9),  (0:4, 9:9, 18:20))
-                @test check_isequal(push!(rs, 9),  (0:4, 9:9, 18:20))
-                @test check_isequal(push!(rs, 10), (0:4, 9:10, 18:20))
-                @test check_isequal(push!(rs, 8),  (0:4, 8:10, 18:20))
+                @test check_isequal(push!(rs, 3),  convertinfer($K, (3:3,)))
+                @test check_isequal(push!(rs, 4),  convertinfer($K, (3:4,)))
+                @test check_isequal(push!(rs, 18), convertinfer($K, (3:4, 18:18)))
+                @test check_isequal(push!(rs, 2),  convertinfer($K, (2:4, 18:18)))
+                @test check_isequal(push!(rs, 0),  convertinfer($K, (0:0, 2:4, 18:18)))
+                @test check_isequal(push!(rs, 20), convertinfer($K, (0:0, 2:4, 18:18, 20:20)))
+                @test check_isequal(push!(rs, 19), convertinfer($K, (0:0, 2:4, 18:20)))
+                @test check_isequal(push!(rs, 1),  convertinfer($K, (0:4, 18:20)))
+                @test check_isequal(push!(rs, 9),  convertinfer($K, (0:4, 9:9, 18:20)))
+                @test check_isequal(push!(rs, 9),  convertinfer($K, (0:4, 9:9, 18:20)))
+                @test check_isequal(push!(rs, 10), convertinfer($K, (0:4, 9:10, 18:20)))
+                @test check_isequal(push!(rs, 8),  convertinfer($K, (0:4, 8:10, 18:20)))
 
                 rs = $TypeURSS{$K}()
-                @test check_isequal(push!(rs, 13:14), (13:14,))
-                @test check_isequal(push!(rs, 23:24), (13:14, 23:24))
-                @test check_isequal(push!(rs, 12:12), (12:14, 23:24))
-                @test check_isequal(push!(rs, 11:13), (11:14, 23:24))
-                @test check_isequal(push!(rs, 8:9),   (8:9, 11:14, 23:24))
-                @test check_isequal(push!(rs, 9:12),  (8:14, 23:24))
-                @test check_isequal(push!(rs, 16:17),  (8:14, 16:17, 23:24))
-                @test check_isequal(push!(rs, 25:26),  (8:14, 16:17, 23:26))
-                @test check_isequal(push!(rs, 24:26),  (8:14, 16:17, 23:26))
-                @test check_isequal(push!(rs, 28:29),  (8:14, 16:17, 23:26, 28:29))
-                @test check_isequal(push!(rs, 28:29),  (8:14, 16:17, 23:26, 28:29))
-                @test check_isequal(push!(rs, 16:15),  (8:14, 16:17, 23:26, 28:29))
-                @test check_isequal(push!(rs, 18:19),  (8:14, 16:19, 23:26, 28:29))
+                @test check_isequal(push!(rs, 13:14), convertinfer($K, (13:14,)))
+                @test check_isequal(push!(rs, 23:24), convertinfer($K, (13:14, 23:24)))
+                @test check_isequal(push!(rs, 12:12), convertinfer($K, (12:14, 23:24)))
+                @test check_isequal(push!(rs, 11:13), convertinfer($K, (11:14, 23:24)))
+                @test check_isequal(push!(rs, 8:9),   convertinfer($K, (8:9, 11:14, 23:24)))
+                @test check_isequal(push!(rs, 9:12),  convertinfer($K, (8:14, 23:24)))
+                @test check_isequal(push!(rs, 16:17),  convertinfer($K, (8:14, 16:17, 23:24)))
+                @test check_isequal(push!(rs, 25:26),  convertinfer($K, (8:14, 16:17, 23:26)))
+                @test check_isequal(push!(rs, 24:26),  convertinfer($K, (8:14, 16:17, 23:26)))
+                @test check_isequal(push!(rs, 28:29),  convertinfer($K, (8:14, 16:17, 23:26, 28:29)))
+                @test check_isequal(push!(rs, 28:29),  convertinfer($K, (8:14, 16:17, 23:26, 28:29)))
+                @test check_isequal(push!(rs, 16:15),  convertinfer($K, (8:14, 16:17, 23:26, 28:29)))
+                @test check_isequal(push!(rs, 18:19),  convertinfer($K, (8:14, 16:19, 23:26, 28:29)))
             end
         end
     end
@@ -306,26 +306,26 @@ end
             @eval begin
 
                 rs = $TypeURSS{$K}((0:0, 2:4, 8:8, 10:12))
-                @test check_isequal(delete!(rs, 5),  (0:0, 2:4, 8:8, 10:12))
-                @test check_isequal(delete!(rs, 0),  (2:4, 8:8, 10:12))
-                @test check_isequal(delete!(rs, 0),  (2:4, 8:8, 10:12))
-                @test check_isequal(delete!(rs, 8),  (2:4, 10:12))
-                @test check_isequal(delete!(rs, 12), (2:4, 10:11))
-                @test check_isequal(delete!(rs, 10), (2:4, 11:11))
-                @test check_isequal(delete!(rs, 11), (2:4,))
-                @test check_isequal(delete!(rs, 3),  (2:2, 4:4))
+                @test check_isequal(delete!(rs, 5),  convertinfer($K, (0:0, 2:4, 8:8, 10:12)))
+                @test check_isequal(delete!(rs, 0),  convertinfer($K, (2:4, 8:8, 10:12)))
+                @test check_isequal(delete!(rs, 0),  convertinfer($K, (2:4, 8:8, 10:12)))
+                @test check_isequal(delete!(rs, 8),  convertinfer($K, (2:4, 10:12)))
+                @test check_isequal(delete!(rs, 12), convertinfer($K, (2:4, 10:11)))
+                @test check_isequal(delete!(rs, 10), convertinfer($K, (2:4, 11:11)))
+                @test check_isequal(delete!(rs, 11), convertinfer($K, (2:4,)))
+                @test check_isequal(delete!(rs, 3),  convertinfer($K, (2:2, 4:4)))
                 @test delete!(rs, 3) === rs
 
                 rs = $TypeURSS{$K}((0:0, 2:6, 8:8, 10:13, 15:20))
-                @test check_isequal(delete!(rs, 17:17),  (0:0, 2:6, 8:8, 10:13, 15:16, 18:20))
-                @test check_isequal(delete!(rs, 16:18),  (0:0, 2:6, 8:8, 10:13, 15:15, 19:20))
-                @test check_isequal(delete!(rs, 15:20),  (0:0, 2:6, 8:8, 10:13))
-                @test check_isequal(delete!(rs, 7:7),  (0:0, 2:6, 8:8, 10:13))
-                @test check_isequal(delete!(rs, 6:7),  (0:0, 2:5, 8:8, 10:13))
-                @test check_isequal(delete!(rs, 0:1),  (2:5, 8:8, 10:13))
-                @test check_isequal(delete!(rs, 9:10),  (2:5, 8:8, 11:13))
-                @test check_isequal(delete!(rs, 13:14),  (2:5, 8:8, 11:12))
-                @test check_isequal(delete!(rs, 1:3),  (4:5, 8:8, 11:12))
+                @test check_isequal(delete!(rs, 17:17),  convertinfer($K, (0:0, 2:6, 8:8, 10:13, 15:16, 18:20)))
+                @test check_isequal(delete!(rs, 16:18),  convertinfer($K, (0:0, 2:6, 8:8, 10:13, 15:15, 19:20)))
+                @test check_isequal(delete!(rs, 15:20),  convertinfer($K, (0:0, 2:6, 8:8, 10:13)))
+                @test check_isequal(delete!(rs, 7:7),  convertinfer($K, (0:0, 2:6, 8:8, 10:13)))
+                @test check_isequal(delete!(rs, 6:7),  convertinfer($K, (0:0, 2:5, 8:8, 10:13)))
+                @test check_isequal(delete!(rs, 0:1),  convertinfer($K, (2:5, 8:8, 10:13)))
+                @test check_isequal(delete!(rs, 9:10),  convertinfer($K, (2:5, 8:8, 11:13)))
+                @test check_isequal(delete!(rs, 13:14),  convertinfer($K, (2:5, 8:8, 11:12)))
+                @test check_isequal(delete!(rs, 1:3),  convertinfer($K, (4:5, 8:8, 11:12)))
 
             end
         end
@@ -373,15 +373,15 @@ end
 
                 rs = $TypeURSS{$K}()
                 vu = Vector{eltype(rs)}([])
-                test_empty_iterators(rs, vu, $TypeURSS)
+                test_empty_iterators(rs, convertinfer($K, vu), $TypeURSS)
 
                 rs = $TypeURSS{$K}((1:6,))
                 vu = (1:6,)
-                test_iterators(rs, vu, $TypeURSS)
+                test_iterators(rs, convertinfer($K, vu), $TypeURSS)
 
                 rs = $TypeURSS{$K}((1:6, 8:16, 20:33))
                 vu = (1:6, 8:16, 20:33)
-                test_iterators(rs, vu, $TypeURSS)
+                test_iterators(rs, convertinfer($K, vu), $TypeURSS)
 
                 rs = $TypeURSS{$K}((0:0, 2:4))
                 rs2 = copy(rs)
@@ -397,11 +397,13 @@ end
                 @test (filter!(s->length(s)==1, rs); rs == $TypeURSS{$K}((0:0)))
 
                 rs = $TypeURSS{$K}((0:0, 2:4))
-                @test collect(rs) == Vector{basetype(eltype(rs)){UInt64}}([0:0, 2:4])
-                @test collect(UInt64, rs) == Vector{basetype(eltype(rs)){UInt64}}([0:0, 2:4])
+                @test collect(rs) == convertinfer($K, [0:0, 2:4])
+                @test collect(UInt64, rs) == convertinfer(UInt64, [0:0, 2:4])
                 @test convert(typeof(rs), rs) === rs
                 @test convert(Vector{$K}, rs) == Vector{$K}([0,2,3,4])
-                @test convert(Set{$K}, rs) == Set{$K}([0,2,3,4])
+                @test convert(Vector{UInt64}, rs) == Vector{UInt64}([0,2,3,4])
+                @test convert(Set{$K}, rs) == Set{$K}(convertinfer($K, [0,2,3,4]))
+                @test convert(Set{UInt64}, rs) == Set{UInt64}(convertinfer(UInt64, [0,2,3,4]))
 
             end
         end
@@ -419,51 +421,51 @@ end
 
                 ss = subset(rs, 1:50)
                 vu = (1:6, 8:16, 20:33, 35:47, 49:50)
-                test_iterators(ss, vu, SubUnitRangesSortedSet)
+                test_iterators(ss, convertinfer($K, vu), SubUnitRangesSortedSet)
 
                 ss = subset(rs, 10:40)
                 vu = (10:16, 20:33, 35:40)
-                test_iterators(ss, vu, SubUnitRangesSortedSet)
+                test_iterators(ss, convertinfer($K, vu), SubUnitRangesSortedSet)
 
                 ss = subset(rs, 7:40)
                 vu = (8:16, 20:33, 35:40)
-                test_iterators(ss, vu, SubUnitRangesSortedSet)
+                test_iterators(ss, convertinfer($K, vu), SubUnitRangesSortedSet)
 
                 ss = subset(rs, 11:48)
                 vu = (11:16, 20:33, 35:47)
-                test_iterators(ss, vu, SubUnitRangesSortedSet)
+                test_iterators(ss, convertinfer($K, vu), SubUnitRangesSortedSet)
 
                 ss = subset(rs, 7:48)
                 vu = (8:16, 20:33, 35:47)
-                test_iterators(ss, vu, SubUnitRangesSortedSet)
+                test_iterators(ss, convertinfer($K, vu), SubUnitRangesSortedSet)
 
                 ss = subset(rs, 21:32)
                 vu = (21:32,)
-                test_iterators(ss, vu, Sub1UnitRangesSortedSet)
+                test_iterators(ss, convertinfer($K, vu), Sub1UnitRangesSortedSet)
 
                 ss = subset(rs, 20:33)
                 vu = (20:33,)
-                test_iterators(ss, vu, Sub1UnitRangesSortedSet)
+                test_iterators(ss, convertinfer($K, vu), Sub1UnitRangesSortedSet)
 
                 ss = subset(rs, 19:34)
                 vu = (20:33,)
-                test_iterators(ss, vu, Sub1UnitRangesSortedSet)
+                test_iterators(ss, convertinfer($K, vu), Sub1UnitRangesSortedSet)
 
                 ss = subset(rs, 22:34)
                 vu = (22:33,)
-                test_iterators(ss, vu, Sub1UnitRangesSortedSet)
+                test_iterators(ss, convertinfer($K, vu), Sub1UnitRangesSortedSet)
 
                 ss = subset(rs, 19:30)
                 vu = (20:30,)
-                test_iterators(ss, vu, Sub1UnitRangesSortedSet)
+                test_iterators(ss, convertinfer($K, vu), Sub1UnitRangesSortedSet)
 
                 ss = subset(rs, 18:19)
                 vu = Vector{eltype(ss)}([])
-                test_empty_iterators(ss, vu, Sub0UnitRangesSortedSet)
+                test_empty_iterators(ss, convertinfer($K, vu), Sub0UnitRangesSortedSet)
 
                 ss = subset(rs, 21:20)
                 vu = Vector{eltype(ss)}([])
-                test_empty_iterators(ss, vu, Sub0UnitRangesSortedSet)
+                test_empty_iterators(ss, convertinfer($K, vu), Sub0UnitRangesSortedSet)
 
             end
         end
@@ -493,16 +495,16 @@ end
 
                 rs = $TypeURSS{$K}((0:0, 2:4))
                 @test (union!(rs, $TypeURSS{$K}((0:0, 6:6))); rs == $TypeURSS{$K}((0:0, 2:4, 6:6)))
-                @test pop!(rs, 0) == to_urange(inferrangetype($K), 0, 0)
+                @test pop!(rs, 0) == convertinfer($K, 0:0)
                 @test_throws KeyError pop!(rs, 0)
                 @test pop!(rs, 0, UInt64(1)) === UInt64(1)
-                @test pop!(rs, 2, UInt64(1)) === to_urange(inferrangetype($K), 2, 2)
+                @test pop!(rs, 2, UInt64(1)) === convertinfer($K, 2:2)
                 @test pop!(rs, 2, UInt64(1)) === UInt64(1)
-                @test pop!(rs, 3:3) == to_urange(inferrangetype($K), 3, 3)
+                @test pop!(rs, 3:3) == convertinfer($K, 3:3)
                 @test_throws KeyError pop!(rs, 3:3)
                 @test pop!(rs, 3:3, UInt64(1)) === UInt64(1)
                 @test rs == $TypeURSS{$K}((4:4, 6:6))
-                @test pop!(rs, 4:4, UInt64(1)) == to_urange(inferrangetype($K), 4, 4)
+                @test pop!(rs, 4:4, UInt64(1)) == convertinfer($K, 4:4)
                 @test pop!(rs, 4:4, UInt64(1)) === UInt64(1)
                 @test empty(rs) == $TypeURSS{$K}()
                 empty!(rs)

@@ -243,7 +243,7 @@ function Base.convert(::Type{T}, rs::Union{UnitRangesSortedVector,UnitRangesSort
     V = T(undef, sum(length(r) for r in rs))
     i = 0
     for r in rs, v in r
-        V[i+=1] = v
+        V[i+=1] = Tv(v)
     end
     V
 end
@@ -257,7 +257,7 @@ end
 function Base.convert(::Type{T}, rs::Union{UnitRangesSortedVector,UnitRangesSortedSet}) where {T<:AbstractSet{Tv}} where {Tv}
     S = T()
     for r in rs, v in r
-        push!(S, v)
+        push!(S, Tv(v))
     end
     S
 end
@@ -360,7 +360,7 @@ Base.eltype(::AbstractUnitRangesSortedSet{K,TU}) where {K,TU} = TU
 
 
 function Base.collect(::Type{ElType}, rs::AbstractUnitRangesSortedSet{K,TU}) where {ElType,K,TU}
-    T = basetype(TU){ElType}
+    T = inferrangetype(ElType)
     res = Vector{T}(undef, length(rs))
     i = 0
     for r in rs
