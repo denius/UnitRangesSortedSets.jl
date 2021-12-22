@@ -1,7 +1,8 @@
 
 module UnitRangesSortedSets
 export AbstractUnitRangesSortedSet, AbstractSubUnitRangesSortedSet, AbstractUnitRangesSortedContainer
-export UnitRangesSortedVector, UnitRangesSortedSet, SubUnitRangesSortedSet, URSSIndexURange
+export UnitRangesSortedVector, UnitRangesSortedSet
+export Sub0UnitRangesSortedSet, Sub1UnitRangesSortedSet, SubUnitRangesSortedSet, URSSIndexURange
 export testfun_create, testfun_createSV, testfun_createVL, testfun_create_seq, testfun_create_dense, testfun_delete!,
        testfun_in, testfun_in_outer, testfun_in_rand, testfun_in_seq, testfun_nzgetindex, testfun_setindex!
 export searchsortedrange, searchsortedfirstrange, searchsortedlastrange, getrange, getindex, beforestartindex, pastendindex
@@ -13,10 +14,15 @@ const FOrd = ForwardOrdering
 
 using DocStringExtensions
 using DataStructures
-import DataStructures: DataStructures.Tokens.IntSemiToken
+import DataStructures: DataStructures.Tokens.IntSemiToken, DataStructures.SDMToken
 using IterTools
 using Setfield
 using Random
+
+
+# https://discourse.julialang.org/t/deparametrising-types/41939/4
+basetype(t::DataType) = t.name.wrapper
+basetype(t::UnionAll) = basetype(t.body)
 
 
 @inline create_range(::Type{TU}, l, r) where {TU<:UnitRange{Ti}} where Ti = TU(l, r)
@@ -114,11 +120,15 @@ subset(rs::P, II::AbstractRange) where {P<:AbstractSubUnitRangesSortedSet} = sub
 function subset(rs::P, II::AbstractRange) where {P<:AbstractUnitRangesSortedContainer{Ti,TU}} where {Ti,TU}
     I = create_range(TU, II)
     ir = searchsortedrange(rs, I)
-    beforestart = regress(rs, first(ir))
-    pastend = advance(rs, last(ir))
     if length(I) == 0 || length(ir) == 0
+        if length(I) == 0 && length(ir) == 1
+            ir = create_indexrange(rs, first(ir), regress(rs, first(ir)))
+        end
+        if length(I) != 0
+            I = create_range(TU, last(I), first(I))
+        end
         return Sub0UnitRangesSortedSet{Ti,TU,P,typeof(first(ir))}(rs, first(I), last(I), first(ir), last(ir),
-                                                               beforestart, pastend, length(ir))
+                                       regress(rs, first(ir)), advance(rs, last(ir)), length(ir))
     elseif length(ir) == 1
         singlerange = getindex(rs, first(ir))
         if first(singlerange) < first(I)
@@ -128,7 +138,7 @@ function subset(rs::P, II::AbstractRange) where {P<:AbstractUnitRangesSortedCont
             singlerange = create_range(TU, first(singlerange), last(I))
         end
         return Sub1UnitRangesSortedSet{Ti,TU,P,typeof(first(ir))}(rs, first(I), last(I), singlerange,
-                                                               first(ir), last(ir), beforestart, pastend, length(ir))
+                                       first(ir), last(ir), regress(rs, first(ir)), advance(rs, last(ir)), length(ir))
     else
         firstrange = getindex(rs, first(ir))
         if first(firstrange) < first(I)
@@ -139,7 +149,7 @@ function subset(rs::P, II::AbstractRange) where {P<:AbstractUnitRangesSortedCont
             lastrange = create_range(TU, first(lastrange), last(I))
         end
         return SubUnitRangesSortedSet{Ti,TU,P,typeof(first(ir))}(rs, first(I), last(I), firstrange, lastrange,
-                                                                 first(ir), last(ir), beforestart, pastend, length(ir))
+                                      first(ir), last(ir), regress(rs, first(ir)), advance(rs, last(ir)), length(ir))
     end
 end
 
@@ -214,6 +224,8 @@ function (::Type{T})(values::Union{AbstractVector, AbstractSet, Tuple}) where {T
     rs
 end
 
+Base.convert(::Type{<:UnitRangesSortedVector}, rs::UnitRangesSortedVector) = rs
+Base.convert(::Type{<:UnitRangesSortedSet}, rs::UnitRangesSortedSet) = rs
 function Base.convert(::Type{T}, rs::Union{UnitRangesSortedVector,UnitRangesSortedSet}) where {T<:AbstractVector{Tv}} where {Tv<:AbstractRange}
     V = T(undef, length(rs))
     for (i, r) in enumerate(rs)
@@ -305,17 +317,17 @@ end
                    {Pl<:UnitRangesSortedVector,Tixl,Pr<:UnitRangesSortedSet,Tixr} = false
 @inline Base.:(==)(l::URSSIndexURange{Pl,Tixl}, r::URSSIndexURange{Pr,Tixr}) where
                    {Pl<:UnitRangesSortedVector,Tixl,Pr<:UnitRangesSortedVector,Tixr} =
-    #l.parent === r.parent &&
+    l.parent === r.parent &&
     l.start == r.start &&
     l.stop == r.stop
 @inline Base.:(==)(l::URSSIndexURange{Pl,Tixl}, r::URSSIndexURange{Pr,Tixr}) where
                    {Pl<:UnitRangesSortedSet,Tixl,Pr<:UnitRangesSortedSet,Tixr} =
-    #l.parent === r.parent &&
+    l.parent === r.parent &&
     compare(l.parent.ranges, l.start, r.start) == 0 &&
     compare(l.parent.ranges, l.stop, r.stop) == 0
 
-#@inline Base.first(ur::URSSIndexURange) = ur.start
-#@inline Base.last(ur::URSSIndexURange) = ur.stop
+@inline Base.first(ur::URSSIndexURange) = ur.start
+@inline Base.last(ur::URSSIndexURange) = ur.stop
 @inline Base.firstindex(ur::URSSIndexURange) = ur.start
 @inline Base.lastindex(ur::URSSIndexURange) = ur.stop
 
@@ -342,10 +354,11 @@ Base.eltype(::AbstractUnitRangesSortedSet{Ti,TU}) where {Ti,TU} = TU
 
 
 function Base.collect(::Type{ElType}, rs::AbstractUnitRangesSortedSet{Ti,TU}) where {ElType,Ti,TU}
-    res = Vector{TU{ElType}}(undef, length(rs))
+    T = basetype(TU){ElType}
+    res = Vector{T}(undef, length(rs))
     i = 0
     for r in rs
-        res[i+=1] = create_range(TU{ElType}, ElType(first(r)), ElType(last(r)))
+        res[i+=1] = create_range(T, ElType(first(r)), ElType(last(r)))
     end
     return res
 end
@@ -392,20 +405,19 @@ end
 @inline getindex_tuple(rs::UnitRangesSortedVector, i) = (rs.rstarts[i], rs.rstops[i])
 @inline getindex_tuple(rs::UnitRangesSortedSet, i::IntSemiToken) = tuple(deref((rs.ranges, i))...)
 @inline getindex_tuple(rs::Sub0UnitRangesSortedSet, i) = (r = getindex(rs, i); tuple(first(r), last(r)))
-#@inline getindex_tuple(rs::Sub0UnitRangesSortedSet, i) = (rs.kstart, rs.kstop)
 @inline getindex_tuple(rs::Sub1UnitRangesSortedSet, i) = (r = getindex(rs, i); tuple(first(r), last(r)))
 @inline getindex_tuple(rs::SubUnitRangesSortedSet, i) = (r = getindex(rs, i); tuple(first(r), last(r)))
 @inline Base.getindex(rs::UnitRangesSortedVector{Ti,TU}, i) where {Ti,TU} = create_range(TU, rs.rstarts[i], rs.rstops[i])
 @inline Base.getindex(rs::UnitRangesSortedSet{Ti,TU}, i::IntSemiToken) where {Ti,TU} = create_range(TU, deref((rs.ranges, i))...)
+@inline Base.getindex(rs::UnitRangesSortedSet{Ti,TU}, t::SDMToken) where {Ti,TU} = create_range(TU, deref(t)...)
 @inline function Base.getindex(ur::URSSIndexURange, i)
     @boundscheck indexcompare(ur.parent, first(ur), i) != 1 && indexcompare(ur.parent, i, last(ur)) != 1 || throw(BoundsError(ur, i))
     getindex(ur.parent, i)
 end
-@inline Base.getindex(rs::Sub0UnitRangesSortedSet, i) = throw(BoundsError(rs, i))
-#@inline Base.getindex(rs::Sub0UnitRangesSortedSet, i) = rs.singlerange # TODO: What to do with index checking?
+@inline Base.getindex(rs::Sub0UnitRangesSortedSet{Ti,TU}, i) where {Ti,TU} =
+    (throw(BoundsError(rs)); create_range(TU, typemin(Ti), typemin(Ti)))
 @inline function Base.getindex(rs::Sub1UnitRangesSortedSet, i)
     @boundscheck i == rs.firstindex || throw(BoundsError(rs, i))
-    #@boundscheck beforestartindex(rs) < i < pastendindex(rs) || throw(BoundsError(rs, i))
     rs.singlerange
 end
 @inline function Base.getindex(rs::SubUnitRangesSortedSet{Ti,TU,P}, i) where {Ti,TU,P<:UnitRangesSortedVector}
@@ -475,12 +487,12 @@ end
 @inline Base.lastindex(rs::AbstractSubUnitRangesSortedSet) = rs.lastindex
 @inline Base.first(rs::UnitRangesSortedVector{Ti,TU}) where {Ti,TU} = create_range(TU, rs.rstarts[1], rs.rstops[1])
 @inline Base.first(rs::UnitRangesSortedSet{Ti,TU}) where {Ti,TU} = create_range(TU, deref((rs.ranges, startof(rs.ranges)))...)
-@inline Base.first(rs::Sub0UnitRangesSortedSet) = rs.singlerange
+@inline Base.first(rs::Sub0UnitRangesSortedSet) = getindex(rs, firstindex(rs))
 @inline Base.first(rs::Sub1UnitRangesSortedSet) = rs.singlerange
 @inline Base.first(rs::SubUnitRangesSortedSet) = getindex(rs, firstindex(rs))
 @inline Base.last(rs::UnitRangesSortedVector{Ti,TU}) where {Ti,TU} = create_range(TU, rs.rstarts[end], rs.rstops[end])
 @inline Base.last(rs::UnitRangesSortedSet{Ti,TU}) where {Ti,TU} = create_range(TU, deref((rs.ranges, lastindex(rs.ranges)))...)
-@inline Base.last(rs::Sub0UnitRangesSortedSet) = rs.singlerange
+@inline Base.last(rs::Sub0UnitRangesSortedSet) = getindex(rs, lastindex(rs))
 @inline Base.last(rs::Sub1UnitRangesSortedSet) = rs.singlerange
 @inline Base.last(rs::SubUnitRangesSortedSet) = getindex(rs, lastindex(rs))
 
@@ -632,8 +644,11 @@ Base.findall(pred::Function, rs::AbstractUnitRangesSortedSet) = collect(r for r 
 #  Iterators
 #
 
-@inline Base.iterate(rs::Sub0UnitRangesSortedSet) = nothing
-@inline Base.iterate(rrs::Base.Iterators.Reverse{T}) where {T<:Sub0UnitRangesSortedSet} = nothing
+@inline Base.iterate(rs::Sub0UnitRangesSortedSet{Ti,TU}, state = 1) where {Ti,TU} =
+    # for type inference
+    rs.kstart > rs.kstop ? nothing : (create_range(TU, typemin(Ti), typemin(Ti)), state)
+@inline Base.iterate(rrs::Base.Iterators.Reverse{T}, state = 1) where {T<:Sub0UnitRangesSortedSet{Ti,TU}} where {Ti,TU} =
+    rrs.itr.kstart > rrs.itr.kstop ? nothing : (create_range(TU, typemin(Ti), typemin(Ti)), state)
 
 
 @inline Base.iterate(rs::Sub1UnitRangesSortedSet) = (rs.singlerange, rs.firstindex)
@@ -670,30 +685,13 @@ end
 end
 
 
-#@inline function Base.iterate(rs::AbstractSubUnitRangesSortedSet{Ti,TU,P},
-#                              state = (rs.firstrange, firstindex(rs))) where {Ti,TU,P<:UnitRangesSortedSet}
-#    val, state2 = state
-#    if last(val) < rs.kstop
-#        #@show 1, state2, status((rs.parent.ranges, state2)), deref((rs.parent.ranges, state2))
-#        state2 = advance((rs.parent.ranges, state2))
-#        return (val, (getindex(rs.parent, state2), state2))
-#    elseif first(val) < rs.kstop <= last(val) && state2 != pastendsemitoken(rs.parent.ranges)
-#        #@show 2, state2, status((rs.parent.ranges, state2)), deref((rs.parent.ranges, state2))
-#        state2 = advance((rs.parent.ranges, state2))
-#        return (rs.lastrange, (getindex(rs.parent, state2), state2))
-#    else
-#        return nothing
-#    end
-#end
 @inline function Base.iterate(rs::AbstractSubUnitRangesSortedSet{Ti,TU,P},
                               state = (rs.firstrange, rs.firstindex)) where {Ti,TU,P<:UnitRangesSortedSet}
     val, state2 = state
     if compare(rs.parent.ranges, state2, rs.lastindex) == -1
-        @show 1, state2, status((rs.parent.ranges, state2)), deref((rs.parent.ranges, state2))
         state2 = advance((rs.parent.ranges, state2))
         return (val, (getindex(rs.parent, state2), state2))
     elseif compare(rs.parent.ranges, state2, rs.lastindex) == 0
-        @show 2, state2, status((rs.parent.ranges, state2)), deref((rs.parent.ranges, state2))
         state2 = advance((rs.parent.ranges, state2))
         return (rs.lastrange, (rs.lastrange, state2))
     else
@@ -731,6 +729,13 @@ end
     end
 end
 
+#@inline function Base.iterate(rs::UnitRangesSortedSet, state = SDMToken((rs.ranges, startof(rs.ranges))))
+#    if state[2] != pastendsemitoken(state[1])
+#        return (getindex(rs, state), SDMToken((state[1], advance(state))))
+#    else
+#        return nothing
+#    end
+#end
 
 @inline function Base.iterate(ur::URSSIndexURange, state = (first(ur), 1))
     st, i = state #[1], state[2]
@@ -772,7 +777,8 @@ end
     end
 end
 Base.eltype(::Type{EachIndexIterator{It}}) where {It} = eltype(It)
-Base.IteratorEltype(::Type{EachIndexIterator{It}}) where {It} = Base.EltypeUnknown()
+Base.IteratorEltype(::Type{EachIndexIterator{It}}) where {It} = Base.HasEltype()
+#Base.IteratorEltype(::Type{EachIndexIterator{It}}) where {It} = Base.EltypeUnknown()
 Base.IteratorSize(::Type{<:EachIndexIterator}) = Base.HasShape{1}()
 Base.length(it::EachIndexIterator) = length(it.itr)
 Base.size(it::EachIndexIterator) = (length(it.itr),)
@@ -1097,7 +1103,7 @@ end
     #
     #sstatus = status((rs.ranges, st))
     @boundscheck if index_status(rs, st) == 0 # invalid range index
-        throw(KeyError(k))
+        throw(BoundsError(rs, k))
     end
 
     # check the index exist and update its data
