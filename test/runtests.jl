@@ -1,6 +1,58 @@
 using .UnitRangesSortedSets
+import .UnitRangesSortedSets: advance, regress, beforestartindex, pastendindex
 import .UnitRangesSortedSets: inferrangetype, to_urange
 using Test
+
+# TODO:
+# Custom Number Type, see Unitful: "runtests.jl"
+#
+# Try Test.GenericSet
+#
+# subset(subset()), copy(subset)
+# function UnitRangesSortedVector(rs::AbstractUnitRangesSortedSet{K,TU}) where {K,TU}
+# function UnitRangesSortedSet(rs::AbstractUnitRangesSortedSet{K,TU}) where {K,TU}
+# function Base.convert(::Type{T}, rs::Union{UnitRangesSortedVector,UnitRangesSortedSet}) where {T<:AbstractVector{Tv}} where {Tv<:           AbstractRange}
+# function Base.convert(::Type{T}, rs::Union{UnitRangesSortedVector,UnitRangesSortedSet}) where {T<:AbstractSet{Tv}} where {Tv<:AbstractRange}
+# @inline function URSSIndexURange(rs::P, l::Tix, r::Tix) where {P<:UnitRangesSortedVector, Tix}
+# URSSIndexURange for UnitRangesSortedVector?
+# @inline Base.firstindex(ur::URSSIndexURange) = ur.start
+# @inline Base.lastindex(ur::URSSIndexURange) = ur.stop
+# @inline DataStructures.advance(ur::URSSIndexURange), beforestartindex
+# @inline function indexcompare(rs::UnitRangesSortedVector, i, j)
+# @inline function indexcompare(rs::AbstractSubUnitRangesSortedSet{K,TU,P}, i, j) where {K,TU,P<:UnitRangesSortedVector}
+# @inline getindex_tuple(rs::Sub01XUnitRangesSortedSet, i)
+# @inline Base.getindex(rs::UnitRangesSortedSet{K,TU}, t::SDMToken) ???
+# @inline function Base.getindex(ur::URSSIndexURange, i) ???
+# function bisectionsearchlast(V::AbstractVector, val, lo::T, hi::T) where T
+# function bisectionsearchfirst(V::AbstractVector, val, lo::T, hi::T) where T
+# @inline searchsortedrangelast(rs::Sub01XUnitRangesSortedSet, k)
+# @inline searchsortedrangefirst(rs::Sub01XUnitRangesSortedSet, k)
+# @inline searchsortedrange(rs::AbstractSubUnitRangesSortedSet, kk::AbstractRange)
+# @inline function Base.findfirst(pred::Function, rs::AbstractUnitRangesSortedSet)
+# @inline function Base.findall(pred::Function, rs::AbstractUnitRangesSortedSet)
+# @inline function Base.iterate(ur::URSSIndexURange, state = (first(ur), 0))
+# @inline Base.in(key/kk, su::Sub01XUnitRangesSortedSet)
+# function Base.push!(rs::UnitRangesSortedVector{K,TU}, II::Union{AbstractVector,AbstractSet,NTuple}) where {K,TU}
+# function Base.push!(rs::UnitRangesSortedSet{K,TU}, II::Union{AbstractVector,AbstractSet,NTuple}) where {K,TU}
+# @inline Base.push!(rs::UnitRangesSortedSet{K,TU}, kk::TU) where {K,TU}
+# function Base.delete!(rs::UnitRangesSortedVector{K,TU}, II::T) where {K,TU, T<:Union{AbstractVector,AbstractSet,NTuple}}
+# @inline Base.delete!(rs::UnitRangesSortedVector{K,TU}, kk::TU) where {K,TU}
+# function Base.delete!(rs::UnitRangesSortedSet{K,TU}, II::Union{AbstractVector,AbstractSet,NTuple})  where {K,TU}
+# @inline Base.delete!(rs::UnitRangesSortedSet{K,TU}, kk::TU) where {K,TU} = _delete!(rs, kk)
+# Base.union(rs::AbstractUnitRangesSortedSet, rss...) = union!(copy(rs), rss...)
+# @inline Base.union!(rs::AbstractUnitRangesSortedContainer, r::AbstractRange) = push!(rs, r)
+# setdiff
+# symdiff
+# @inline Base.intersect!(rs::AbstractUnitRangesSortedContainer{K,TU}, kk::TU) where {K,TU} = __intersect!(rs, kk)
+# function Base.intersect!(rs1::AbstractSet, rs2::AbstractUnitRangesSortedSet)
+# Base.intersect(rs1::AbstractSet, rs2::AbstractUnitRangesSortedSet) = _intersect(rs1, rs2)
+# Base.intersect(rs1::AbstractVector, rs2::AbstractUnitRangesSortedSet) = _intersect(rs1, rs2)
+#
+# function Base.show(io::IO, x::T) where {T<:AbstractSubUnitRangesSortedSet}
+# function Base.show(io::IO, ::MIME"text/plain", x::T) where {T<:AbstractSubUnitRangesSortedSet}
+#
+
+
 
 # https://github.com/JuliaLang/julia/issues/39952
 basetype(::Type{T}) where T = Base.typename(T).wrapper
@@ -38,9 +90,9 @@ function test_isequal(rs1, rs2)
 end
 
 function test_range_create(rs::T, vu, Tv::Type) where {T<:AbstractUnitRangesSortedContainer}
-    Trange = inferrangetype(Tv)
-    @test eltype(rs) === Trange
-    @test typeof(rs) === basetype(T){Tv,Trange}
+    TRange = inferrangetype(Tv)
+    @test eltype(rs) === TRange
+    @test typeof(rs) === basetype(T){Tv,TRange}
     test_isequal(rs, vu)
 end
 
@@ -118,81 +170,81 @@ end
             @eval begin
                 rs = $TypeURSS{$K}((1:2, 4:4, 6:6))
 
-                ir = searchsortedlastrange(rs, 0)
+                ir = searchsortedrangelast(rs, 0)
                 @test ir == beforestartindex(rs)
 
-                ir = searchsortedlastrange(rs, 1)
+                ir = searchsortedrangelast(rs, 1)
                 @test ir != beforestartindex(rs) &&
                       getindex(rs, ir) == convertinfer($K, 1:2) &&
                       ir == firstindex(rs)
 
-                ir = searchsortedlastrange(rs, 2)
+                ir = searchsortedrangelast(rs, 2)
                 @test ir != beforestartindex(rs) &&
                       getindex(rs, ir) == convertinfer($K, 1:2) &&
                       ir == firstindex(rs)
 
-                ir = searchsortedlastrange(rs, 3)
+                ir = searchsortedrangelast(rs, 3)
                 @test ir != beforestartindex(rs) &&
                       getindex(rs, ir) == convertinfer($K, 1:2) &&
                       ir == firstindex(rs)
 
-                ir = searchsortedlastrange(rs, 4)
+                ir = searchsortedrangelast(rs, 4)
                 @test ir != beforestartindex(rs) &&
                       getindex(rs, ir) == convertinfer($K, 4:4) &&
                       ir != firstindex(rs) && ir != lastindex(rs)
 
-                ir = searchsortedlastrange(rs, 5)
+                ir = searchsortedrangelast(rs, 5)
                 @test ir != beforestartindex(rs) &&
                       getindex(rs, ir) == convertinfer($K, 4:4) &&
                       ir != firstindex(rs) && ir != lastindex(rs)
 
-                ir = searchsortedlastrange(rs, 6)
+                ir = searchsortedrangelast(rs, 6)
                 @test ir != beforestartindex(rs) &&
                       getindex(rs, ir) == convertinfer($K, 6:6) &&
                       ir == lastindex(rs)
 
-                ir = searchsortedlastrange(rs, 7)
+                ir = searchsortedrangelast(rs, 7)
                 @test ir != beforestartindex(rs) &&
                       getindex(rs, ir) == convertinfer($K, 6:6) &&
                       ir == lastindex(rs)
 
 
-                ir = searchsortedfirstrange(rs, 0)
+                ir = searchsortedrangefirst(rs, 0)
                 @test ir != pastendindex(rs) &&
                       getindex(rs, ir) == convertinfer($K, 1:2) &&
                       ir == firstindex(rs)
 
-                ir = searchsortedfirstrange(rs, 1)
+                ir = searchsortedrangefirst(rs, 1)
                 @test ir != pastendindex(rs) &&
                       getindex(rs, ir) == convertinfer($K, 1:2) &&
                       ir == firstindex(rs)
 
-                ir = searchsortedfirstrange(rs, 2)
+                ir = searchsortedrangefirst(rs, 2)
                 @test ir != pastendindex(rs) &&
                       getindex(rs, ir) == convertinfer($K, 1:2) &&
                       ir == firstindex(rs)
 
-                ir = searchsortedfirstrange(rs, 3)
+                ir = searchsortedrangefirst(rs, 3)
                 @test ir != pastendindex(rs) &&
                       getindex(rs, ir) == convertinfer($K, 4:4) &&
                       ir != firstindex(rs) && ir != lastindex(rs)
 
-                ir = searchsortedfirstrange(rs, 4)
+                ir = searchsortedrangefirst(rs, 4)
                 @test ir != pastendindex(rs) &&
                       getindex(rs, ir) == convertinfer($K, 4:4) &&
                       ir != firstindex(rs) && ir != lastindex(rs)
 
-                ir = searchsortedfirstrange(rs, 5)
+                ir = searchsortedrangefirst(rs, 5)
                 @test ir != pastendindex(rs) &&
                       getindex(rs, ir) == convertinfer($K, 6:6) &&
                       ir == lastindex(rs)
 
-                ir = searchsortedfirstrange(rs, 6)
+                ir = searchsortedrangefirst(rs, 6)
                 @test ir != pastendindex(rs) &&
                       getindex(rs, ir) == convertinfer($K, 6:6) &&
                       ir == lastindex(rs)
 
-                ir = searchsortedfirstrange(rs, 7)
+                ir = searchsortedrangefirst(rs, 7)
                 @test ir == pastendindex(rs)
 
 
@@ -233,6 +285,7 @@ end
         end
     end
 end
+
 
 @testset "`in`" begin
     for K in list_of_Ti_to_test
@@ -334,80 +387,38 @@ end
 
 
 function test_iterators(rs, vu, T::Type)
-    @test basetype(typeof(rs)) == T
+    #@test basetype(typeof(rs)) == T
     @test length(rs) == length(vu)
-    @test check_ranges_isequal(rs[begin], first(rs), first(vu))
-    @test check_ranges_isequal(rs[end], last(rs), last(vu))
+    @test regress(rs, firstindex(rs)) == beforestartindex(rs)
+    @test advance(rs, lastindex(rs)) == pastendindex(rs)
+    @test check_ranges_isequal(rs[firstindex(rs)], rs[begin], first(rs), first(vu))
+    @test check_ranges_isequal(rs[lastindex(rs)], rs[end], last(rs), last(vu))
     @test check_isequal(rs, vu)
     @test check_isequal(Iterators.reverse(rs), Iterators.reverse(vu))
-    @test [r for r in rs] == [r for r in vu]
-    @test [r for r in Iterators.reverse(rs)] == [r for r in Iterators.reverse(vu)]
-    @test [x for r in rs for x in r] == [x for r in vu for x in r]
-    @test [x for r in Iterators.reverse(rs) for x in r] == [x for r in Iterators.reverse(vu) for x in r]
+    @test check_isequal([r for r in rs], [r for r in vu])
+    @test check_isequal([r for r in Iterators.reverse(rs)], [r for r in Iterators.reverse(vu)])
     @test sum(r->length(r), rs) ==
           sum(r->length(r), Iterators.reverse(rs)) ==
           sum(i->length(rs[i]), eachindex(rs)) ==
+          sum(i->length(rs[i]), eachindex(Iterators.reverse(rs))) ==
           sum(i->length(rs[i]), Iterators.reverse(eachindex(rs))) ==
           sum(r->length(r), vu)
 end
 
 function test_empty_iterators(rs, vu, T::Type)
-    @test basetype(typeof(rs)) == T
+    #@test basetype(typeof(rs)) == T
     @test length(rs) == length(vu)
+    @test firstindex(rs) == pastendindex(rs)
+    @test lastindex(rs) == beforestartindex(rs)
     @test_throws BoundsError rs[begin]
     @test_throws BoundsError rs[end]
+    @test_throws BoundsError first(rs)
+    @test_throws BoundsError last(rs)
     @test check_isequal(rs, vu)
     @test check_isequal(Iterators.reverse(rs), Iterators.reverse(vu))
-    @test [r for r in rs] == [r for r in vu]
-    @test [r for r in Iterators.reverse(rs)] == [r for r in Iterators.reverse(vu)]
-    @test [x for r in rs for x in r] == [x for r in vu for x in r]
-    @test [x for r in Iterators.reverse(rs) for x in r] == [x for r in Iterators.reverse(vu) for x in r]
+    @test check_isequal([r for r in rs], [r for r in vu])
+    @test check_isequal([r for r in Iterators.reverse(rs)], [r for r in Iterators.reverse(vu)])
     @test_throws ArgumentError sum(r->length(r), rs)
-end
-
-
-@testset "Common functions" begin
-    for K in list_of_Ti_to_test
-        for TypeURSS in list_of_containers_types_to_test
-            @eval begin
-
-                rs = $TypeURSS{$K}()
-                vu = Vector{eltype(rs)}([])
-                test_empty_iterators(rs, convertinfer($K, vu), $TypeURSS)
-
-                rs = $TypeURSS{$K}((1:6,))
-                vu = (1:6,)
-                test_iterators(rs, convertinfer($K, vu), $TypeURSS)
-
-                rs = $TypeURSS{$K}((1:6, 8:16, 20:33))
-                vu = (1:6, 8:16, 20:33)
-                test_iterators(rs, convertinfer($K, vu), $TypeURSS)
-
-                rs = $TypeURSS{$K}((0:0, 2:4))
-                rs2 = copy(rs)
-                @test rs2 == rs && rs2 !== rs
-                rs2 = empty(rs)
-                @test rs2 == $TypeURSS{$K}()
-                empty!(rs2)
-                @test rs2 != rs && rs2 !== rs
-                @test length(rs2) == 0
-
-                rs = $TypeURSS{$K}((0:0, 2:4))
-                @test filter(s->length(s)==3, rs) == $TypeURSS{$K}((2:4))
-                @test (filter!(s->length(s)==1, rs); rs == $TypeURSS{$K}((0:0)))
-
-                rs = $TypeURSS{$K}((0:0, 2:4))
-                @test collect(rs) == convertinfer($K, [0:0, 2:4])
-                @test collect(UInt64, rs) == convertinfer(UInt64, [0:0, 2:4])
-                @test convert(typeof(rs), rs) === rs
-                @test convert(Vector{$K}, rs) == Vector{$K}([0,2,3,4])
-                @test convert(Vector{UInt64}, rs) == Vector{UInt64}([0,2,3,4])
-                @test convert(Set{$K}, rs) == Set{$K}(convertinfer($K, [0,2,3,4]))
-                @test convert(Set{UInt64}, rs) == Set{UInt64}(convertinfer(UInt64, [0,2,3,4]))
-
-            end
-        end
-    end
 end
 
 
@@ -484,6 +495,78 @@ end
 
                 delete!(rs, 0:0)
                 @test_throws BoundsError subset(rs, 0:1)
+
+            end
+        end
+    end
+end
+
+
+@testset "`in` subsets" begin
+    for K in list_of_Ti_to_test
+        for TypeURSS in list_of_containers_types_to_test
+            @eval begin
+
+                v = [1, 2, 3, 5, 6, 8]
+                rs = $TypeURSS{$K}(v)
+                for i = 0:9
+                    @test !xor(in(i, rs), in(i, v))
+                end
+
+                v = [2:3, 5:6]
+                rs = $TypeURSS{$K}(v)
+                @test !in(1:2, rs)
+                @test in(2:2, rs)
+                @test in(2:3, rs)
+                @test in(5:5, rs)
+                @test !in(2:4, rs)
+                @test !in(4:4, rs)
+                @test !in(2:6, rs)
+                @test !in(1:7, rs)
+            end
+        end
+    end
+end
+
+
+@testset "Common functions" begin
+    for K in list_of_Ti_to_test
+        for TypeURSS in list_of_containers_types_to_test
+            @eval begin
+
+                rs = $TypeURSS{$K}()
+                vu = Vector{eltype(rs)}([])
+                test_empty_iterators(rs, convertinfer($K, vu), $TypeURSS)
+
+                rs = $TypeURSS{$K}((1:6,))
+                vu = (1:6,)
+                test_iterators(rs, convertinfer($K, vu), $TypeURSS)
+
+                rs = $TypeURSS{$K}((1:6, 8:16, 20:33))
+                vu = (1:6, 8:16, 20:33)
+                test_iterators(rs, convertinfer($K, vu), $TypeURSS)
+
+                rs = $TypeURSS{$K}((0:0, 2:4))
+                rs2 = copy(rs)
+                @test rs2 == rs && rs2 !== rs
+                rs2 = empty(rs)
+                @test rs2 == $TypeURSS{$K}()
+                empty!(rs2)
+                @test rs2 != rs && rs2 !== rs
+                @test length(rs2) == 0
+
+                rs = $TypeURSS{$K}((0:0, 2:4))
+                @test filter(s->length(s)==3, rs) == $TypeURSS{$K}((2:4))
+                @test (filter!(s->length(s)==1, rs); rs == $TypeURSS{$K}((0:0)))
+
+                rs = $TypeURSS{$K}((0:0, 2:4))
+                @test collect(rs) == convertinfer($K, [0:0, 2:4])
+                @test collect(UInt64, rs) == convertinfer(UInt64, [0:0, 2:4])
+                @test convert(typeof(rs), rs) === rs
+                @test convert(Vector{$K}, rs) == Vector{$K}([0,2,3,4])
+                @test convert(Vector{UInt64}, rs) == Vector{UInt64}([0,2,3,4])
+                @test convert(Set{$K}, rs) == Set{$K}(convertinfer($K, [0,2,3,4]))
+                @test convert(Set{UInt64}, rs) == Set{UInt64}(convertinfer(UInt64, [0,2,3,4]))
 
             end
         end
