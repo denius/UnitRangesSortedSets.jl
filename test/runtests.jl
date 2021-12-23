@@ -386,8 +386,7 @@ end
 end
 
 
-function test_iterators(rs, vu, T::Type)
-    #@test basetype(typeof(rs)) == T
+function test_iterators(rs, vu)
     @test length(rs) == length(vu)
     @test regress(rs, firstindex(rs)) == beforestartindex(rs)
     @test advance(rs, lastindex(rs)) == pastendindex(rs)
@@ -405,8 +404,7 @@ function test_iterators(rs, vu, T::Type)
           sum(r->length(r), vu)
 end
 
-function test_empty_iterators(rs, vu, T::Type)
-    #@test basetype(typeof(rs)) == T
+function test_empty_iterators(rs, vu)
     @test length(rs) == length(vu)
     @test firstindex(rs) == pastendindex(rs)
     @test lastindex(rs) == beforestartindex(rs)
@@ -430,68 +428,72 @@ end
                 rs = $TypeURSS{$K}((0:0, 2:6, 8:16, 20:33, 35:47, 49:50))
 
                 ss = subset(rs, :)
+                @test typeof(ss) == SubUnitRangesSortedSet{$K,inferrangetype($K)}
                 vu = (0:0, 2:6, 8:16, 20:33, 35:47, 49:50)
-                test_iterators(ss, convertinfer($K, vu), SubUnitRangesSortedSet)
+                test_iterators(ss, convertinfer($K, vu))
 
                 ss = subset(rs, 0:50)
                 vu = (0:0, 2:6, 8:16, 20:33, 35:47, 49:50)
-                test_iterators(ss, convertinfer($K, vu), SubUnitRangesSortedSet)
+                test_iterators(ss, convertinfer($K, vu))
 
                 ss = subset(rs, 0:0)
+                @test typeof(ss) == Sub1UnitRangesSortedSet{$K,inferrangetype($K)}
                 vu = (0:0,)
-                test_iterators(ss, convertinfer($K, vu), Sub1UnitRangesSortedSet)
+                test_iterators(ss, convertinfer($K, vu))
 
                 ss = subset(rs, 0:1)
+                @test typeof(ss) == Sub1UnitRangesSortedSet{$K,inferrangetype($K)}
                 vu = (0:0,)
-                test_iterators(ss, convertinfer($K, vu), Sub1UnitRangesSortedSet)
+                test_iterators(ss, convertinfer($K, vu))
 
                 ss = subset(rs, 10:40)
+                @test typeof(ss) == SubUnitRangesSortedSet{$K,inferrangetype($K)}
                 vu = (10:16, 20:33, 35:40)
-                test_iterators(ss, convertinfer($K, vu), SubUnitRangesSortedSet)
+                test_iterators(ss, convertinfer($K, vu))
 
                 ss = subset(rs, 7:40)
                 vu = (8:16, 20:33, 35:40)
-                test_iterators(ss, convertinfer($K, vu), SubUnitRangesSortedSet)
+                test_iterators(ss, convertinfer($K, vu))
 
                 ss = subset(rs, 11:48)
                 vu = (11:16, 20:33, 35:47)
-                test_iterators(ss, convertinfer($K, vu), SubUnitRangesSortedSet)
+                test_iterators(ss, convertinfer($K, vu))
 
                 ss = subset(rs, 7:48)
                 vu = (8:16, 20:33, 35:47)
-                test_iterators(ss, convertinfer($K, vu), SubUnitRangesSortedSet)
+                test_iterators(ss, convertinfer($K, vu))
 
                 ss = subset(rs, 21:32)
                 vu = (21:32,)
-                test_iterators(ss, convertinfer($K, vu), Sub1UnitRangesSortedSet)
+                test_iterators(ss, convertinfer($K, vu))
 
                 ss = subset(rs, 20:33)
                 vu = (20:33,)
-                test_iterators(ss, convertinfer($K, vu), Sub1UnitRangesSortedSet)
+                test_iterators(ss, convertinfer($K, vu))
 
                 ss = subset(rs, 19:34)
                 vu = (20:33,)
-                test_iterators(ss, convertinfer($K, vu), Sub1UnitRangesSortedSet)
+                test_iterators(ss, convertinfer($K, vu))
 
                 ss = subset(rs, 22:34)
                 vu = (22:33,)
-                test_iterators(ss, convertinfer($K, vu), Sub1UnitRangesSortedSet)
+                test_iterators(ss, convertinfer($K, vu))
 
                 ss = subset(rs, 19:30)
                 vu = (20:30,)
-                test_iterators(ss, convertinfer($K, vu), Sub1UnitRangesSortedSet)
+                test_iterators(ss, convertinfer($K, vu))
 
                 ss = subset(rs, 18:19)
+                @test typeof(ss) == Sub0UnitRangesSortedSet{$K,inferrangetype($K)}
                 vu = Vector{eltype(ss)}([])
-                test_empty_iterators(ss, convertinfer($K, vu), Sub0UnitRangesSortedSet)
+                test_empty_iterators(ss, convertinfer($K, vu))
 
                 ss = subset(rs, 21:20)
+                @test typeof(ss) == Sub0UnitRangesSortedSet{$K,inferrangetype($K)}
                 vu = Vector{eltype(ss)}([])
-                test_empty_iterators(ss, convertinfer($K, vu), Sub0UnitRangesSortedSet)
+                test_empty_iterators(ss, convertinfer($K, vu))
 
                 @test_throws BoundsError subset(rs, 51:51)
-                vu = Vector{eltype(ss)}([])
-                test_empty_iterators(ss, convertinfer($K, vu), Sub0UnitRangesSortedSet)
 
                 delete!(rs, 0:0)
                 @test_throws BoundsError subset(rs, 0:1)
