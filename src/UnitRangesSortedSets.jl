@@ -22,6 +22,8 @@ using Random
 
 # https://github.com/JuliaLang/julia/issues/39952
 basetype(::Type{T}) where T = Base.typename(T).wrapper
+## https://discourse.julialang.org/t/how-do-a-i-get-a-type-stripped-of-parameters/73465/8
+#basetype(::Type{T}) where T = eval(nameof(T))
 ## https://discourse.julialang.org/t/deparametrising-types/41939/4
 #basetype(T::DataType) = T.name.wrapper
 #basetype(T::UnionAll) = basetype(T.body)
@@ -648,10 +650,10 @@ Base.findall(pred::Function, rs::AbstractUnitRangesSortedSet) = collect(r for r 
     rrs.itr.kstart > rrs.itr.kstop ? nothing : (to_urange(TU, rrs.itr.kstart, rrs.itr.kstop), state)
 
 
-@inline Base.iterate(rs::Sub1UnitRangesSortedSet) = (rs.singlerange, rs.firstindex)
+@inline Base.iterate(rs::Sub1UnitRangesSortedSet) = (rs.singlerange, 1)
 @inline Base.iterate(rs::Sub1UnitRangesSortedSet, state) = nothing
 @inline Base.iterate(rrs::Base.Iterators.Reverse{T}) where {T<:Sub1UnitRangesSortedSet} =
-    (rrs.itr.singlerange, rrs.itr.lastindex)
+    (rrs.itr.singlerange, 1)
 @inline Base.iterate(rrs::Base.Iterators.Reverse{T}, state) where {T<:Sub1UnitRangesSortedSet} = nothing
 
 
@@ -847,9 +849,13 @@ end
 
 @inline Base.in(kk::AbstractRange, su::SubUnitRangesSortedSet{K,TU}) where {K,TU} = _in(to_urange(TU, kk), su)
 @inline Base.in(kk::TU, su::SubUnitRangesSortedSet{K,TU}) where {K,TU} = _in(kk, su)
-@inline function _in(kk::TU, su::SubUnitRangesSortedSet{K,TU}) where {K,TU}
+@inline function _in(kk::TU, su::SubUnitRangesSortedSet{K,TU,P}) where {K,TU,P<:UnitRangesSortedVector}
+    # bounds check
+    (su.kstart <= first(kk) <= last(kk) <= su.kstop) || return false
+
     # fast check for cached range index
-    if (ir = su.parent.lastusedrangeindex) != beforestartindex(su.parent)
+    if (ir = su.parent.lastusedrangeindex) != beforestartindex(su.parent) &&
+        su.firstindex <= first(ir) <= last(ir) <= su.lastindex
         if issubset(kk, getindex(su, ir))
             return true
         end
@@ -865,11 +871,30 @@ end
         return false
     end
 end
+@inline function _in(kk::TU, su::SubUnitRangesSortedSet{K,TU}) where {K,TU}
+    # bounds check
+    issubset(kk, to_urange(TU, su.kstart, su.kstop)) || return false
+
+    iir_kk = searchsortedrange(su, kk)
+    su.parent.lastusedrangeindex = last(iir_kk)
+    if length(iir_kk) != 1
+        return false
+    elseif issubset(kk, getindex(su, first(iir_kk)))
+        return true
+    else
+        return false
+    end
+end
 
 @inline function Base.in(key, su::SubUnitRangesSortedSet{K}) where {K}
     k = K(key)
+    # check outbound
+    (k < su.kstart || su.kstop < k) && return false
+
     # fast check for cached range index
-    if (ir = su.parent.lastusedrangeindex) != beforestartindex(su.parent)
+    if (ir = su.parent.lastusedrangeindex) != beforestartindex(su.parent) &&
+        indexcompare(su, su.firstindex, ir) < 1 &&
+        indexcompare(su, ir, su.lastindex) < 1
         r_start, r_stop = getindex_tuple(su, ir)
         if r_start <= k <= r_stop
             return true
@@ -1291,11 +1316,11 @@ function _delete!(rs::UnitRangesSortedVector{K,TU}, kk::TU) where {K,TU}
             insert!(rs.rstarts, advance(rs, first(iir_kk)), last(kk) + 1)
             insert!(rs.rstops, first(iir_kk), first(kk) - 1)
 
-        # `kk` intersects with or inside in one range from left side, thus shrink from left side
+        # `kk` intersects with, or inside in, one range from left side, thus shrink from left side
         elseif iir_kk_rangestart >= first(kk) && last(kk) < iir_kk_rangestop
             rs.rstarts[first(iir_kk)] = last(kk) + 1
 
-        # `kk` intersects with or inside in one range from right side, thus shrink from right side
+        # `kk` intersects with, or inside in, one range from right side, thus shrink from right side
         # inside one range, ended to left side, thus shrink from right side
         elseif iir_kk_rangestart < first(kk) && last(kk) >= iir_kk_rangestop
             rs.rstops[first(iir_kk)] = first(kk) - 1
@@ -1362,12 +1387,12 @@ function _delete!(rs::UnitRangesSortedSet{K,TU}, kk::TU) where {K,TU}
             rs.ranges[last(kk) + 1] = iir_kk_rangestop
             rs.ranges[first(iir_kk)] = first(kk) - 1
 
-        # `kk` intersects with or inside in one range from left side, thus shrink from left side
+        # `kk` intersects with, or inside in, one range from left side, thus shrink from left side
         elseif iir_kk_rangestart >= first(kk) && last(kk) < iir_kk_rangestop
             rs.ranges[last(kk) + 1] = iir_kk_rangestop
             delete!((rs.ranges, first(iir_kk)))
 
-        # `kk` intersects with or inside in one range from right side, thus shrink from right side
+        # `kk` intersects with, or inside in, one range from right side, thus shrink from right side
         # inside one range, ended to left side, thus shrink from right side
         elseif iir_kk_rangestart < first(kk) && last(kk) >= iir_kk_rangestop
             rs.ranges[first(iir_kk)] = first(kk) - 1
