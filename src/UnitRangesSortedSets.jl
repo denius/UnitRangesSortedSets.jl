@@ -510,6 +510,7 @@ end
 
 # Derived from julia/base/sort.jl, for increasing sorted vectors.
 function bisectionsearchlast(V::AbstractVector, val)
+    # TODO: test bisectionsearchlast(V, val, 1, length(V)) instead
     lo = 0
     hi = length(V) + 1
     @inbounds while lo < hi - 1
@@ -523,10 +524,12 @@ function bisectionsearchlast(V::AbstractVector, val)
     return lo
 end
 function bisectionsearchlast(V::AbstractVector, val, lo::T, hi::T) where T
+    # TODO: oneunit(T) instead
     u = T(1)
     lo = lo - u
     hi = hi + u
     @inbounds while lo < hi - u
+        # TODO: use Base.midpoint(lo, hi)
         m = lo + ((hi - lo) >>> 0x01)
         if val < V[m]
             hi = m
@@ -550,6 +553,7 @@ function bisectionsearchfirst(V::AbstractVector, val)
     end
     return hi
 end
+# TODO: see latest julia/base/sort.jl without midpoint()
 function bisectionsearchfirst(V::AbstractVector, val, lo::T, hi::T) where T
     u = T(1)
     lo = lo - u
@@ -570,14 +574,14 @@ end
 @inline searchsortedrangelast(rs::UnitRangesSortedVector{K}, k) where {K} = bisectionsearchlast(rs.rstarts, K(k))
 #@inline searchsortedrangelast(rs::UnitRangesSortedVector{K}, k) where {K} = searchsortedlast(rs.rstarts, K(k); lt=<)
 @inline searchsortedrangelast(rs::UnitRangesSortedSet{K}, k) where {K} = searchsortedlast(rs.ranges, K(k))
-@inline searchsortedrangelast(rs::Sub0UnitRangesSortedSet, k) = rs.beforestartindex
+@inline searchsortedrangelast(rs::Sub0UnitRangesSortedSet, k) = beforestartindex(rs)
 @inline searchsortedrangelast(rs::Sub1UnitRangesSortedSet{K}, k) where {K} =
-    K(k) >= rs.kstart ? rs.firstindex : rs.beforestartindex
+    K(k) >= rs.kstart ? rs.firstindex : beforestartindex(rs)
 @inline searchsortedrangelast(rs::SubUnitRangesSortedSet{K,TU,P,Tix}, k) where {K,TU,P<:UnitRangesSortedVector,Tix} =
     bisectionsearchlast(rs.parent.rstarts, K(k), rs.firstindex, rs.lastindex)
 @inline function searchsortedrangelast(rs::SubUnitRangesSortedSet{K,TU,P,Tix}, k) where {K,TU,P<:UnitRangesSortedSet,Tix}
     ir_k = searchsortedlast(rs.parent.ranges, K(k))
-    if compare(rs.parent.ranges, ir_k, rs.beforestartindex) == 1 && compare(rs.parent.ranges, ir_k, rs.pastendindex) == -1
+    if compare(rs.parent.ranges, ir_k, beforestartindex(rs)) == 1 && compare(rs.parent.ranges, ir_k, pastendindex(rs)) == -1
         return ir_k
     else
         return beforestartindex(rs)
@@ -594,8 +598,8 @@ end
         return advance(rs, ir_k)
     end
 end
-@inline searchsortedrangefirst(rs::Sub0UnitRangesSortedSet, k) = rs.pastendindex
-@inline searchsortedrangefirst(rs::Sub1UnitRangesSortedSet{K}, k) where {K} = K(k) <= rs.kstop ? rs.lastindex : rs.pastendindex
+@inline searchsortedrangefirst(rs::Sub0UnitRangesSortedSet, k) = pastendindex(rs)
+@inline searchsortedrangefirst(rs::Sub1UnitRangesSortedSet{K}, k) where {K} = K(k) <= rs.kstop ? rs.lastindex : pastendindex(rs)
 @inline searchsortedrangefirst(rs::SubUnitRangesSortedSet{K,TU,P,Tix}, k) where {K,TU,P<:UnitRangesSortedVector,Tix} =
     bisectionsearchfirst(rs.parent.rstops, K(k), rs.firstindex, rs.lastindex)
 @inline function searchsortedrangefirst(rs::SubUnitRangesSortedSet{K,TU,P,Tix}, k) where {K,TU,P<:UnitRangesSortedSet,Tix}
@@ -787,6 +791,7 @@ Base.eachindex(rs::UnitRangesSortedVector) = eachindex(rs.rstarts)
 Base.eachindex(rs::UnitRangesSortedSet) = eachindexiterator(rs)
 Base.eachindex(rs::T) where {T<:AbstractSubUnitRangesSortedSet} = eachindexiterator(rs)
 Base.eachindex(rrs::Base.Iterators.Reverse{T}) where {T<:AbstractUnitRangesSortedSet} = Iterators.reverse(eachindex(rrs.itr))
+# TODO: check for https://github.com/JuliaLang/julia/pull/43110/files
 
 ## Is it need?
 #Base.keys(rs::AbstractUnitRangesSortedSet) = eachindex(rs)
