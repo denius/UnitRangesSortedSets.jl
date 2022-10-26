@@ -1,5 +1,5 @@
 using .UnitRangesSortedSets
-import .UnitRangesSortedSets: advance, regress, beforestartindex, pastendindex
+import .UnitRangesSortedSets: advance, regress, beforefirstindex, pastlastindex
 import .UnitRangesSortedSets: inferrangetype, to_urange
 using Test
 
@@ -20,7 +20,7 @@ using Test
 # URSSIndexURange for UnitRangesSortedVector?
 # @inline Base.firstindex(ur::URSSIndexURange) = ur.start
 # @inline Base.lastindex(ur::URSSIndexURange) = ur.stop
-# @inline DataStructures.advance(ur::URSSIndexURange), beforestartindex
+# @inline DataStructures.advance(ur::URSSIndexURange), beforefirstindex
 # @inline function Base.iterate(ur::URSSIndexURange, state = (first(ur), 0))
 # @inline function Base.getindex(ur::URSSIndexURange, i) ???
 # @inline function indexcompare(rs::UnitRangesSortedVector, i, j)
@@ -116,8 +116,8 @@ convertinfer(K::Type, r::AbstractRange) =
 
 function test_iterators(rs, vu)
     @test length(rs) == length(vu)
-    @test regress(rs, firstindex(rs)) == beforestartindex(rs)
-    @test advance(rs, lastindex(rs)) == pastendindex(rs)
+    @test regress(rs, firstindex(rs)) == beforefirstindex(rs)
+    @test advance(rs, lastindex(rs)) == pastlastindex(rs)
     @test check_ranges_isequal(rs[firstindex(rs)], rs[begin], first(rs), first(vu))
     @test check_ranges_isequal(rs[lastindex(rs)], rs[end], last(rs), last(vu))
     @test check_isequal(rs, vu)
@@ -134,8 +134,8 @@ end
 
 function test_empty_iterators(rs, vu)
     @test length(rs) == length(vu)
-    @test firstindex(rs) == pastendindex(rs)
-    @test lastindex(rs) == beforestartindex(rs)
+    @test firstindex(rs) == pastlastindex(rs)
+    @test lastindex(rs) == beforefirstindex(rs)
     @test_throws BoundsError rs[begin]
     @test_throws BoundsError rs[end]
     @test_throws BoundsError first(rs)
@@ -210,81 +210,81 @@ end
                 rs = $TypeURSS{$K}((1:2, 4:4, 6:6))
 
                 ir = searchsortedrangelast(rs, 0)
-                @test ir == beforestartindex(rs)
+                @test ir == beforefirstindex(rs)
 
                 ir = searchsortedrangelast(rs, 1)
-                @test ir != beforestartindex(rs) &&
+                @test ir != beforefirstindex(rs) &&
                       getindex(rs, ir) == convertinfer($K, 1:2) &&
                       ir == firstindex(rs)
 
                 ir = searchsortedrangelast(rs, 2)
-                @test ir != beforestartindex(rs) &&
+                @test ir != beforefirstindex(rs) &&
                       getindex(rs, ir) == convertinfer($K, 1:2) &&
                       ir == firstindex(rs)
 
                 ir = searchsortedrangelast(rs, 3)
-                @test ir != beforestartindex(rs) &&
+                @test ir != beforefirstindex(rs) &&
                       getindex(rs, ir) == convertinfer($K, 1:2) &&
                       ir == firstindex(rs)
 
                 ir = searchsortedrangelast(rs, 4)
-                @test ir != beforestartindex(rs) &&
+                @test ir != beforefirstindex(rs) &&
                       getindex(rs, ir) == convertinfer($K, 4:4) &&
                       ir != firstindex(rs) && ir != lastindex(rs)
 
                 ir = searchsortedrangelast(rs, 5)
-                @test ir != beforestartindex(rs) &&
+                @test ir != beforefirstindex(rs) &&
                       getindex(rs, ir) == convertinfer($K, 4:4) &&
                       ir != firstindex(rs) && ir != lastindex(rs)
 
                 ir = searchsortedrangelast(rs, 6)
-                @test ir != beforestartindex(rs) &&
+                @test ir != beforefirstindex(rs) &&
                       getindex(rs, ir) == convertinfer($K, 6:6) &&
                       ir == lastindex(rs)
 
                 ir = searchsortedrangelast(rs, 7)
-                @test ir != beforestartindex(rs) &&
+                @test ir != beforefirstindex(rs) &&
                       getindex(rs, ir) == convertinfer($K, 6:6) &&
                       ir == lastindex(rs)
 
 
                 ir = searchsortedrangefirst(rs, 0)
-                @test ir != pastendindex(rs) &&
+                @test ir != pastlastindex(rs) &&
                       getindex(rs, ir) == convertinfer($K, 1:2) &&
                       ir == firstindex(rs)
 
                 ir = searchsortedrangefirst(rs, 1)
-                @test ir != pastendindex(rs) &&
+                @test ir != pastlastindex(rs) &&
                       getindex(rs, ir) == convertinfer($K, 1:2) &&
                       ir == firstindex(rs)
 
                 ir = searchsortedrangefirst(rs, 2)
-                @test ir != pastendindex(rs) &&
+                @test ir != pastlastindex(rs) &&
                       getindex(rs, ir) == convertinfer($K, 1:2) &&
                       ir == firstindex(rs)
 
                 ir = searchsortedrangefirst(rs, 3)
-                @test ir != pastendindex(rs) &&
+                @test ir != pastlastindex(rs) &&
                       getindex(rs, ir) == convertinfer($K, 4:4) &&
                       ir != firstindex(rs) && ir != lastindex(rs)
 
                 ir = searchsortedrangefirst(rs, 4)
-                @test ir != pastendindex(rs) &&
+                @test ir != pastlastindex(rs) &&
                       getindex(rs, ir) == convertinfer($K, 4:4) &&
                       ir != firstindex(rs) && ir != lastindex(rs)
 
                 ir = searchsortedrangefirst(rs, 5)
-                @test ir != pastendindex(rs) &&
+                @test ir != pastlastindex(rs) &&
                       getindex(rs, ir) == convertinfer($K, 6:6) &&
                       ir == lastindex(rs)
 
                 ir = searchsortedrangefirst(rs, 6)
-                @test ir != pastendindex(rs) &&
+                @test ir != pastlastindex(rs) &&
                       getindex(rs, ir) == convertinfer($K, 6:6) &&
                       ir == lastindex(rs)
 
                 ir = searchsortedrangefirst(rs, 7)
-                @test ir == pastendindex(rs)
+                @test ir == pastlastindex(rs)
 
 
 
@@ -293,7 +293,7 @@ end
                 iir = searchsortedrange(rs, 0)
                 @test length(iir) == 0 && getindex(rs, first(iir)) == convertinfer($K, 1:2) &&
                                          first(iir) == firstindex(rs) &&
-                                         last(iir) == beforestartindex(rs)
+                                         last(iir) == beforefirstindex(rs)
 
                 iir = searchsortedrange(rs, 1)
                 @test length(iir) == 1 && getindex(rs, first(iir)) == convertinfer($K, 1:2) &&
@@ -311,7 +311,7 @@ end
 
                 iir = searchsortedrange(rs, 5)
                 @test length(iir) == 0 && getindex(rs, last(iir)) == convertinfer($K, 4:4) &&
-                                         first(iir) == pastendindex(rs) &&
+                                         first(iir) == pastlastindex(rs) &&
                                          last(iir) == lastindex(rs)
 
                 rs = $TypeURSS{$K}((1:2, 4:4))
