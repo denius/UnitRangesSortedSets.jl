@@ -5,7 +5,7 @@ export UnitRangesSortedVector, UnitRangesSortedSet
 export Sub0UnitRangesSortedSet, Sub1UnitRangesSortedSet, SubUnitRangesSortedSet, URSSIndexURange
 export testfun_create, testfun_createSV, testfun_createVL, testfun_create_seq, testfun_create_dense, testfun_delete!,
        testfun_in, testfun_in_outer, testfun_in_rand, testfun_in_seq, testfun_nzgetindex, testfun_setindex!
-export searchsortedrange, searchsortedrangefirst, searchsortedrangelast, getrange, getindex, beforestartindex, pastendindex
+export searchsortedrange, searchsortedrangefirst, searchsortedrangelast, getrange, getindex, beforefirstindex, pastlastindex
 export subset
 
 
@@ -75,9 +75,9 @@ struct Sub0UnitRangesSortedSet{K,TU,P,Tix} <: AbstractSubUnitRangesSortedSet{K,T
     firstindex::Tix
     lastindex::Tix
     "Pre `firstindex` position, used for acceleration of `iteration`."
-    beforestartindex::Tix
+    beforefirstindex::Tix
     "Post `lastindex` position, used for acceleration of `iteration`."
-    pastendindex::Tix
+    pastlastindex::Tix
     "Length of subset."
     numranges::Int
 end
@@ -99,9 +99,9 @@ struct Sub1UnitRangesSortedSet{K,TU,P,Tix} <: AbstractSubUnitRangesSortedSet{K,T
     firstindex::Tix
     lastindex::Tix
     "Pre `firstindex` position, used for acceleration of `iteration`."
-    beforestartindex::Tix
+    beforefirstindex::Tix
     "Post `lastindex` position, used for acceleration of `iteration`."
-    pastendindex::Tix
+    pastlastindex::Tix
     "Length of subset."
     numranges::Int
 end
@@ -125,9 +125,9 @@ struct SubUnitRangesSortedSet{K,TU,P,Tix} <: AbstractSubUnitRangesSortedSet{K,TU
     firstindex::Tix
     lastindex::Tix
     "Pre `firstindex` position, used for acceleration of `iterate`."
-    beforestartindex::Tix
+    beforefirstindex::Tix
     "Post `lastindex` position, used for acceleration of `iterate`."
-    pastendindex::Tix
+    pastlastindex::Tix
     "Length of subset."
     numranges::Int
 end
@@ -298,10 +298,10 @@ thus was created custom one named `URSSIndexURange`.
 
 
 @inline function URSSIndexURange(rs::P, l::Tix, r::Tix) where {P<:UnitRangesSortedVector, Tix}
-    @boundscheck l < beforestartindex(rs) || l > pastendindex(rs) && return throw(BoundsError(rs, l))
-    @boundscheck r < beforestartindex(rs) || r > pastendindex(rs) && return throw(BoundsError(rs, r))
-    if l == pastendindex(rs) ||
-       r == beforestartindex(rs) ||
+    @boundscheck l < beforefirstindex(rs) || l > pastlastindex(rs) && return throw(BoundsError(rs, l))
+    @boundscheck r < beforefirstindex(rs) || r > pastlastindex(rs) && return throw(BoundsError(rs, r))
+    if l == pastlastindex(rs) ||
+       r == beforefirstindex(rs) ||
        l > r
         len = 0
     else
@@ -313,8 +313,8 @@ end
 @inline function URSSIndexURange(rs::P, l::Tix, r::Tix) where {P<:UnitRangesSortedSet, Tix<:IntSemiToken}
     @boundscheck status((rs.ranges, l)) == 0 && return throw(KeyError(l))
     @boundscheck status((rs.ranges, r)) == 0 && return throw(KeyError(r))
-    if l == pastendindex(rs) ||
-       r == beforestartindex(rs) ||
+    if l == pastlastindex(rs) ||
+       r == beforefirstindex(rs) ||
        compare(rs.ranges, l, r) == 1
         len = 0
     else
@@ -358,8 +358,8 @@ end
 
 @inline DataStructures.advance(ur::URSSIndexURange, st::IntSemiToken) = advance((ur.parent, st))
 @inline DataStructures.regress(ur::URSSIndexURange, st::IntSemiToken) = regress((ur.parent, st))
-@inline beforestartindex(ur::URSSIndexURange) = beforestartsemitoken(ur.parent)
-@inline pastendindex(ur::URSSIndexURange) = pastendsemitoken(ur.parent)
+@inline beforefirstindex(ur::URSSIndexURange) = beforestartsemitoken(ur.parent)
+@inline pastlastindex(ur::URSSIndexURange) = pastendsemitoken(ur.parent)
 
 Base.length(rs::UnitRangesSortedVector) = length(rs.rstarts)
 Base.length(rs::UnitRangesSortedSet) = length(rs.ranges)
@@ -445,7 +445,7 @@ end
     rs.singlerange
 end
 @inline function Base.getindex(rs::SubUnitRangesSortedSet{K,TU,P}, i) where {K,TU,P<:UnitRangesSortedVector}
-    @boundscheck beforestartindex(rs) < i < pastendindex(rs) || throw(BoundsError(rs, i))
+    @boundscheck beforefirstindex(rs) < i < pastlastindex(rs) || throw(BoundsError(rs, i))
     if i == rs.firstindex
         return rs.firstrange
     elseif i < rs.lastindex
@@ -494,12 +494,12 @@ end
 @inline Base.last(rs::Sub1UnitRangesSortedSet) = rs.singlerange
 @inline Base.last(rs::SubUnitRangesSortedSet) = getindex(rs, lastindex(rs))
 
-@inline beforestartindex(rs::UnitRangesSortedVector) = firstindex(rs.rstarts) - 1
-@inline beforestartindex(rs::UnitRangesSortedSet) = beforestartsemitoken(rs.ranges)
-@inline beforestartindex(rs::AbstractSubUnitRangesSortedSet) = rs.beforestartindex
-@inline pastendindex(rs::UnitRangesSortedVector) = lastindex(rs.rstarts) + 1
-@inline pastendindex(rs::UnitRangesSortedSet) = pastendsemitoken(rs.ranges)
-@inline pastendindex(rs::AbstractSubUnitRangesSortedSet) = rs.pastendindex
+@inline beforefirstindex(rs::UnitRangesSortedVector) = firstindex(rs.rstarts) - 1
+@inline beforefirstindex(rs::UnitRangesSortedSet) = beforestartsemitoken(rs.ranges)
+@inline beforefirstindex(rs::AbstractSubUnitRangesSortedSet) = rs.beforefirstindex
+@inline pastlastindex(rs::UnitRangesSortedVector) = lastindex(rs.rstarts) + 1
+@inline pastlastindex(rs::UnitRangesSortedSet) = pastendsemitoken(rs.ranges)
+@inline pastlastindex(rs::AbstractSubUnitRangesSortedSet) = rs.pastlastindex
 
 @inline DataStructures.advance(rs::UnitRangesSortedVector, state) = state + 1
 @inline DataStructures.advance(rs::UnitRangesSortedSet, state) = advance((rs.ranges, state))
@@ -574,17 +574,17 @@ end
 @inline searchsortedrangelast(rs::UnitRangesSortedVector{K}, k) where {K} = bisectionsearchlast(rs.rstarts, K(k))
 #@inline searchsortedrangelast(rs::UnitRangesSortedVector{K}, k) where {K} = searchsortedlast(rs.rstarts, K(k); lt=<)
 @inline searchsortedrangelast(rs::UnitRangesSortedSet{K}, k) where {K} = searchsortedlast(rs.ranges, K(k))
-@inline searchsortedrangelast(rs::Sub0UnitRangesSortedSet, k) = beforestartindex(rs)
+@inline searchsortedrangelast(rs::Sub0UnitRangesSortedSet, k) = beforefirstindex(rs)
 @inline searchsortedrangelast(rs::Sub1UnitRangesSortedSet{K}, k) where {K} =
-    K(k) >= rs.kstart ? rs.firstindex : beforestartindex(rs)
+    K(k) >= rs.kstart ? rs.firstindex : beforefirstindex(rs)
 @inline searchsortedrangelast(rs::SubUnitRangesSortedSet{K,TU,P,Tix}, k) where {K,TU,P<:UnitRangesSortedVector,Tix} =
     bisectionsearchlast(rs.parent.rstarts, K(k), rs.firstindex, rs.lastindex)
 @inline function searchsortedrangelast(rs::SubUnitRangesSortedSet{K,TU,P,Tix}, k) where {K,TU,P<:UnitRangesSortedSet,Tix}
     ir_k = searchsortedlast(rs.parent.ranges, K(k))
-    if compare(rs.parent.ranges, ir_k, beforestartindex(rs)) == 1 && compare(rs.parent.ranges, ir_k, pastendindex(rs)) == -1
+    if compare(rs.parent.ranges, ir_k, beforefirstindex(rs)) == 1 && compare(rs.parent.ranges, ir_k, pastlastindex(rs)) == -1
         return ir_k
     else
-        return beforestartindex(rs)
+        return beforefirstindex(rs)
     end
 end
 
@@ -592,19 +592,19 @@ end
 @inline searchsortedrangefirst(rs::UnitRangesSortedVector{K}, k) where {K} = bisectionsearchfirst(rs.rstops, K(k))
 @inline function searchsortedrangefirst(rs::UnitRangesSortedSet{K}, k) where {K}
     ir_k = searchsortedrangelast(rs, K(k))
-    if ir_k != beforestartindex(rs) && in(K(k), getindex(rs, ir_k))
+    if ir_k != beforefirstindex(rs) && in(K(k), getindex(rs, ir_k))
         return ir_k
     else
         return advance(rs, ir_k)
     end
 end
-@inline searchsortedrangefirst(rs::Sub0UnitRangesSortedSet, k) = pastendindex(rs)
-@inline searchsortedrangefirst(rs::Sub1UnitRangesSortedSet{K}, k) where {K} = K(k) <= rs.kstop ? rs.lastindex : pastendindex(rs)
+@inline searchsortedrangefirst(rs::Sub0UnitRangesSortedSet, k) = pastlastindex(rs)
+@inline searchsortedrangefirst(rs::Sub1UnitRangesSortedSet{K}, k) where {K} = K(k) <= rs.kstop ? rs.lastindex : pastlastindex(rs)
 @inline searchsortedrangefirst(rs::SubUnitRangesSortedSet{K,TU,P,Tix}, k) where {K,TU,P<:UnitRangesSortedVector,Tix} =
     bisectionsearchfirst(rs.parent.rstops, K(k), rs.firstindex, rs.lastindex)
 @inline function searchsortedrangefirst(rs::SubUnitRangesSortedSet{K,TU,P,Tix}, k) where {K,TU,P<:UnitRangesSortedSet,Tix}
     ir_k = searchsortedrangelast(rs, K(k))
-    if ir_k != beforestartindex(rs) && in(K(k), getindex(rs, ir_k))
+    if ir_k != beforefirstindex(rs) && in(K(k), getindex(rs, ir_k))
         return ir_k
     else
         return advance(rs, ir_k)
@@ -621,7 +621,7 @@ end
  between `rs` ranges, and indices of resulted range is the indexes of that neighbors."
 @inline function searchsortedrange(rs::AbstractUnitRangesSortedContainer{K}, k) where {K}
     ir_k = searchsortedrangelast(rs, K(k))
-    if ir_k != beforestartindex(rs) && in(K(k), getindex(rs, ir_k))
+    if ir_k != beforefirstindex(rs) && in(K(k), getindex(rs, ir_k))
         return create_indexrange(rs, ir_k, ir_k)
     else
         return create_indexrange(rs, advance(rs, ir_k), ir_k)
@@ -717,14 +717,14 @@ end
 
 
 @inline function Base.iterate(rs::AbstractUnitRangesSortedSet, state = firstindex(rs))
-    if state != pastendindex(rs)
+    if state != pastlastindex(rs)
         return (getindex(rs, state), advance(rs, state))
     else
         return nothing
     end
 end
 @inline function Base.iterate(rrs::Base.Iterators.Reverse{T}, state = lastindex(rrs.itr)) where {T<:AbstractUnitRangesSortedSet}
-    if state != beforestartindex(rrs.itr)
+    if state != beforefirstindex(rrs.itr)
         return (getindex(rrs.itr, state), regress(rrs.itr, state))
     else
         return nothing
@@ -751,14 +751,14 @@ end
 
 
 @inline function eachindexiterate(rs::AbstractUnitRangesSortedSet, state = firstindex(rs))
-    if state != pastendindex(rs)
+    if state != pastlastindex(rs)
         return (state, advance(rs, state))
     else
         return nothing
     end
 end
 @inline function eachindexiterate(rrs::Base.Iterators.Reverse{T}, state = lastindex(rrs.itr)) where {T<:AbstractUnitRangesSortedSet}
-    if state != beforestartindex(rrs.itr)
+    if state != beforefirstindex(rrs.itr)
         return (state, regress(rrs.itr, state))
     else
         return nothing
@@ -807,7 +807,7 @@ Base.eachindex(rrs::Base.Iterators.Reverse{T}) where {T<:AbstractUnitRangesSorte
 
 @inline function _in(kk::TU, rs::AbstractUnitRangesSortedSet{K,TU}) where {K,TU}
     # fast check for cached range index
-    if (ir = rs.lastusedrangeindex) != beforestartindex(rs)
+    if (ir = rs.lastusedrangeindex) != beforefirstindex(rs)
         if issubset(kk, getindex(rs, ir))
             return true
         end
@@ -827,7 +827,7 @@ end
 @inline function Base.in(key, rs::AbstractUnitRangesSortedSet{K}) where K
     k = K(key)
     # fast check for cached range index
-    if (ir = rs.lastusedrangeindex) != beforestartindex(rs)
+    if (ir = rs.lastusedrangeindex) != beforefirstindex(rs)
         r_start, r_stop = getindex_tuple(rs, ir)
         if r_start <= k <= r_stop
             return true
@@ -835,14 +835,14 @@ end
     end
     # cached range index miss (or index not stored), thus try search
     ir_k = searchsortedrangelast(rs, k)
-    if ir_k != beforestartindex(rs)  # `k` is not before the start of first range
+    if ir_k != beforefirstindex(rs)  # `k` is not before the start of first range
         r_start, r_stop = getindex_tuple(rs, ir_k)
         if k <= r_stop  # is `k` inside of range
             rs.lastusedrangeindex = ir_k
             return true
         end
     end
-    rs.lastusedrangeindex = beforestartindex(rs)
+    rs.lastusedrangeindex = beforefirstindex(rs)
     return false
 end
 
@@ -859,7 +859,7 @@ end
     (su.kstart <= first(kk) <= last(kk) <= su.kstop) || return false
 
     # fast check for cached range index
-    if (ir = su.parent.lastusedrangeindex) != beforestartindex(su.parent) &&
+    if (ir = su.parent.lastusedrangeindex) != beforefirstindex(su.parent) &&
         su.firstindex <= first(ir) <= last(ir) <= su.lastindex
         if issubset(kk, getindex(su, ir))
             return true
@@ -897,7 +897,7 @@ end
     (k < su.kstart || su.kstop < k) && return false
 
     # fast check for cached range index
-    if (ir = su.parent.lastusedrangeindex) != beforestartindex(su.parent) &&
+    if (ir = su.parent.lastusedrangeindex) != beforefirstindex(su.parent) &&
         indexcompare(su, su.firstindex, ir) < 1 &&
         indexcompare(su, ir, su.lastindex) < 1
         r_start, r_stop = getindex_tuple(su, ir)
@@ -907,14 +907,14 @@ end
     end
     # cached range index miss (or index not stored), thus try search
     ir_k = searchsortedrangelast(su, k)
-    if ir_k != beforestartindex(su)  # `k` is not before the start of first range
+    if ir_k != beforefirstindex(su)  # `k` is not before the start of first range
         r_start, r_stop = getindex_tuple(su, ir_k)
         if r_start <= k <= r_stop  # is `k` inside of range
             su.parent.lastusedrangeindex = ir_k
             return true
         end
     end
-    su.parent.lastusedrangeindex = beforestartindex(su.parent)
+    su.parent.lastusedrangeindex = beforefirstindex(su.parent)
     return false
 end
 
@@ -941,7 +941,7 @@ function _push!(rs::UnitRangesSortedVector{K,TU}, kk::TU) where {K,TU}
         return rs
     end
 
-    rs.lastusedrangeindex = beforestartindex(rs)
+    rs.lastusedrangeindex = beforefirstindex(rs)
 
     iir_kk = searchsortedrange(rs, kk)
 
@@ -965,52 +965,52 @@ function _push!(rs::UnitRangesSortedVector{K,TU}, kk::TU) where {K,TU}
     iir_kk_right = first(iir_kk)
 
     # `kk` is adjoined in both sides with `rs` ranges, thus join them all
-    if iir_kk_left != beforestartindex(rs) && getindex_rangestop(rs, iir_kk_left) + 1 == first(kk) &&
-       iir_kk_right != pastendindex(rs) && getindex_rangestart(rs, iir_kk_right) - 1 == last(kk)
+    if iir_kk_left != beforefirstindex(rs) && getindex_rangestop(rs, iir_kk_left) + 1 == first(kk) &&
+       iir_kk_right != pastlastindex(rs) && getindex_rangestart(rs, iir_kk_right) - 1 == last(kk)
         rs.rstops[iir_kk_left] = getindex_rangestop(rs, iir_kk_right)
         deleteat!(rs.rstarts, iir_kk_right)
         deleteat!(rs.rstops, iir_kk_right)
 
     # `kk` is adjoin with `rs` range on left side, thus append to left range
-    elseif iir_kk_left != beforestartindex(rs) && getindex_rangestop(rs, iir_kk_left) + 1 == first(kk) &&
-           iir_kk_right != pastendindex(rs) && getindex_rangestart(rs, iir_kk_right) - 1 != last(kk)
+    elseif iir_kk_left != beforefirstindex(rs) && getindex_rangestop(rs, iir_kk_left) + 1 == first(kk) &&
+           iir_kk_right != pastlastindex(rs) && getindex_rangestart(rs, iir_kk_right) - 1 != last(kk)
         rs.rstops[iir_kk_left] = last(kk)
 
     # `kk` is adjoin with `rs` range on right side, thus prepend to right range
-    elseif iir_kk_left != beforestartindex(rs) && getindex_rangestop(rs, iir_kk_left) + 1 != first(kk) &&
-           iir_kk_right != pastendindex(rs) && getindex_rangestart(rs, iir_kk_right) - 1 == last(kk)
+    elseif iir_kk_left != beforefirstindex(rs) && getindex_rangestop(rs, iir_kk_left) + 1 != first(kk) &&
+           iir_kk_right != pastlastindex(rs) && getindex_rangestart(rs, iir_kk_right) - 1 == last(kk)
         rs.rstarts[iir_kk_right] = first(kk)
 
     # `kk` is separate from both sides, insert it
-    elseif iir_kk_left != beforestartindex(rs) && getindex_rangestop(rs, iir_kk_left) + 1 != first(kk) &&
-           iir_kk_right != pastendindex(rs) && getindex_rangestart(rs, iir_kk_right) - 1 != last(kk)
+    elseif iir_kk_left != beforefirstindex(rs) && getindex_rangestop(rs, iir_kk_left) + 1 != first(kk) &&
+           iir_kk_right != pastlastindex(rs) && getindex_rangestart(rs, iir_kk_right) - 1 != last(kk)
         insert!(rs.rstarts, iir_kk_right, first(kk))
         insert!(rs.rstops, iir_kk_right, last(kk))
 
     # `kk` is first range in `rs` and adjoin with range on right side, thus prepend `kk` to right range
-    elseif iir_kk_left == beforestartindex(rs) &&
-           iir_kk_right != pastendindex(rs) && getindex_rangestart(rs, iir_kk_right) - 1 == last(kk)
+    elseif iir_kk_left == beforefirstindex(rs) &&
+           iir_kk_right != pastlastindex(rs) && getindex_rangestart(rs, iir_kk_right) - 1 == last(kk)
         rs.rstarts[iir_kk_right] = first(kk)
 
     # `kk` is separate first range in `rs`, insert it
-    elseif iir_kk_left == beforestartindex(rs) &&
-           iir_kk_right != pastendindex(rs) && getindex_rangestart(rs, iir_kk_right) - 1 != last(kk)
+    elseif iir_kk_left == beforefirstindex(rs) &&
+           iir_kk_right != pastlastindex(rs) && getindex_rangestart(rs, iir_kk_right) - 1 != last(kk)
         insert!(rs.rstarts, iir_kk_right, first(kk))
         insert!(rs.rstops, iir_kk_right, last(kk))
 
     # `kk` is last range in `rs` and adjoin with range on left side, thus append `kk` to left range
-    elseif iir_kk_left != beforestartindex(rs) && getindex_rangestop(rs, iir_kk_left) + 1 == first(kk) &&
-           iir_kk_right == pastendindex(rs)
+    elseif iir_kk_left != beforefirstindex(rs) && getindex_rangestop(rs, iir_kk_left) + 1 == first(kk) &&
+           iir_kk_right == pastlastindex(rs)
         rs.rstops[iir_kk_left] = last(kk)
 
     # `kk` is separate last range in `rs`, insert it
-    elseif iir_kk_left != beforestartindex(rs) && getindex_rangestop(rs, iir_kk_left) + 1 != first(kk) &&
-           iir_kk_right == pastendindex(rs)
+    elseif iir_kk_left != beforefirstindex(rs) && getindex_rangestop(rs, iir_kk_left) + 1 != first(kk) &&
+           iir_kk_right == pastlastindex(rs)
         insert!(rs.rstarts, iir_kk_right, first(kk))
         insert!(rs.rstops, iir_kk_right, last(kk))
 
     # `rs` is empty
-    elseif iir_kk_left == beforestartindex(rs) && iir_kk_right == pastendindex(rs)
+    elseif iir_kk_left == beforefirstindex(rs) && iir_kk_right == pastlastindex(rs)
         insert!(rs.rstarts, 1, first(kk))
         insert!(rs.rstops, 1, last(kk))
 
@@ -1039,7 +1039,7 @@ function _push!(rs::UnitRangesSortedSet{K,TU}, kk::TU) where {K,TU}
         return rs
     end
 
-    rs.lastusedrangeindex = beforestartindex(rs)
+    rs.lastusedrangeindex = beforefirstindex(rs)
 
     iir_kk = searchsortedrange(rs, kk)
 
@@ -1061,58 +1061,58 @@ function _push!(rs::UnitRangesSortedSet{K,TU}, kk::TU) where {K,TU}
 
     iir_kk_left = last(iir_kk)
     iir_kk_right = first(iir_kk)
-    iir_kk_left_rangestop = iir_kk_left != beforestartindex(rs) ? getindex_rangestop(rs, iir_kk_left) : K(0)
-    iir_kk_right_rangestart = iir_kk_right != pastendindex(rs) ? getindex_rangestart(rs, iir_kk_right) : K(0)
-    #iir_kk_left_rangestop = iir_kk_left != beforestartindex(rs) ?
+    iir_kk_left_rangestop = iir_kk_left != beforefirstindex(rs) ? getindex_rangestop(rs, iir_kk_left) : K(0)
+    iir_kk_right_rangestart = iir_kk_right != pastlastindex(rs) ? getindex_rangestart(rs, iir_kk_right) : K(0)
+    #iir_kk_left_rangestop = iir_kk_left != beforefirstindex(rs) ?
     #                                             getindex_rangestop(rs, iir_kk_left) : typemin(K)
-    #iir_kk_right_rangestart = iir_kk_right != pastendindex(rs) ?
+    #iir_kk_right_rangestart = iir_kk_right != pastlastindex(rs) ?
     #                                                getindex_rangestart(rs, iir_kk_right) : typemax(K)
 
     # `kk` is adjoined in both sides with `rs` ranges, thus join them all
-    if iir_kk_left != beforestartindex(rs) && iir_kk_left_rangestop + 1 == first(kk) &&
-       iir_kk_right != pastendindex(rs) && iir_kk_right_rangestart - 1 == last(kk)
+    if iir_kk_left != beforefirstindex(rs) && iir_kk_left_rangestop + 1 == first(kk) &&
+       iir_kk_right != pastlastindex(rs) && iir_kk_right_rangestart - 1 == last(kk)
         rs.ranges[iir_kk_left] = getindex_rangestop(rs, iir_kk_right)
         delete!((rs.ranges, iir_kk_right))
 
     # `kk` is adjoin with `rs` range on left side, thus append to left range
-    elseif iir_kk_left != beforestartindex(rs) && iir_kk_left_rangestop + 1 == first(kk) &&
-           iir_kk_right != pastendindex(rs) && iir_kk_right_rangestart - 1 != last(kk)
+    elseif iir_kk_left != beforefirstindex(rs) && iir_kk_left_rangestop + 1 == first(kk) &&
+           iir_kk_right != pastlastindex(rs) && iir_kk_right_rangestart - 1 != last(kk)
         rs.ranges[iir_kk_left] = last(kk)
 
     # `kk` is adjoin with `rs` range on right side, thus prepend to right range
-    elseif iir_kk_left != beforestartindex(rs) && iir_kk_left_rangestop + 1 != first(kk) &&
-           iir_kk_right != pastendindex(rs) && iir_kk_right_rangestart - 1 == last(kk)
+    elseif iir_kk_left != beforefirstindex(rs) && iir_kk_left_rangestop + 1 != first(kk) &&
+           iir_kk_right != pastlastindex(rs) && iir_kk_right_rangestart - 1 == last(kk)
         rs.ranges[first(kk)] = getindex_rangestop(rs, iir_kk_right)
         delete!((rs.ranges, iir_kk_right))
 
     # `kk` is separate from both sides, insert it
-    elseif iir_kk_left != beforestartindex(rs) && iir_kk_left_rangestop + 1 != first(kk) &&
-           iir_kk_right != pastendindex(rs) && iir_kk_right_rangestart - 1 != last(kk)
+    elseif iir_kk_left != beforefirstindex(rs) && iir_kk_left_rangestop + 1 != first(kk) &&
+           iir_kk_right != pastlastindex(rs) && iir_kk_right_rangestart - 1 != last(kk)
         rs.ranges[first(kk)] = last(kk)
 
     # `kk` is first range in `rs` and adjoin with range on right side, thus prepend `kk` to right range
-    elseif iir_kk_left == beforestartindex(rs) &&
-           iir_kk_right != pastendindex(rs) && iir_kk_right_rangestart - 1 == last(kk)
+    elseif iir_kk_left == beforefirstindex(rs) &&
+           iir_kk_right != pastlastindex(rs) && iir_kk_right_rangestart - 1 == last(kk)
         rs.ranges[first(kk)] = getindex_rangestop(rs, iir_kk_right)
         delete!((rs.ranges, iir_kk_right))
 
     # `kk` is separate first range in `rs`, insert it
-    elseif iir_kk_left == beforestartindex(rs) &&
-           iir_kk_right != pastendindex(rs) && iir_kk_right_rangestart - 1 != last(kk)
+    elseif iir_kk_left == beforefirstindex(rs) &&
+           iir_kk_right != pastlastindex(rs) && iir_kk_right_rangestart - 1 != last(kk)
         rs.ranges[first(kk)] = last(kk)
 
     # `kk` is last range in `rs` and adjoin with range on left side, thus append `kk` to left range
-    elseif iir_kk_left != beforestartindex(rs) && iir_kk_left_rangestop + 1 == first(kk) &&
-           iir_kk_right == pastendindex(rs)
+    elseif iir_kk_left != beforefirstindex(rs) && iir_kk_left_rangestop + 1 == first(kk) &&
+           iir_kk_right == pastlastindex(rs)
         rs.ranges[iir_kk_left] = last(kk)
 
     # `kk` is separate last range in `rs`, insert it
-    elseif iir_kk_left != beforestartindex(rs) && iir_kk_left_rangestop + 1 != first(kk) &&
-           iir_kk_right == pastendindex(rs)
+    elseif iir_kk_left != beforefirstindex(rs) && iir_kk_left_rangestop + 1 != first(kk) &&
+           iir_kk_right == pastlastindex(rs)
         rs.ranges[first(kk)] = last(kk)
 
     # `rs` is empty
-    elseif iir_kk_left == beforestartindex(rs) && iir_kk_right == pastendindex(rs)
+    elseif iir_kk_left == beforefirstindex(rs) && iir_kk_right == pastlastindex(rs)
         rs.ranges[first(kk)] = last(kk)
 
     else
@@ -1125,7 +1125,7 @@ end
 @inline function check_exist_and_update(rs, k)
 
     # fast check for cached range index
-    if (ir = rs.lastusedrangeindex) != beforestartindex(rs)
+    if (ir = rs.lastusedrangeindex) != beforefirstindex(rs)
         r_start, r_stop = getindex_tuple(rs, ir)
         if r_start <= k <= r_stop
             return nothing
@@ -1140,7 +1140,7 @@ end
     end
 
     # check the index exist and update its data
-    if ir_k != beforestartindex(rs)  # `k` is not before the first index
+    if ir_k != beforefirstindex(rs)  # `k` is not before the first index
         if k <= getindex_rangestop(rs, ir_k)
             rs.lastusedrangeindex = ir_k
             return nothing
@@ -1164,7 +1164,7 @@ function Base.push!(rs::UnitRangesSortedVector{K,TU}, key) where {K,TU}
         return rs
     end
 
-    if ir_k == beforestartindex(rs)  # `k` is before the first range
+    if ir_k == beforefirstindex(rs)  # `k` is before the first range
         if rs.rstarts[1] - k > 1  # there is will be gap in indices after inserting
             pushfirst!(rs.rstarts, k)
             pushfirst!(rs.rstops, k)
@@ -1227,7 +1227,7 @@ function Base.push!(rs::UnitRangesSortedSet{K,TU}, key) where {K,TU}
         return rs
     end
 
-    if ir_k == beforestartindex(rs)  # `k` is before the first index
+    if ir_k == beforefirstindex(rs)  # `k` is before the first index
         stnext = advance(rs, ir_k)
         rnext = getindex(rs, stnext)
         if first(rnext) - k > 1  # there is will be gap in indices after inserting
@@ -1252,7 +1252,7 @@ function Base.push!(rs::UnitRangesSortedSet{K,TU}, key) where {K,TU}
         return rs
     end
 
-    rs.lastusedrangeindex = beforestartindex(rs)
+    rs.lastusedrangeindex = beforefirstindex(rs)
 
     # `k` is somewhere between indices
     stnext = advance(rs, ir_k)
@@ -1297,7 +1297,7 @@ function _delete!(rs::UnitRangesSortedVector{K,TU}, kk::TU) where {K,TU}
     iir_kk = searchsortedrange(rs, kk)
     length(iir_kk) == 0 && return rs
 
-    rs.lastusedrangeindex = beforestartindex(rs)
+    rs.lastusedrangeindex = beforefirstindex(rs)
 
     # delete all concluded ranges
     todelete1 = getindex_rangestart(rs, first(iir_kk)) < first(kk) ? first(iir_kk) + 1 : first(iir_kk)
@@ -1306,7 +1306,7 @@ function _delete!(rs::UnitRangesSortedVector{K,TU}, kk::TU) where {K,TU}
     splice!(rs.rstops, todelete1:todelete2)
 
     # remains the side ranges to delete
-    # Note: there is not possible `beforestartindex` or `pastendindex` in `iir_kk`
+    # Note: there is not possible `beforefirstindex` or `pastlastindex` in `iir_kk`
     iir_kk = searchsortedrange(rs, kk)
     length(iir_kk) == 0 && return rs
 
@@ -1367,7 +1367,7 @@ function _delete!(rs::UnitRangesSortedSet{K,TU}, kk::TU) where {K,TU}
     iir_kk = searchsortedrange(rs, kk)
     length(iir_kk) == 0 && return rs
 
-    rs.lastusedrangeindex = beforestartindex(rs)
+    rs.lastusedrangeindex = beforefirstindex(rs)
 
     # delete all concluded ranges
     todelete1 = getindex_rangestart(rs, first(iir_kk)) < first(kk) ? advance(rs, first(iir_kk)) : first(iir_kk)
@@ -1377,7 +1377,7 @@ function _delete!(rs::UnitRangesSortedSet{K,TU}, kk::TU) where {K,TU}
     end
 
     # remains the side ranges to delete
-    # Note: there is not possible `beforestartindex` or `pastendindex` in `iir_kk`
+    # Note: there is not possible `beforefirstindex` or `pastlastindex` in `iir_kk`
     iir_kk = searchsortedrange(rs, kk)
     length(iir_kk) == 0 && return rs
 
@@ -1433,7 +1433,7 @@ function Base.delete!(rs::UnitRangesSortedVector{K,TU}, key) where {K,TU}
 
     ir_k = searchsortedrangelast(rs, k)
 
-    if ir_k == beforestartindex(rs)  # `k` is before first range
+    if ir_k == beforefirstindex(rs)  # `k` is before first range
         return rs
     end
 
@@ -1456,7 +1456,7 @@ function Base.delete!(rs::UnitRangesSortedVector{K,TU}, key) where {K,TU}
         rs.rstops[ir_k] = k-1
     end
 
-    rs.lastusedrangeindex = beforestartindex(rs)
+    rs.lastusedrangeindex = beforefirstindex(rs)
 
     return rs
 end
@@ -1469,7 +1469,7 @@ function Base.delete!(rs::UnitRangesSortedSet{K,TU}, key) where {K,TU}
 
     ir_k = searchsortedrangelast(rs, k)
 
-    if ir_k == beforestartindex(rs)  # `k` is before first index
+    if ir_k == beforefirstindex(rs)  # `k` is before first index
         return rs
     end
 
@@ -1491,7 +1491,7 @@ function Base.delete!(rs::UnitRangesSortedSet{K,TU}, key) where {K,TU}
         rs.ranges[k+1] = last(r)
     end
 
-    rs.lastusedrangeindex = beforestartindex(rs)
+    rs.lastusedrangeindex = beforefirstindex(rs)
 
     return rs
 end
@@ -1520,12 +1520,12 @@ Base.empty(rs::T) where {T<:AbstractUnitRangesSortedContainer} = T()
 function Base.empty!(rs::UnitRangesSortedVector)
     empty!(rs.rstarts)
     empty!(rs.rstops)
-    rs.lastusedrangeindex = beforestartindex(rs)
+    rs.lastusedrangeindex = beforefirstindex(rs)
     rs
 end
 function Base.empty!(rs::AbstractUnitRangesSortedContainer)
     empty!(rs.ranges)
-    rs.lastusedrangeindex = beforestartindex(rs)
+    rs.lastusedrangeindex = beforefirstindex(rs)
     rs
 end
 
