@@ -27,8 +27,6 @@ using Test
 # @inline function indexcompare(rs::AbstractSubUnitRangesSortedSet{K,TU,P}, i, j) where {K,TU,P<:UnitRangesSortedVector}
 # @inline getindex_tuple(rs::Sub01XUnitRangesSortedSet, i)
 # @inline Base.getindex(rs::UnitRangesSortedSet{K,TU}, t::SDMToken) ???
-# function bisectionsearchlast(V::AbstractVector, val, lo::T, hi::T) where T
-# function bisectionsearchfirst(V::AbstractVector, val, lo::T, hi::T) where T
 # @inline searchsortedrangelast(rs::Sub01XUnitRangesSortedSet, k)
 # @inline searchsortedrangefirst(rs::Sub01XUnitRangesSortedSet, k)
 # @inline searchsortedrange(rs::AbstractSubUnitRangesSortedSet, kk::AbstractRange)

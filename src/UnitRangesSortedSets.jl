@@ -518,77 +518,15 @@ Returns last range from the set `rs`.
 @inline DataStructures.regress(rs::UnitRangesSortedSet, state) = regress((rs.ranges, state))
 @inline DataStructures.regress(rs::AbstractSubUnitRangesSortedSet, state) = regress(rs.parent, state)
 
-# Derived from julia/base/sort.jl, for increasing sorted vectors.
-function bisectionsearchlast(V::AbstractVector, val)
-    # TODO: test bisectionsearchlast(V, val, 1, length(V)) instead
-    lo = 0
-    hi = length(V) + 1
-    @inbounds while lo < hi - 1
-        m = lo + ((hi - lo) >>> 0x01)
-        if val < V[m]
-            hi = m
-        else
-            lo = m
-        end
-    end
-    return lo
-end
-function bisectionsearchlast(V::AbstractVector, val, lo::T, hi::T) where T
-    # TODO: oneunit(T) instead
-    u = T(1)
-    lo = lo - u
-    hi = hi + u
-    @inbounds while lo < hi - u
-        # TODO: use Base.midpoint(lo, hi)
-        m = lo + ((hi - lo) >>> 0x01)
-        if val < V[m]
-            hi = m
-        else
-            lo = m
-        end
-    end
-    return lo
-end
-
-function bisectionsearchfirst(V::AbstractVector, val)
-    lo = 0
-    hi = length(V) + 1
-    @inbounds while lo < hi - 1
-        m = lo + ((hi - lo) >>> 0x01)
-        if V[m] < val
-            lo = m
-        else
-            hi = m
-        end
-    end
-    return hi
-end
-# TODO: see latest julia/base/sort.jl without midpoint()
-function bisectionsearchfirst(V::AbstractVector, val, lo::T, hi::T) where T
-    u = T(1)
-    lo = lo - u
-    hi = hi + u
-    @inbounds while lo < hi - u
-        m = lo + ((hi - lo) >>> 0x01)
-        if V[m] < val
-            lo = m
-        else
-            hi = m
-        end
-    end
-    return hi
-end
-
 
 "Returns index of range in which, or after, `k` is placed."
-@inline searchsortedrangelast(rs::UnitRangesSortedVector{K}, k) where {K} = bisectionsearchlast(rs.rstarts, K(k))
-#@inline searchsortedrangelast(rs::UnitRangesSortedVector{K}, k) where {K} = searchsortedlast(rs.rstarts, K(k); lt=<)
+@inline searchsortedrangelast(rs::UnitRangesSortedVector{K}, k) where {K} = searchsortedlast(rs.rstarts, K(k); lt=<)
 @inline searchsortedrangelast(rs::UnitRangesSortedSet{K}, k) where {K} = searchsortedlast(rs.ranges, K(k))
 @inline searchsortedrangelast(rs::Sub0UnitRangesSortedSet, k) = beforefirstindex(rs)
 @inline searchsortedrangelast(rs::Sub1UnitRangesSortedSet{K}, k) where {K} =
     K(k) >= rs.kstart ? rs.firstindex : beforefirstindex(rs)
 @inline searchsortedrangelast(rs::SubUnitRangesSortedSet{K,TU,P,Tix}, k) where {K,TU,P<:UnitRangesSortedVector,Tix} =
-    bisectionsearchlast(rs.parent.rstarts, K(k), rs.firstindex, rs.lastindex)
+    searchsortedlast(rs.parent.rstarts, K(k), rs.firstindex, rs.lastindex, Base.ord(isless, identity, false))
 @inline function searchsortedrangelast(rs::SubUnitRangesSortedSet{K,TU,P,Tix}, k) where {K,TU,P<:UnitRangesSortedSet,Tix}
     ir_k = searchsortedlast(rs.parent.ranges, K(k))
     if compare(rs.parent.ranges, ir_k, beforefirstindex(rs)) == 1 && compare(rs.parent.ranges, ir_k, pastlastindex(rs)) == -1
@@ -599,7 +537,7 @@ end
 end
 
 "Returns index of range in which, or before, `k` is placed."
-@inline searchsortedrangefirst(rs::UnitRangesSortedVector{K}, k) where {K} = bisectionsearchfirst(rs.rstops, K(k))
+@inline searchsortedrangefirst(rs::UnitRangesSortedVector{K}, k) where {K} = searchsortedfirst(rs.rstops, K(k); lt=isless)
 @inline function searchsortedrangefirst(rs::UnitRangesSortedSet{K}, k) where {K}
     ir_k = searchsortedrangelast(rs, K(k))
     if ir_k != beforefirstindex(rs) && in(K(k), getindex(rs, ir_k))
@@ -611,7 +549,7 @@ end
 @inline searchsortedrangefirst(rs::Sub0UnitRangesSortedSet, k) = pastlastindex(rs)
 @inline searchsortedrangefirst(rs::Sub1UnitRangesSortedSet{K}, k) where {K} = K(k) <= rs.kstop ? rs.lastindex : pastlastindex(rs)
 @inline searchsortedrangefirst(rs::SubUnitRangesSortedSet{K,TU,P,Tix}, k) where {K,TU,P<:UnitRangesSortedVector,Tix} =
-    bisectionsearchfirst(rs.parent.rstops, K(k), rs.firstindex, rs.lastindex)
+    searchsortedfirst(rs.parent.rstops, K(k), rs.firstindex, rs.lastindex, Base.ord(isless, identity, false))
 @inline function searchsortedrangefirst(rs::SubUnitRangesSortedSet{K,TU,P,Tix}, k) where {K,TU,P<:UnitRangesSortedSet,Tix}
     ir_k = searchsortedrangelast(rs, K(k))
     if ir_k != beforefirstindex(rs) && in(K(k), getindex(rs, ir_k))
