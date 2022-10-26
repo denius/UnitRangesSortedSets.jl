@@ -479,6 +479,11 @@ end
 @inline Base.lastindex(rs::UnitRangesSortedVector) = lastindex(rs.rstarts)
 @inline Base.lastindex(rs::UnitRangesSortedSet) = lastindex(rs.ranges)
 @inline Base.lastindex(rs::AbstractSubUnitRangesSortedSet) = rs.lastindex
+"""
+    first(rs::AbstractUnitRangesSortedSet)
+
+Returns first range from the set `rs`.
+"""
 @inline Base.first(rs::UnitRangesSortedVector{K,TU}) where {K,TU} =
     to_urange(TU, rs.rstarts[1], rs.rstops[1])
 @inline Base.first(rs::UnitRangesSortedSet{K,TU}) where {K,TU} =
@@ -486,6 +491,11 @@ end
 @inline Base.first(rs::Sub0UnitRangesSortedSet) = getindex(rs, firstindex(rs))
 @inline Base.first(rs::Sub1UnitRangesSortedSet) = rs.singlerange
 @inline Base.first(rs::SubUnitRangesSortedSet) = getindex(rs, firstindex(rs))
+"""
+    last(rs::AbstractUnitRangesSortedSet)
+
+Returns last range from the set `rs`.
+"""
 @inline Base.last(rs::UnitRangesSortedVector{K,TU}) where {K,TU} =
     to_urange(TU, rs.rstarts[end], rs.rstops[end])
 @inline Base.last(rs::UnitRangesSortedSet{K,TU}) where {K,TU} =
