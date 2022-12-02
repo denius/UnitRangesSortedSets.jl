@@ -176,6 +176,7 @@ end
 @inline Base.copy(rs::T) where {T<:AbstractSubUnitRangesSortedSet{K,TU}} where {K,TU} =
     intersect(rs.parent, to_urange(TU, rs.kstart, rs.kstop))
 
+# may be VectorUnitRangesSortedSet
 """
 Inserting zero, or negative length ranges does nothing.
 $(TYPEDEF)
@@ -293,8 +294,10 @@ The usual `searchsorted()` function returns just `UnitRange`, but `UnitRangesSor
 `DataStructures.Tokens.IntSemiToken` to indexing keys/values and it is not possible to create `UnitRange{IntSemiToken}`,
 thus was created custom one named `URSSIndexURange`.
 """
-@inline create_indexrange(parent::P, l, r) where {P<:UnitRangesSortedVector{K,TU}} where {K,TU} = UnitRange{Int}(l, r)
-@inline create_indexrange(parent::P, l, r) where {P<:UnitRangesSortedSet{K,TU}} where {K,TU} = URSSIndexURange(parent, l, r)
+@inline create_indexrange(parent::P, l, r) where {P<:UnitRangesSortedVector} = UnitRange{Int}(l, r)
+@inline create_indexrange(parent::P, l, r) where {P<:UnitRangesSortedSet} = URSSIndexURange(parent, l, r)
+#@inline create_indexrange(parent::P, l, r) where {P<:UnitRangesSortedVector{K,TU}} where {K,TU} = UnitRange{Int}(l, r)
+#@inline create_indexrange(parent::P, l, r) where {P<:UnitRangesSortedSet{K,TU}} where {K,TU} = URSSIndexURange(parent, l, r)
 
 
 @inline function URSSIndexURange(rs::P, l::Tix, r::Tix) where {P<:UnitRangesSortedVector, Tix}
@@ -518,6 +521,9 @@ Returns last range from the set `rs`.
 @inline DataStructures.regress(rs::UnitRangesSortedSet, state) = regress((rs.ranges, state))
 @inline DataStructures.regress(rs::AbstractSubUnitRangesSortedSet, state) = regress(rs.parent, state)
 
+#
+# Searching functions
+#
 
 "Returns index of range in which, or after, `k` is placed."
 @inline searchsortedrangelast(rs::UnitRangesSortedVector{K}, k) where {K} = searchsortedlast(rs.rstarts, K(k); lt=<)
