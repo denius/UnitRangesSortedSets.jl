@@ -1590,7 +1590,7 @@ function Base.issubset(rs1::AbstractUnitRangesSortedSet, rs2::Union{AbstractSet,
 end
 function Base.issubset(rs1::AbstractUnitRangesSortedSet, rs2::Union{AbstractSet{T},AbstractVector{T},NTuple{N,T}}) where {T<:AbstractRange,N}
     for r1 in rs1
-        findfirst(s->issubset(r1, s), rs2) != nothing || return false
+        findfirst(s->issubset(r1, s), rs2) !== nothing || return false
     end
     return true
 end

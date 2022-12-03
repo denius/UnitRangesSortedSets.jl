@@ -1,6 +1,7 @@
+import .UnitRangesSortedSets:
+    advance, beforefirstindex, inferrangetype, pastlastindex, regress, to_urange
+
 using .UnitRangesSortedSets
-import .UnitRangesSortedSets: advance, regress, beforefirstindex, pastlastindex
-import .UnitRangesSortedSets: inferrangetype, to_urange
 using Test
 
 # TODO:
