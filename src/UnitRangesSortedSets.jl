@@ -1,8 +1,8 @@
 
 module UnitRangesSortedSets
-export AbstractUnitRangesSortedSet, AbstractSubUnitRangesSortedSet, AbstractUnitRangesSortedContainer
+export AbstractUnitRangesSortedSet, AbstractUnitRangesSortedSubSet, AbstractUnitRangesSortedContainer
 export UnitRangesSortedVector, UnitRangesSortedSet
-export Sub0UnitRangesSortedSet, Sub1UnitRangesSortedSet, SubUnitRangesSortedSet, URSSIndexURange
+export UnitRangesSortedSubSet0, UnitRangesSortedSubSet1, UnitRangesSortedSubSet, URSSIndexURange
 export testfun_create, testfun_createSV, testfun_createVL, testfun_create_seq, testfun_create_dense, testfun_delete!,
        testfun_in, testfun_in_outer, testfun_in_rand, testfun_in_seq, testfun_nzgetindex, testfun_setindex!
 export searchsortedrange, searchsortedrangefirst, searchsortedrangelast, getrange, getindex, beforefirstindex, pastlastindex
@@ -55,15 +55,16 @@ end
 
 
 abstract type AbstractUnitRangesSortedSet{K,TU} <: AbstractSet{TU} end
+
 abstract type AbstractUnitRangesSortedContainer{K,TU} <: AbstractUnitRangesSortedSet{K,TU} end
-abstract type AbstractSubUnitRangesSortedSet{K,TU,P} <: AbstractUnitRangesSortedSet{K,TU} end
+abstract type AbstractUnitRangesSortedSubSet{K,TU,P} <: AbstractUnitRangesSortedSet{K,TU} end
 
 """
 $(TYPEDEF)
 Immutable struct fields:
 $(TYPEDFIELDS)
 """
-struct Sub0UnitRangesSortedSet{K,TU,P,Tix} <: AbstractSubUnitRangesSortedSet{K,TU,P}
+struct UnitRangesSortedSubSet0{K,TU,P,Tix} <: AbstractUnitRangesSortedSubSet{K,TU,P}
     #"Empty range `kstart:kstop` for simplicity."
     #singlerange::TU
     "The `<:AbstractUnitRangesSortedSet` which subset point to."
@@ -87,7 +88,7 @@ $(TYPEDEF)
 Immutable struct fields:
 $(TYPEDFIELDS)
 """
-struct Sub1UnitRangesSortedSet{K,TU,P,Tix} <: AbstractSubUnitRangesSortedSet{K,TU,P}
+struct UnitRangesSortedSubSet1{K,TU,P,Tix} <: AbstractUnitRangesSortedSubSet{K,TU,P}
     "The `<:AbstractUnitRangesSortedSet` which subset point to."
     parent::P
     "`kstart:kstop` is the bounds of subset."
@@ -111,7 +112,7 @@ $(TYPEDEF)
 Immutable struct fields:
 $(TYPEDFIELDS)
 """
-struct SubUnitRangesSortedSet{K,TU,P,Tix} <: AbstractSubUnitRangesSortedSet{K,TU,P}
+struct UnitRangesSortedSubSet{K,TU,P,Tix} <: AbstractUnitRangesSortedSubSet{K,TU,P}
     "The `<:AbstractUnitRangesSortedSet` which subset point to."
     parent::P
     "`kstart:kstop` is the bounds of subset."
@@ -134,7 +135,7 @@ end
 
 subset(rs::P, ::Colon) where {P<:AbstractUnitRangesSortedSet{K,TU}} where {K,TU} =
     subset(rs, to_urange(TU, first(first(rs)), last(last(rs))))
-subset(rs::P, kk::AbstractRange) where {P<:AbstractSubUnitRangesSortedSet} = subset(rs.parent, kk)
+subset(rs::P, kk::AbstractRange) where {P<:AbstractUnitRangesSortedSubSet} = subset(rs.parent, kk)
 function subset(rs::P, kk::AbstractRange) where {P<:AbstractUnitRangesSortedContainer{K,TU}} where {K,TU}
     kk = to_urange(TU, kk)
     @boundscheck length(rs) == 0 && length(kk) != 0 && throw(BoundsError(rs, kk))
@@ -147,7 +148,7 @@ function subset(rs::P, kk::AbstractRange) where {P<:AbstractUnitRangesSortedCont
         if length(kk) != 0
             kk = to_urange(TU, last(kk), first(kk))
         end
-        return Sub0UnitRangesSortedSet{K,TU,P,typeof(first(iir_kk))}(rs, first(kk), last(kk), first(iir_kk), last(iir_kk),
+        return UnitRangesSortedSubSet0{K,TU,P,typeof(first(iir_kk))}(rs, first(kk), last(kk), first(iir_kk), last(iir_kk),
                                        regress(rs, first(iir_kk)), advance(rs, last(iir_kk)), length(iir_kk))
     elseif length(iir_kk) == 1
         singlerange = getindex(rs, first(iir_kk))
@@ -157,7 +158,7 @@ function subset(rs::P, kk::AbstractRange) where {P<:AbstractUnitRangesSortedCont
         if last(kk) < last(singlerange)
             singlerange = to_urange(TU, first(singlerange), last(kk))
         end
-        return Sub1UnitRangesSortedSet{K,TU,P,typeof(first(iir_kk))}(rs, first(kk), last(kk), singlerange,
+        return UnitRangesSortedSubSet1{K,TU,P,typeof(first(iir_kk))}(rs, first(kk), last(kk), singlerange,
                                        first(iir_kk), last(iir_kk), regress(rs, first(iir_kk)), advance(rs, last(iir_kk)), length(iir_kk))
     else
         firstrange = getindex(rs, first(iir_kk))
@@ -168,12 +169,12 @@ function subset(rs::P, kk::AbstractRange) where {P<:AbstractUnitRangesSortedCont
         if last(kk) < last(lastrange)
             lastrange = to_urange(TU, first(lastrange), last(kk))
         end
-        return SubUnitRangesSortedSet{K,TU,P,typeof(first(iir_kk))}(rs, first(kk), last(kk), firstrange, lastrange,
+        return UnitRangesSortedSubSet{K,TU,P,typeof(first(iir_kk))}(rs, first(kk), last(kk), firstrange, lastrange,
                                       first(iir_kk), last(iir_kk), regress(rs, first(iir_kk)), advance(rs, last(iir_kk)), length(iir_kk))
     end
 end
 
-@inline Base.copy(rs::T) where {T<:AbstractSubUnitRangesSortedSet{K,TU}} where {K,TU} =
+@inline Base.copy(rs::T) where {T<:AbstractUnitRangesSortedSubSet{K,TU}} where {K,TU} =
     intersect(rs.parent, to_urange(TU, rs.kstart, rs.kstop))
 
 # may be VectorUnitRangesSortedSet
@@ -366,7 +367,7 @@ end
 
 Base.length(rs::UnitRangesSortedVector) = length(rs.rstarts)
 Base.length(rs::UnitRangesSortedSet) = length(rs.ranges)
-Base.length(rs::AbstractSubUnitRangesSortedSet) = rs.numranges
+Base.length(rs::AbstractUnitRangesSortedSubSet) = rs.numranges
 Base.haslength(rs::AbstractUnitRangesSortedSet) = true
 Base.hasfastin(rs::AbstractUnitRangesSortedSet) = true
 Base.isempty(rs::AbstractUnitRangesSortedSet) = length(rs) == 0
@@ -403,7 +404,7 @@ end
         return 0
     end
 end
-@inline function indexcompare(rs::AbstractSubUnitRangesSortedSet{K,TU,P}, i, j) where {K,TU,P<:UnitRangesSortedVector}
+@inline function indexcompare(rs::AbstractUnitRangesSortedSubSet{K,TU,P}, i, j) where {K,TU,P<:UnitRangesSortedVector}
     if i < j
         return -1
     elseif i > j
@@ -413,7 +414,7 @@ end
     end
 end
 @inline indexcompare(rs::UnitRangesSortedSet, i, j) = compare(rs.ranges, i, j)
-@inline indexcompare(rs::AbstractSubUnitRangesSortedSet{K,TU,P}, i, j) where {K,TU,P<:UnitRangesSortedSet} =
+@inline indexcompare(rs::AbstractUnitRangesSortedSubSet{K,TU,P}, i, j) where {K,TU,P<:UnitRangesSortedSet} =
     compare(rs.parent.ranges, i, j)
 
 
@@ -427,9 +428,9 @@ end
 
 @inline getindex_tuple(rs::UnitRangesSortedVector, i) = (rs.rstarts[i], rs.rstops[i])
 @inline getindex_tuple(rs::UnitRangesSortedSet, i::IntSemiToken) = tuple(deref((rs.ranges, i))...)
-@inline getindex_tuple(rs::Sub0UnitRangesSortedSet, i) = (r = getindex(rs, i); tuple(first(r), last(r)))
-@inline getindex_tuple(rs::Sub1UnitRangesSortedSet, i) = (r = getindex(rs, i); tuple(first(r), last(r)))
-@inline getindex_tuple(rs::SubUnitRangesSortedSet, i) = (r = getindex(rs, i); tuple(first(r), last(r)))
+@inline getindex_tuple(rs::UnitRangesSortedSubSet0, i) = (r = getindex(rs, i); tuple(first(r), last(r)))
+@inline getindex_tuple(rs::UnitRangesSortedSubSet1, i) = (r = getindex(rs, i); tuple(first(r), last(r)))
+@inline getindex_tuple(rs::UnitRangesSortedSubSet, i) = (r = getindex(rs, i); tuple(first(r), last(r)))
 @inline Base.getindex(rs::UnitRangesSortedVector{K,TU}, i) where {K,TU} =
     to_urange(TU, rs.rstarts[i], rs.rstops[i])
 @inline Base.getindex(rs::UnitRangesSortedSet{K,TU}, i::IntSemiToken) where {K,TU} =
@@ -441,13 +442,13 @@ end
                  indexcompare(ur.parent, i, last(ur)) != 1 || throw(BoundsError(ur, i))
     getindex(ur.parent, i)
 end
-@inline Base.getindex(rs::Sub0UnitRangesSortedSet{K,TU}, i) where {K,TU} =
+@inline Base.getindex(rs::UnitRangesSortedSubSet0{K,TU}, i) where {K,TU} =
     (throw(BoundsError(rs)); to_urange(TU, rs.kstart, rs.kstop))
-@inline function Base.getindex(rs::Sub1UnitRangesSortedSet, i)
+@inline function Base.getindex(rs::UnitRangesSortedSubSet1, i)
     @boundscheck i == rs.firstindex || throw(BoundsError(rs, i))
     rs.singlerange
 end
-@inline function Base.getindex(rs::SubUnitRangesSortedSet{K,TU,P}, i) where {K,TU,P<:UnitRangesSortedVector}
+@inline function Base.getindex(rs::UnitRangesSortedSubSet{K,TU,P}, i) where {K,TU,P<:UnitRangesSortedVector}
     @boundscheck beforefirstindex(rs) < i < pastlastindex(rs) || throw(BoundsError(rs, i))
     if i == rs.firstindex
         return rs.firstrange
@@ -457,7 +458,7 @@ end
         return rs.lastrange
     end
 end
-@inline function Base.getindex(rs::SubUnitRangesSortedSet, i)
+@inline function Base.getindex(rs::UnitRangesSortedSubSet, i)
     @boundscheck indexcompare(rs.parent, rs.firstindex, i) != 1 &&
                  indexcompare(rs.parent, i, rs.lastindex) != 1 || throw(BoundsError(rs, i))
     if indexcompare(rs, i, rs.firstindex) == 0
@@ -473,15 +474,15 @@ end
 @inline getindex_rangestop(rs::UnitRangesSortedVector, i) = rs.rstops[i]
 @inline getindex_rangestart(rs::UnitRangesSortedSet, i) = deref_key((rs.ranges, i))
 @inline getindex_rangestop(rs::UnitRangesSortedSet, i) = deref_value((rs.ranges, i))
-@inline getindex_rangestart(rs::AbstractSubUnitRangesSortedSet, i) = first(getindex(rs, i))
-@inline getindex_rangestop(rs::AbstractSubUnitRangesSortedSet, i) = last(getindex(rs, i))
+@inline getindex_rangestart(rs::AbstractUnitRangesSortedSubSet, i) = first(getindex(rs, i))
+@inline getindex_rangestop(rs::AbstractUnitRangesSortedSubSet, i) = last(getindex(rs, i))
 
 @inline Base.firstindex(rs::UnitRangesSortedVector) = firstindex(rs.rstarts)
 @inline Base.firstindex(rs::UnitRangesSortedSet) = startof(rs.ranges)
-@inline Base.firstindex(rs::AbstractSubUnitRangesSortedSet) = rs.firstindex
+@inline Base.firstindex(rs::AbstractUnitRangesSortedSubSet) = rs.firstindex
 @inline Base.lastindex(rs::UnitRangesSortedVector) = lastindex(rs.rstarts)
 @inline Base.lastindex(rs::UnitRangesSortedSet) = lastindex(rs.ranges)
-@inline Base.lastindex(rs::AbstractSubUnitRangesSortedSet) = rs.lastindex
+@inline Base.lastindex(rs::AbstractUnitRangesSortedSubSet) = rs.lastindex
 """
     first(rs::AbstractUnitRangesSortedSet)
 
@@ -491,9 +492,9 @@ Returns first range from the set `rs`.
     to_urange(TU, rs.rstarts[1], rs.rstops[1])
 @inline Base.first(rs::UnitRangesSortedSet{K,TU}) where {K,TU} =
     to_urange(TU, deref((rs.ranges, startof(rs.ranges)))...)
-@inline Base.first(rs::Sub0UnitRangesSortedSet) = getindex(rs, firstindex(rs))
-@inline Base.first(rs::Sub1UnitRangesSortedSet) = rs.singlerange
-@inline Base.first(rs::SubUnitRangesSortedSet) = getindex(rs, firstindex(rs))
+@inline Base.first(rs::UnitRangesSortedSubSet0) = getindex(rs, firstindex(rs))
+@inline Base.first(rs::UnitRangesSortedSubSet1) = rs.singlerange
+@inline Base.first(rs::UnitRangesSortedSubSet) = getindex(rs, firstindex(rs))
 """
     last(rs::AbstractUnitRangesSortedSet)
 
@@ -503,23 +504,23 @@ Returns last range from the set `rs`.
     to_urange(TU, rs.rstarts[end], rs.rstops[end])
 @inline Base.last(rs::UnitRangesSortedSet{K,TU}) where {K,TU} =
     to_urange(TU, deref((rs.ranges, lastindex(rs.ranges)))...)
-@inline Base.last(rs::Sub0UnitRangesSortedSet) = getindex(rs, lastindex(rs))
-@inline Base.last(rs::Sub1UnitRangesSortedSet) = rs.singlerange
-@inline Base.last(rs::SubUnitRangesSortedSet) = getindex(rs, lastindex(rs))
+@inline Base.last(rs::UnitRangesSortedSubSet0) = getindex(rs, lastindex(rs))
+@inline Base.last(rs::UnitRangesSortedSubSet1) = rs.singlerange
+@inline Base.last(rs::UnitRangesSortedSubSet) = getindex(rs, lastindex(rs))
 
 @inline beforefirstindex(rs::UnitRangesSortedVector) = firstindex(rs.rstarts) - 1
 @inline beforefirstindex(rs::UnitRangesSortedSet) = beforestartsemitoken(rs.ranges)
-@inline beforefirstindex(rs::AbstractSubUnitRangesSortedSet) = rs.beforefirstindex
+@inline beforefirstindex(rs::AbstractUnitRangesSortedSubSet) = rs.beforefirstindex
 @inline pastlastindex(rs::UnitRangesSortedVector) = lastindex(rs.rstarts) + 1
 @inline pastlastindex(rs::UnitRangesSortedSet) = pastendsemitoken(rs.ranges)
-@inline pastlastindex(rs::AbstractSubUnitRangesSortedSet) = rs.pastlastindex
+@inline pastlastindex(rs::AbstractUnitRangesSortedSubSet) = rs.pastlastindex
 
 @inline DataStructures.advance(rs::UnitRangesSortedVector, state) = state + 1
 @inline DataStructures.advance(rs::UnitRangesSortedSet, state) = advance((rs.ranges, state))
-@inline DataStructures.advance(rs::AbstractSubUnitRangesSortedSet, state) = advance(rs.parent, state)
+@inline DataStructures.advance(rs::AbstractUnitRangesSortedSubSet, state) = advance(rs.parent, state)
 @inline DataStructures.regress(rs::UnitRangesSortedVector, state) = state - 1
 @inline DataStructures.regress(rs::UnitRangesSortedSet, state) = regress((rs.ranges, state))
-@inline DataStructures.regress(rs::AbstractSubUnitRangesSortedSet, state) = regress(rs.parent, state)
+@inline DataStructures.regress(rs::AbstractUnitRangesSortedSubSet, state) = regress(rs.parent, state)
 
 #
 # Searching functions
@@ -528,12 +529,12 @@ Returns last range from the set `rs`.
 "Returns index of range in which, or after, `k` is placed."
 @inline searchsortedrangelast(rs::UnitRangesSortedVector{K}, k) where {K} = searchsortedlast(rs.rstarts, K(k); lt=<)
 @inline searchsortedrangelast(rs::UnitRangesSortedSet{K}, k) where {K} = searchsortedlast(rs.ranges, K(k))
-@inline searchsortedrangelast(rs::Sub0UnitRangesSortedSet, k) = beforefirstindex(rs)
-@inline searchsortedrangelast(rs::Sub1UnitRangesSortedSet{K}, k) where {K} =
+@inline searchsortedrangelast(rs::UnitRangesSortedSubSet0, k) = beforefirstindex(rs)
+@inline searchsortedrangelast(rs::UnitRangesSortedSubSet1{K}, k) where {K} =
     K(k) >= rs.kstart ? rs.firstindex : beforefirstindex(rs)
-@inline searchsortedrangelast(rs::SubUnitRangesSortedSet{K,TU,P,Tix}, k) where {K,TU,P<:UnitRangesSortedVector,Tix} =
+@inline searchsortedrangelast(rs::UnitRangesSortedSubSet{K,TU,P,Tix}, k) where {K,TU,P<:UnitRangesSortedVector,Tix} =
     searchsortedlast(rs.parent.rstarts, K(k), rs.firstindex, rs.lastindex, Base.ord(isless, identity, false))
-@inline function searchsortedrangelast(rs::SubUnitRangesSortedSet{K,TU,P,Tix}, k) where {K,TU,P<:UnitRangesSortedSet,Tix}
+@inline function searchsortedrangelast(rs::UnitRangesSortedSubSet{K,TU,P,Tix}, k) where {K,TU,P<:UnitRangesSortedSet,Tix}
     ir_k = searchsortedlast(rs.parent.ranges, K(k))
     if compare(rs.parent.ranges, ir_k, beforefirstindex(rs)) == 1 && compare(rs.parent.ranges, ir_k, pastlastindex(rs)) == -1
         return ir_k
@@ -552,11 +553,11 @@ end
         return advance(rs, ir_k)
     end
 end
-@inline searchsortedrangefirst(rs::Sub0UnitRangesSortedSet, k) = pastlastindex(rs)
-@inline searchsortedrangefirst(rs::Sub1UnitRangesSortedSet{K}, k) where {K} = K(k) <= rs.kstop ? rs.lastindex : pastlastindex(rs)
-@inline searchsortedrangefirst(rs::SubUnitRangesSortedSet{K,TU,P,Tix}, k) where {K,TU,P<:UnitRangesSortedVector,Tix} =
+@inline searchsortedrangefirst(rs::UnitRangesSortedSubSet0, k) = pastlastindex(rs)
+@inline searchsortedrangefirst(rs::UnitRangesSortedSubSet1{K}, k) where {K} = K(k) <= rs.kstop ? rs.lastindex : pastlastindex(rs)
+@inline searchsortedrangefirst(rs::UnitRangesSortedSubSet{K,TU,P,Tix}, k) where {K,TU,P<:UnitRangesSortedVector,Tix} =
     searchsortedfirst(rs.parent.rstops, K(k), rs.firstindex, rs.lastindex, Base.ord(isless, identity, false))
-@inline function searchsortedrangefirst(rs::SubUnitRangesSortedSet{K,TU,P,Tix}, k) where {K,TU,P<:UnitRangesSortedSet,Tix}
+@inline function searchsortedrangefirst(rs::UnitRangesSortedSubSet{K,TU,P,Tix}, k) where {K,TU,P<:UnitRangesSortedSet,Tix}
     ir_k = searchsortedrangelast(rs, K(k))
     if ir_k != beforefirstindex(rs) && in(K(k), getindex(rs, ir_k))
         return ir_k
@@ -568,7 +569,7 @@ end
 "Returns range of `rs` indexes which coincide or concluded in `kk` range."
 @inline searchsortedrange(rs::AbstractUnitRangesSortedContainer, kk::AbstractRange) =
     create_indexrange(rs, searchsortedrangefirst(rs, first(kk)), searchsortedrangelast(rs, last(kk)))
-@inline searchsortedrange(rs::AbstractSubUnitRangesSortedSet, kk::AbstractRange) =
+@inline searchsortedrange(rs::AbstractUnitRangesSortedSubSet, kk::AbstractRange) =
     create_indexrange(rs.parent, searchsortedrangefirst(rs, first(kk)), searchsortedrangelast(rs, last(kk)))
 
 "Returns indexes of range in `rs` in which `k` may be inserted. Or negative range in the case of `k` is
@@ -601,23 +602,23 @@ Base.findall(pred::Function, rs::AbstractUnitRangesSortedSet) = collect(r for r 
 #  Iterators
 #
 
-@inline Base.iterate(rs::Sub0UnitRangesSortedSet{K,TU}, state = 1) where {K,TU} =
+@inline Base.iterate(rs::UnitRangesSortedSubSet0{K,TU}, state = 1) where {K,TU} =
     # for type inference
     rs.kstart > rs.kstop ? nothing : (to_urange(TU, rs.kstart, rs.kstop), state)
-@inline Base.iterate(rrs::Base.Iterators.Reverse{T}, state = 1) where {T<:Sub0UnitRangesSortedSet{K,TU}} where {K,TU} =
+@inline Base.iterate(rrs::Base.Iterators.Reverse{T}, state = 1) where {T<:UnitRangesSortedSubSet0{K,TU}} where {K,TU} =
     rrs.itr.kstart > rrs.itr.kstop ? nothing : (to_urange(TU, rrs.itr.kstart, rrs.itr.kstop), state)
 
 
-@inline Base.iterate(rs::Sub1UnitRangesSortedSet) = (rs.singlerange, 1)
-@inline Base.iterate(rs::Sub1UnitRangesSortedSet, state) = nothing
-@inline Base.iterate(rrs::Base.Iterators.Reverse{T}) where {T<:Sub1UnitRangesSortedSet} =
+@inline Base.iterate(rs::UnitRangesSortedSubSet1) = (rs.singlerange, 1)
+@inline Base.iterate(rs::UnitRangesSortedSubSet1, state) = nothing
+@inline Base.iterate(rrs::Base.Iterators.Reverse{T}) where {T<:UnitRangesSortedSubSet1} =
     (rrs.itr.singlerange, 1)
-@inline Base.iterate(rrs::Base.Iterators.Reverse{T}, state) where {T<:Sub1UnitRangesSortedSet} = nothing
+@inline Base.iterate(rrs::Base.Iterators.Reverse{T}, state) where {T<:UnitRangesSortedSubSet1} = nothing
 
 
-@inline Base.iterate(rs::AbstractSubUnitRangesSortedSet{K,TU,P}) where {K,TU,P<:UnitRangesSortedVector} =
+@inline Base.iterate(rs::AbstractUnitRangesSortedSubSet{K,TU,P}) where {K,TU,P<:UnitRangesSortedVector} =
     (rs.firstrange, rs.firstindex + 1)
-@inline function Base.iterate(rs::AbstractSubUnitRangesSortedSet{K,TU,P}, state) where {K,TU,P<:UnitRangesSortedVector}
+@inline function Base.iterate(rs::AbstractUnitRangesSortedSubSet{K,TU,P}, state) where {K,TU,P<:UnitRangesSortedVector}
     if state < rs.lastindex
         return (getindex(rs.parent, state), state + 1)
     elseif state == rs.lastindex
@@ -626,12 +627,12 @@ Base.findall(pred::Function, rs::AbstractUnitRangesSortedSet) = collect(r for r 
         return nothing
     end
 end
-@inline function Base.iterate(rrs::Base.Iterators.Reverse{T}) where {T<:AbstractSubUnitRangesSortedSet{K,TU,P}} where
+@inline function Base.iterate(rrs::Base.Iterators.Reverse{T}) where {T<:AbstractUnitRangesSortedSubSet{K,TU,P}} where
                                                                     {K,TU,P<:UnitRangesSortedVector}
     return (rrs.itr.lastrange, rrs.itr.lastindex - 1)
 end
 @inline function Base.iterate(rrs::Base.Iterators.Reverse{T}, state) where
-                              {T<:AbstractSubUnitRangesSortedSet{K,TU,P}} where {K,TU,P<:UnitRangesSortedVector}
+                              {T<:AbstractUnitRangesSortedSubSet{K,TU,P}} where {K,TU,P<:UnitRangesSortedVector}
     if rrs.itr.firstindex < state
         return (getindex(rrs.itr.parent, state), state - 1)
     elseif rrs.itr.firstindex == state
@@ -642,9 +643,9 @@ end
 end
 
 
-@inline Base.iterate(rs::AbstractSubUnitRangesSortedSet{K,TU,P}) where {K,TU,P<:UnitRangesSortedSet} =
+@inline Base.iterate(rs::AbstractUnitRangesSortedSubSet{K,TU,P}) where {K,TU,P<:UnitRangesSortedSet} =
     (rs.firstrange, advance((rs.parent.ranges, rs.firstindex)))
-@inline function Base.iterate(rs::AbstractSubUnitRangesSortedSet{K,TU,P}, state) where {K,TU,P<:UnitRangesSortedSet}
+@inline function Base.iterate(rs::AbstractUnitRangesSortedSubSet{K,TU,P}, state) where {K,TU,P<:UnitRangesSortedSet}
     if compare(rs.parent.ranges, state, rs.lastindex) == -1
         return (getindex(rs.parent, state), advance((rs.parent.ranges, state)))
     elseif compare(rs.parent.ranges, state, rs.lastindex) == 0
@@ -653,12 +654,12 @@ end
         return nothing
     end
 end
-@inline function Base.iterate(rrs::Base.Iterators.Reverse{T}) where {T<:AbstractSubUnitRangesSortedSet{K,TU,P}} where
+@inline function Base.iterate(rrs::Base.Iterators.Reverse{T}) where {T<:AbstractUnitRangesSortedSubSet{K,TU,P}} where
                                                                     {K,TU,P<:UnitRangesSortedSet}
     return (rrs.itr.lastrange, regress((rrs.itr.parent.ranges, rrs.itr.lastindex)))
 end
 @inline function Base.iterate(rrs::Base.Iterators.Reverse{T}, state) where
-                              {T<:AbstractSubUnitRangesSortedSet{K,TU,P}} where {K,TU,P<:UnitRangesSortedSet}
+                              {T<:AbstractUnitRangesSortedSubSet{K,TU,P}} where {K,TU,P<:UnitRangesSortedSet}
     if compare(rrs.itr.parent.ranges, rrs.itr.firstindex, state) == -1
         return (getindex(rrs.itr.parent, state), regress((rrs.itr.parent.ranges, state)))
     elseif compare(rrs.itr.parent.ranges, rrs.itr.firstindex, state) == 0
@@ -743,7 +744,7 @@ Iterators.reverse(it::EachIndexIterator) = EachIndexIterator(Iterators.reverse(i
 
 Base.eachindex(rs::UnitRangesSortedVector) = eachindex(rs.rstarts)
 Base.eachindex(rs::UnitRangesSortedSet) = eachindexiterator(rs)
-Base.eachindex(rs::T) where {T<:AbstractSubUnitRangesSortedSet} = eachindexiterator(rs)
+Base.eachindex(rs::T) where {T<:AbstractUnitRangesSortedSubSet} = eachindexiterator(rs)
 Base.eachindex(rrs::Base.Iterators.Reverse{T}) where {T<:AbstractUnitRangesSortedSet} = Iterators.reverse(eachindex(rrs.itr))
 # TODO: check for https://github.com/JuliaLang/julia/pull/43110/files
 
@@ -800,15 +801,15 @@ end
     return false
 end
 
-@inline Base.in(kk::AbstractRange, su::Sub0UnitRangesSortedSet) = false
-@inline Base.in(key, su::Sub0UnitRangesSortedSet) = false
-@inline Base.in(kk::AbstractRange, su::Sub1UnitRangesSortedSet{K,TU}) where {K,TU} = issubset(to_urange(TU, kk), su.singlerange)
-@inline Base.in(kk::TU, su::Sub1UnitRangesSortedSet{K,TU}) where {K,TU} = issubset(kk, su.singlerange)
-@inline Base.in(key, su::Sub1UnitRangesSortedSet{K}) where {K} = in(K(key), su.singlerange)
+@inline Base.in(kk::AbstractRange, su::UnitRangesSortedSubSet0) = false
+@inline Base.in(key, su::UnitRangesSortedSubSet0) = false
+@inline Base.in(kk::AbstractRange, su::UnitRangesSortedSubSet1{K,TU}) where {K,TU} = issubset(to_urange(TU, kk), su.singlerange)
+@inline Base.in(kk::TU, su::UnitRangesSortedSubSet1{K,TU}) where {K,TU} = issubset(kk, su.singlerange)
+@inline Base.in(key, su::UnitRangesSortedSubSet1{K}) where {K} = in(K(key), su.singlerange)
 
-@inline Base.in(kk::AbstractRange, su::SubUnitRangesSortedSet{K,TU}) where {K,TU} = _in(to_urange(TU, kk), su)
-@inline Base.in(kk::TU, su::SubUnitRangesSortedSet{K,TU}) where {K,TU} = _in(kk, su)
-@inline function _in(kk::TU, su::SubUnitRangesSortedSet{K,TU,P}) where {K,TU,P<:UnitRangesSortedVector}
+@inline Base.in(kk::AbstractRange, su::UnitRangesSortedSubSet{K,TU}) where {K,TU} = _in(to_urange(TU, kk), su)
+@inline Base.in(kk::TU, su::UnitRangesSortedSubSet{K,TU}) where {K,TU} = _in(kk, su)
+@inline function _in(kk::TU, su::UnitRangesSortedSubSet{K,TU,P}) where {K,TU,P<:UnitRangesSortedVector}
     # bounds check
     (su.kstart <= first(kk) <= last(kk) <= su.kstop) || return false
 
@@ -830,7 +831,7 @@ end
         return false
     end
 end
-@inline function _in(kk::TU, su::SubUnitRangesSortedSet{K,TU}) where {K,TU}
+@inline function _in(kk::TU, su::UnitRangesSortedSubSet{K,TU}) where {K,TU}
     # bounds check
     issubset(kk, to_urange(TU, su.kstart, su.kstop)) || return false
 
@@ -845,7 +846,7 @@ end
     end
 end
 
-@inline function Base.in(key, su::SubUnitRangesSortedSet{K}) where {K}
+@inline function Base.in(key, su::UnitRangesSortedSubSet{K}) where {K}
     k = K(key)
     # check outbound
     (k < su.kstart || su.kstop < k) && return false
@@ -1789,7 +1790,7 @@ function Base.show(io::IOContext, x::URSSIndexURange)
     end
 end
 
-function Base.show(io::IO, x::T) where {T<:AbstractSubUnitRangesSortedSet}
+function Base.show(io::IO, x::T) where {T<:AbstractUnitRangesSortedSubSet}
     print(io, "subset(", datatypeshortname(x.parent), ", ", x.firstindex, ":", x.lastindex,  "): (")
     if length(x) > 0
         el1, restx = Iterators.peel(x)
@@ -1801,7 +1802,7 @@ function Base.show(io::IO, x::T) where {T<:AbstractSubUnitRangesSortedSet}
     print(io, ")")
 end
 
-function Base.show(io::IO, ::MIME"text/plain", x::T) where {T<:AbstractSubUnitRangesSortedSet}
+function Base.show(io::IO, ::MIME"text/plain", x::T) where {T<:AbstractUnitRangesSortedSubSet}
     len = length(x)
     print(io, len, "-element subset(", datatypeshortname(x.parent), ", ", x.firstindex, ":", x.lastindex, ")")
     if len != 0
@@ -1833,7 +1834,7 @@ function Base.show(io::IO, ::MIME"text/plain", x::T) where {T<:AbstractUnitRange
     end
 end
 
-Base.show(io::IOContext, x::T) where {T<:AbstractSubUnitRangesSortedSet} = _display_AURSS(io, x)
+Base.show(io::IOContext, x::T) where {T<:AbstractUnitRangesSortedSubSet} = _display_AURSS(io, x)
 Base.show(io::IOContext, x::T) where {T<:AbstractUnitRangesSortedSet} = _display_AURSS(io, x)
 
 function _display_AURSS(io, x)
