@@ -135,7 +135,11 @@ end
 
 subset(rs::P, ::Colon) where {P<:AbstractUnitRangesSortedSet{K,TU}} where {K,TU} =
     subset(rs, to_urange(TU, first(first(rs)), last(last(rs))))
-subset(rs::P, kk::AbstractRange) where {P<:AbstractUnitRangesSortedSubSet} = subset(rs.parent, kk)
+
+subset(rs::P, kk::AbstractRange) where {P<:AbstractUnitRangesSortedSubSet{K,TU}} where {K,TU} =
+    subset(rs.parent, to_urange(TU, max(first(first(rs)), first(kk)), min(last(last(rs)), last(kk))))
+#subset(rs::P, kk::AbstractRange) where {P<:AbstractUnitRangesSortedSubSet} = subset(rs.parent, kk)
+
 function subset(rs::P, kk::AbstractRange) where {P<:AbstractUnitRangesSortedContainer{K,TU}} where {K,TU}
     kk = to_urange(TU, kk)
     @boundscheck length(rs) == 0 && length(kk) != 0 && throw(BoundsError(rs, kk))
@@ -177,7 +181,45 @@ end
 @inline Base.copy(rs::T) where {T<:AbstractUnitRangesSortedSubSet{K,TU}} where {K,TU} =
     intersect(rs.parent, to_urange(TU, rs.kstart, rs.kstop))
 
-# may be VectorUnitRangesSortedSet
+
+"""
+$(TYPEDEF)
+Mutable struct fields:
+$(TYPEDFIELDS)
+"""
+mutable struct UnitRangesSortedSet{K,TU} <: AbstractUnitRangesSortedContainer{K,TU}
+    "Index of last used range."
+    lastusedrangeindex::IntSemiToken
+    "Storage for ranges: the ket of Dict is the `first(range)`, and the value of Dict is the `last(range)`."
+    ranges::SortedDict{K,K,FOrd}
+end
+
+function UnitRangesSortedSet{K,TU}() where {K,TU}
+    ranges = SortedDict{K,K,FOrd}(Forward)
+    UnitRangesSortedSet{K,TU}(beforestartsemitoken(ranges), ranges)
+end
+UnitRangesSortedSet{K}() where {K} = UnitRangesSortedSet{K,inferrangetype(K)}()
+function UnitRangesSortedSet(rs::AbstractUnitRangesSortedSet{K,TU}) where {K,TU}
+    ranges = SortedDict{K,K,FOrd}(Forward)
+    for r in rs
+        ranges[first(r)] = last(r)
+    end
+    UnitRangesSortedSet{K,TU}(beforestartsemitoken(ranges), ranges)
+end
+
+
+# may be UnitRangesSortedVecSet
+#
+# may be VectorizedUnitRangesSortedSet
+#
+# may be PlainUnitRangesSortedSet
+#
+# may be StrightUnitRangesSortedSet
+#
+# may be SimpleUnitRangesSortedSet
+#
+# may be FlatUnitRangesSortedSet
+#
 """
 Inserting zero, or negative length ranges does nothing.
 $(TYPEDEF)
@@ -203,32 +245,6 @@ function UnitRangesSortedVector(rs::AbstractUnitRangesSortedSet{K,TU}) where {K,
         rstops[i] = last(r)
     end
     UnitRangesSortedVector{K,TU}(firstindex(rstarts) - 1, rstarts, rstops)
-end
-
-
-"""
-$(TYPEDEF)
-Mutable struct fields:
-$(TYPEDFIELDS)
-"""
-mutable struct UnitRangesSortedSet{K,TU} <: AbstractUnitRangesSortedContainer{K,TU}
-    "Index of last used range."
-    lastusedrangeindex::IntSemiToken
-    "Storage for ranges: the ket of Dict is the `first(range)`, and the value of Dict is the `last(range)`."
-    ranges::SortedDict{K,K,FOrd}
-end
-
-function UnitRangesSortedSet{K,TU}() where {K,TU}
-    ranges = SortedDict{K,K,FOrd}(Forward)
-    UnitRangesSortedSet{K,TU}(beforestartsemitoken(ranges), ranges)
-end
-UnitRangesSortedSet{K}() where {K} = UnitRangesSortedSet{K,inferrangetype(K)}()
-function UnitRangesSortedSet(rs::AbstractUnitRangesSortedSet{K,TU}) where {K,TU}
-    ranges = SortedDict{K,K,FOrd}(Forward)
-    for r in rs
-        ranges[first(r)] = last(r)
-    end
-    UnitRangesSortedSet{K,TU}(beforestartsemitoken(ranges), ranges)
 end
 
 
