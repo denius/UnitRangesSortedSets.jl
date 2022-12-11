@@ -137,7 +137,7 @@ subset(rs::P, ::Colon) where {P<:AbstractUnitRangesSortedSet{K,TU}} where {K,TU}
     subset(rs, to_urange(TU, first(first(rs)), last(last(rs))))
 
 subset(rs::P, kk::AbstractRange) where {P<:AbstractUnitRangesSortedSubSet{K,TU}} where {K,TU} =
-    subset(rs.parent, to_urange(TU, max(first(first(rs)), first(kk)), min(last(last(rs)), last(kk))))
+    subset(rs.parent, to_urange(TU, max(first(first(rs)), K(first(kk))), min(last(last(rs)), K(last(kk)))))
 #subset(rs::P, kk::AbstractRange) where {P<:AbstractUnitRangesSortedSubSet} = subset(rs.parent, kk)
 
 function subset(rs::P, kk::AbstractRange) where {P<:AbstractUnitRangesSortedContainer{K,TU}} where {K,TU}
@@ -264,14 +264,14 @@ end
 
 Base.convert(::Type{<:UnitRangesSortedVector{K}}, rs::UnitRangesSortedVector{K}) where K = rs
 Base.convert(::Type{<:UnitRangesSortedSet{K}}, rs::UnitRangesSortedSet{K}) where K = rs
-function Base.convert(::Type{T}, rs::Union{UnitRangesSortedVector,UnitRangesSortedSet}) where {T<:AbstractVector{Tv}} where {Tv<:AbstractRange}
+function Base.convert(::Type{T}, rs::AbstractUnitRangesSortedContainer) where {T<:AbstractVector{Tv}} where {Tv<:AbstractRange}
     V = T(undef, length(rs))
     for (i, r) in enumerate(rs)
         V[i] = to_urange(Tv, r)
     end
     V
 end
-function Base.convert(::Type{T}, rs::Union{UnitRangesSortedVector,UnitRangesSortedSet}) where {T<:AbstractVector{Tv}} where {Tv}
+function Base.convert(::Type{T}, rs::AbstractUnitRangesSortedContainer) where {T<:AbstractVector{Tv}} where {Tv}
     V = T(undef, sum(length(r) for r in rs))
     i = 0
     for r in rs, v in r
@@ -279,17 +279,32 @@ function Base.convert(::Type{T}, rs::Union{UnitRangesSortedVector,UnitRangesSort
     end
     V
 end
-function Base.convert(::Type{T}, rs::Union{UnitRangesSortedVector,UnitRangesSortedSet}) where {T<:AbstractSet{Tv}} where {Tv<:AbstractRange}
+function Base.convert(::Type{T}, rs::AbstractUnitRangesSortedContainer{K,TU}) where {T<:AbstractVector,K,TU}
+    V = T{K}(undef, sum(length(r) for r in rs))
+    i = 0
+    for r in rs, v in r
+        V[i+=1] = K(v)
+    end
+    V
+end
+function Base.convert(::Type{T}, rs::AbstractUnitRangesSortedContainer) where {T<:AbstractSet{Tv}} where {Tv<:AbstractRange}
     S = T()
     for r in rs
         push!(S, to_urange(Tv, r))
     end
     S
 end
-function Base.convert(::Type{T}, rs::Union{UnitRangesSortedVector,UnitRangesSortedSet}) where {T<:AbstractSet{Tv}} where {Tv}
+function Base.convert(::Type{T}, rs::AbstractUnitRangesSortedContainer) where {T<:AbstractSet{Tv}} where {Tv}
     S = T()
     for r in rs, v in r
         push!(S, Tv(v))
+    end
+    S
+end
+function Base.convert(::Type{T}, rs::AbstractUnitRangesSortedContainer{K}) where {T<:AbstractSet,K}
+    S = T{K}()
+    for r in rs, v in r
+        push!(S, K(v))
     end
     S
 end
@@ -926,7 +941,7 @@ function _push!(rs::UnitRangesSortedVector{K,TU}, kk::TU) where {K,TU}
     end
 
     # get neighbors pointers
-    # ATTENTION: Note: the range will be zero-length, thus
+    # Note: the range will be zero-length, thus
     # `first(iir_kk)` will be point to range in `rs` on right side to `kk` and
     # `last(iir_kk)` will be point to range in `rs` on left side to `kk`.
     iir_kk = searchsortedrange(rs, first(kk))
@@ -1024,7 +1039,7 @@ function _push!(rs::UnitRangesSortedSet{K,TU}, kk::TU) where {K,TU}
     end
 
     # get neighbors pointers
-    # ATTENTION: Note: the range will be zero-length, thus
+    # Note: the range will be zero-length, thus
     # `first(iir_kk)` will be point to range in `rs` on right side to `kk` and
     # `last(iir_kk)` will be point to range in `rs` on left side to `kk`.
     iir_kk = searchsortedrange(rs, first(kk))

@@ -1,7 +1,8 @@
-import .UnitRangesSortedSets:
+import UnitRangesSortedSets:
     advance, beforefirstindex, inferrangetype, pastlastindex, regress, to_urange
 
-using .UnitRangesSortedSets
+using DataStructures
+using UnitRangesSortedSets
 using Test
 
 # TODO:
@@ -15,8 +16,6 @@ using Test
 #
 # function UnitRangesSortedVector(rs::AbstractUnitRangesSortedSet{K,TU}) where {K,TU}
 # function UnitRangesSortedSet(rs::AbstractUnitRangesSortedSet{K,TU}) where {K,TU}
-# function Base.convert(::Type{T}, rs::Union{UnitRangesSortedVector,UnitRangesSortedSet}) where {T<:AbstractVector{Tv}} where {Tv<:           AbstractRange}
-# function Base.convert(::Type{T}, rs::Union{UnitRangesSortedVector,UnitRangesSortedSet}) where {T<:AbstractSet{Tv}} where {Tv<:AbstractRange}
 # @inline function URSSIndexURange(rs::P, l::Tix, r::Tix) where {P<:UnitRangesSortedVector, Tix}
 # URSSIndexURange for UnitRangesSortedVector?
 # @inline Base.firstindex(ur::URSSIndexURange) = ur.start
@@ -688,9 +687,13 @@ end
                 @test rs == $TypeURSS{$K}((4:4, 6:6))
                 @test pop!(rs, 4:4, UInt64(1)) == convertinfer($K, 4:4)
                 @test pop!(rs, 4:4, UInt64(1)) === UInt64(1)
+                @test size(rs) == (1,)
+                @test isempty(rs) == false
                 @test empty(rs) == $TypeURSS{$K}()
                 empty!(rs)
                 @test rs == $TypeURSS{$K}()
+                @test size(rs) == (0,)
+                @test isempty(rs) == true
 
                 rs = $TypeURSS{$K}((0:0, 2:4))
                 @test issubset(0, rs)
@@ -716,12 +719,33 @@ end
     end
 end
 
+
 @testset "Converting" begin
     for K in list_of_Ti_to_test
         for TypeURSS in list_of_containers_types_to_test
+            @eval begin
+
+                v = [0:0, 2:3]
+                rs = $TypeURSS{$K}(v)
+                @test convert(SortedSet{inferrangetype($K)}, rs) == SortedSet(to_urange.(inferrangetype($K), v))
+                @test convert(SortedSet{$K}, rs)                 == SortedSet{$K}(collect(Iterators.flatten(v)))
+                @test convert(SortedSet, rs)                     == SortedSet{$K}(collect(Iterators.flatten(v)))
+                @test convert(Vector{inferrangetype($K)}, rs)    == Vector(to_urange.(inferrangetype($K), v))
+                @test convert(Vector{$K}, rs)                    == Vector{$K}(collect(Iterators.flatten(v)))
+                @test convert(Vector, rs)                        == Vector{$K}(collect(Iterators.flatten(v)))
+
+            end
         end
     end
 end
+
+
+
+
+
+
+
+
 
 @testset "`show`" begin
     for K in list_of_Ti_to_test
