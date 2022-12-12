@@ -51,127 +51,6 @@ abstract type AbstractUnitRangesSortedSet{K,TU} <: AbstractSet{TU} end
 abstract type AbstractUnitRangesSortedContainer{K,TU} <: AbstractUnitRangesSortedSet{K,TU} end
 abstract type AbstractUnitRangesSortedSubSet{K,TU,P} <: AbstractUnitRangesSortedSet{K,TU} end
 
-"""
-$(TYPEDEF)
-Immutable struct fields:
-$(TYPEDFIELDS)
-"""
-struct UnitRangesSortedSubSet0{K,TU,P,Tix} <: AbstractUnitRangesSortedSubSet{K,TU,P}
-    #"Empty range `kstart:kstop` for simplicity."
-    #singlerange::TU
-    "The `<:AbstractUnitRangesSortedSet` which subset point to."
-    parent::P
-    "`kstart:kstop` is the bounds of subset."
-    kstart::K
-    kstop::K
-    "Empty range `firstindex:lastindex` locates the point in `parent` where `kstart:kstop` should be inserted."
-    firstindex::Tix
-    lastindex::Tix
-    "Pre `firstindex` position, used for acceleration of `iteration`."
-    beforefirstindex::Tix
-    "Post `lastindex` position, used for acceleration of `iteration`."
-    pastlastindex::Tix
-    "Length of subset."
-    numranges::Int
-end
-
-"""
-$(TYPEDEF)
-Immutable struct fields:
-$(TYPEDFIELDS)
-"""
-struct UnitRangesSortedSubSet1{K,TU,P,Tix} <: AbstractUnitRangesSortedSubSet{K,TU,P}
-    "The `<:AbstractUnitRangesSortedSet` which subset point to."
-    parent::P
-    "`kstart:kstop` is the bounds of subset."
-    kstart::K
-    kstop::K
-    "Single continuous range `kstart:kstop` from `parent` stored for simplicity."
-    singlerange::TU
-    "Range `firstindex:lastindex` locates the point in `parent` where `kstart:kstop` should be inserted."
-    firstindex::Tix
-    lastindex::Tix
-    "Pre `firstindex` position, used for acceleration of `iteration`."
-    beforefirstindex::Tix
-    "Post `lastindex` position, used for acceleration of `iteration`."
-    pastlastindex::Tix
-    "Length of subset."
-    numranges::Int
-end
-
-"""
-$(TYPEDEF)
-Immutable struct fields:
-$(TYPEDFIELDS)
-"""
-struct UnitRangesSortedSubSet{K,TU,P,Tix} <: AbstractUnitRangesSortedSubSet{K,TU,P}
-    "The `<:AbstractUnitRangesSortedSet` which subset point to."
-    parent::P
-    "`kstart:kstop` is the bounds of subset."
-    kstart::K
-    kstop::K
-    "Saved first range `parent[firstindex]` truncated to `kstart` from left."
-    firstrange::TU
-    "Saved last range `parent[lastindex]` truncated to `kstop` from right."
-    lastrange::TU
-    "Range `firstindex:lastindex` locates the indices diapason in `parent` where `kstart:kstop` should be inserted."
-    firstindex::Tix
-    lastindex::Tix
-    "Pre `firstindex` position, used for acceleration of `iterate`."
-    beforefirstindex::Tix
-    "Post `lastindex` position, used for acceleration of `iterate`."
-    pastlastindex::Tix
-    "Length of subset."
-    numranges::Int
-end
-
-subset(rs::P, ::Colon) where {P<:AbstractUnitRangesSortedSet{K,TU}} where {K,TU} =
-    subset(rs, to_urange(TU, first(first(rs)), last(last(rs))))
-
-subset(rs::P, kk::AbstractRange) where {P<:AbstractUnitRangesSortedSubSet{K,TU}} where {K,TU} =
-    subset(rs.parent, to_urange(TU, max(first(first(rs)), K(first(kk))), min(last(last(rs)), K(last(kk)))))
-#subset(rs::P, kk::AbstractRange) where {P<:AbstractUnitRangesSortedSubSet} = subset(rs.parent, kk)
-
-function subset(rs::P, kk::AbstractRange) where {P<:AbstractUnitRangesSortedContainer{K,TU}} where {K,TU}
-    kk = to_urange(TU, kk)
-    iir_kk = searchsortedrange(rs, kk)
-    if length(kk) == 0 || length(iir_kk) == 0
-        if length(kk) == 0 && length(iir_kk) == 1
-            iir_kk = create_indexrange(rs, first(iir_kk), regress(rs, first(iir_kk)))
-        end
-        if length(kk) != 0
-            kk = to_urange(TU, last(kk), first(kk))
-        end
-        return UnitRangesSortedSubSet0{K,TU,P,typeof(first(iir_kk))}(rs, first(kk), last(kk), first(iir_kk), last(iir_kk),
-                                       regress(rs, first(iir_kk)), advance(rs, last(iir_kk)), length(iir_kk))
-    elseif length(iir_kk) == 1
-        singlerange = getindex(rs, first(iir_kk))
-        if first(singlerange) < first(kk)
-            singlerange = to_urange(TU, first(kk), last(singlerange))
-        end
-        if last(kk) < last(singlerange)
-            singlerange = to_urange(TU, first(singlerange), last(kk))
-        end
-        return UnitRangesSortedSubSet1{K,TU,P,typeof(first(iir_kk))}(rs, first(kk), last(kk), singlerange,
-                                       first(iir_kk), last(iir_kk), regress(rs, first(iir_kk)), advance(rs, last(iir_kk)), length(iir_kk))
-    else
-        firstrange = getindex(rs, first(iir_kk))
-        if first(firstrange) < first(kk)
-            firstrange = to_urange(TU, first(kk), last(firstrange))
-        end
-        lastrange = getindex(rs, last(iir_kk))
-        if last(kk) < last(lastrange)
-            lastrange = to_urange(TU, first(lastrange), last(kk))
-        end
-        return UnitRangesSortedSubSet{K,TU,P,typeof(first(iir_kk))}(rs, first(kk), last(kk), firstrange, lastrange,
-                                      first(iir_kk), last(iir_kk), regress(rs, first(iir_kk)), advance(rs, last(iir_kk)), length(iir_kk))
-    end
-end
-
-@inline Base.copy(rs::T) where {T<:AbstractUnitRangesSortedSubSet{K,TU}} where {K,TU} =
-    intersect(rs.parent, to_urange(TU, rs.kstart, rs.kstop))
-
-@inline Base.parent(rs::T) where {T<:AbstractUnitRangesSortedSubSet{K,TU}} where {K,TU} = rs.parent
 
 """
 $(TYPEDEF)
@@ -239,6 +118,140 @@ function UnitRangesSortedVector(rs::AbstractUnitRangesSortedSet{K,TU}) where {K,
 end
 
 
+#
+# SubSets
+#
+
+
+"""
+$(TYPEDEF)
+Immutable struct fields:
+$(TYPEDFIELDS)
+"""
+struct UnitRangesSortedSubSet{K,TU,P,Tix} <: AbstractUnitRangesSortedSubSet{K,TU,P}
+    "The `<:AbstractUnitRangesSortedSet` which subset point to."
+    parent::P
+    "`kstart:kstop` is the bounds of subset."
+    kstart::K
+    kstop::K
+    "Saved first range `parent[firstindex]` truncated to `kstart` from left."
+    firstrange::TU
+    "Saved last range `parent[lastindex]` truncated to `kstop` from right."
+    lastrange::TU
+    "Range `firstindex:lastindex` locates the indices diapason in `parent` where `kstart:kstop` should be inserted."
+    firstindex::Tix
+    lastindex::Tix
+    "Pre `firstindex` position, used for acceleration of `iterate`."
+    beforefirstindex::Tix
+    "Post `lastindex` position, used for acceleration of `iterate`."
+    pastlastindex::Tix
+    "Length of subset."
+    numranges::Int
+end
+
+
+"""
+$(TYPEDEF)
+Immutable struct fields:
+$(TYPEDFIELDS)
+"""
+struct UnitRangesSortedSubSet1{K,TU,P,Tix} <: AbstractUnitRangesSortedSubSet{K,TU,P}
+    "The `<:AbstractUnitRangesSortedSet` which subset point to."
+    parent::P
+    "`kstart:kstop` is the bounds of subset."
+    kstart::K
+    kstop::K
+    "Single continuous range `kstart:kstop` from `parent` stored for simplicity."
+    singlerange::TU
+    "Range `firstindex:lastindex` locates the point in `parent` where `kstart:kstop` should be inserted."
+    firstindex::Tix
+    lastindex::Tix
+    "Pre `firstindex` position, used for acceleration of `iteration`."
+    beforefirstindex::Tix
+    "Post `lastindex` position, used for acceleration of `iteration`."
+    pastlastindex::Tix
+    "Length of subset."
+    numranges::Int
+end
+
+
+"""
+$(TYPEDEF)
+Immutable struct fields:
+$(TYPEDFIELDS)
+"""
+struct UnitRangesSortedSubSet0{K,TU,P,Tix} <: AbstractUnitRangesSortedSubSet{K,TU,P}
+    #"Empty range `kstart:kstop` for simplicity."
+    #singlerange::TU
+    "The `<:AbstractUnitRangesSortedSet` which subset point to."
+    parent::P
+    "`kstart:kstop` is the bounds of subset."
+    kstart::K
+    kstop::K
+    "Empty range `firstindex:lastindex` locates the point in `parent` where `kstart:kstop` should be inserted."
+    firstindex::Tix
+    lastindex::Tix
+    "Pre `firstindex` position, used for acceleration of `iteration`."
+    beforefirstindex::Tix
+    "Post `lastindex` position, used for acceleration of `iteration`."
+    pastlastindex::Tix
+    "Length of subset."
+    numranges::Int
+end
+
+
+subset(rs::P, ::Colon) where {P<:AbstractUnitRangesSortedSet{K,TU}} where {K,TU} =
+    subset(rs, to_urange(TU, first(first(rs)), last(last(rs))))
+
+subset(rs::P, kk::AbstractRange) where {P<:AbstractUnitRangesSortedSubSet{K,TU}} where {K,TU} =
+    subset(rs.parent, to_urange(TU, max(first(first(rs)), K(first(kk))), min(last(last(rs)), K(last(kk)))))
+
+function subset(rs::P, kk::AbstractRange) where {P<:AbstractUnitRangesSortedContainer{K,TU}} where {K,TU}
+    kk = to_urange(TU, kk)
+    iir_kk = searchsortedrange(rs, kk)
+    if length(kk) == 0 || length(iir_kk) == 0
+        if length(kk) == 0 && length(iir_kk) == 1
+            iir_kk = create_indexrange(rs, first(iir_kk), regress(rs, first(iir_kk)))
+        end
+        if length(kk) != 0
+            kk = to_urange(TU, last(kk), first(kk))
+        end
+        return UnitRangesSortedSubSet0{K,TU,P,typeof(first(iir_kk))}(rs, first(kk), last(kk), first(iir_kk), last(iir_kk),
+                                       regress(rs, first(iir_kk)), advance(rs, last(iir_kk)), length(iir_kk))
+    elseif length(iir_kk) == 1
+        singlerange = getindex(rs, first(iir_kk))
+        if first(singlerange) < first(kk)
+            singlerange = to_urange(TU, first(kk), last(singlerange))
+        end
+        if last(kk) < last(singlerange)
+            singlerange = to_urange(TU, first(singlerange), last(kk))
+        end
+        return UnitRangesSortedSubSet1{K,TU,P,typeof(first(iir_kk))}(rs, first(kk), last(kk), singlerange,
+                                       first(iir_kk), last(iir_kk), regress(rs, first(iir_kk)), advance(rs, last(iir_kk)), length(iir_kk))
+    else
+        firstrange = getindex(rs, first(iir_kk))
+        if first(firstrange) < first(kk)
+            firstrange = to_urange(TU, first(kk), last(firstrange))
+        end
+        lastrange = getindex(rs, last(iir_kk))
+        if last(kk) < last(lastrange)
+            lastrange = to_urange(TU, first(lastrange), last(kk))
+        end
+        return UnitRangesSortedSubSet{K,TU,P,typeof(first(iir_kk))}(rs, first(kk), last(kk), firstrange, lastrange,
+                                      first(iir_kk), last(iir_kk), regress(rs, first(iir_kk)), advance(rs, last(iir_kk)), length(iir_kk))
+    end
+end
+
+@inline Base.copy(rs::T) where {T<:AbstractUnitRangesSortedSubSet{K,TU}} where {K,TU} =
+    intersect(rs.parent, to_urange(TU, rs.kstart, rs.kstop))
+
+@inline Base.parent(rs::T) where {T<:AbstractUnitRangesSortedSubSet{K,TU}} where {K,TU} = rs.parent
+
+
+#
+# Convert
+#
+
 (::Type{T})(values::Union{AbstractVector, AbstractSet, Tuple}) where {T<:AbstractUnitRangesSortedContainer} =
     eltype(values) <: AbstractRange ? T{eltype(eltype(values))}(values) : T{eltype(values)}(values)
 
@@ -299,6 +312,10 @@ function Base.convert(::Type{T}, rs::AbstractUnitRangesSortedContainer{K}) where
     end
     S
 end
+
+
+
+
 
 "Type `UnitRange` for `DataStructures.Tokens.IntSemiToken`."
 struct URSSIndexURange{P,Tix} <: AbstractUnitRange{Tix}

@@ -368,6 +368,9 @@ end
                 @test check_isequal(push!(rs, 12:12), convertinfer($K, (12:14, 23:24)))
                 @test check_isequal(push!(rs, 11:13), convertinfer($K, (11:14, 23:24)))
                 @test check_isequal(push!(rs, 8:9),   convertinfer($K, (8:9, 11:14, 23:24)))
+                @test check_isequal(push!(copy(rs), [9:12]),  convertinfer($K, (8:14, 23:24)))
+                @test check_isequal(push!(copy(rs), (9:12,)),  convertinfer($K, (8:14, 23:24)))
+                @test check_isequal(push!(copy(rs), [9,10,11,12]),  convertinfer($K, (8:14, 23:24)))
                 @test check_isequal(push!(rs, 9:12),  convertinfer($K, (8:14, 23:24)))
                 @test check_isequal(push!(rs, 16:17),  convertinfer($K, (8:14, 16:17, 23:24)))
                 @test check_isequal(push!(rs, 25:26),  convertinfer($K, (8:14, 16:17, 23:26)))
@@ -407,6 +410,10 @@ end
                 @test check_isequal(delete!(rs, 0:1),  convertinfer($K, (2:5, 8:8, 10:13)))
                 @test check_isequal(delete!(rs, 9:10),  convertinfer($K, (2:5, 8:8, 11:13)))
                 @test check_isequal(delete!(rs, 13:14),  convertinfer($K, (2:5, 8:8, 11:12)))
+                @test check_isequal(delete!(copy(rs), [1:3]),  convertinfer($K, (4:5, 8:8, 11:12)))
+                @test check_isequal(delete!(copy(rs), (1:3,)),  convertinfer($K, (4:5, 8:8, 11:12)))
+                @test check_isequal(delete!(copy(rs), [1,2,3]),  convertinfer($K, (4:5, 8:8, 11:12)))
+                @test check_isequal(delete!(copy(rs), (1,2,3)),  convertinfer($K, (4:5, 8:8, 11:12)))
                 @test check_isequal(delete!(rs, 1:3),  convertinfer($K, (4:5, 8:8, 11:12)))
 
             end
