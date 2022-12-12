@@ -37,14 +37,6 @@ using Test
 # @inline Base.delete!(rs::UnitRangesSortedVector{K,TU}, kk::TU) where {K,TU}
 # function Base.delete!(rs::UnitRangesSortedSet{K,TU}, II::Union{AbstractVector,AbstractSet,NTuple})  where {K,TU}
 # @inline Base.delete!(rs::UnitRangesSortedSet{K,TU}, kk::TU) where {K,TU} = _delete!(rs, kk)
-# Base.union(rs::AbstractUnitRangesSortedSet, rss...) = union!(copy(rs), rss...)
-# @inline Base.union!(rs::AbstractUnitRangesSortedContainer, r::AbstractRange) = push!(rs, r)
-# setdiff
-# symdiff
-# @inline Base.intersect!(rs::AbstractUnitRangesSortedContainer{K,TU}, kk::TU) where {K,TU} = __intersect!(rs, kk)
-# function Base.intersect!(rs1::AbstractSet, rs2::AbstractUnitRangesSortedSet)
-# Base.intersect(rs1::AbstractSet, rs2::AbstractUnitRangesSortedSet) = _intersect(rs1, rs2)
-# Base.intersect(rs1::AbstractVector, rs2::AbstractUnitRangesSortedSet) = _intersect(rs1, rs2)
 #
 # function Base.show(io::IO, x::T) where {T<:AbstractUnitRangesSortedSubSet}
 # function Base.show(io::IO, ::MIME"text/plain", x::T) where {T<:AbstractUnitRangesSortedSubSet}
@@ -498,10 +490,16 @@ end
                 vu = Vector{eltype(ss)}([])
                 test_empty_iterators(ss, convertinfer($K, vu))
 
-                @test_throws BoundsError subset(rs, 51:51)
+                ss = subset(rs, 51:51)
+                @test typeof(ss) == UnitRangesSortedSubSet0{$K,inferrangetype($K),typeof(rs),typeof(it)}
+                vu = Vector{eltype(ss)}([])
+                test_empty_iterators(ss, convertinfer($K, vu))
 
                 delete!(rs, 0:0)
-                @test_throws BoundsError subset(rs, 0:1)
+                ss = subset(rs, 0:1)
+                @test typeof(ss) == UnitRangesSortedSubSet0{$K,inferrangetype($K),typeof(rs),typeof(it)}
+                vu = Vector{eltype(ss)}([])
+                test_empty_iterators(ss, convertinfer($K, vu))
 
                 # subset of subset
                 rs = $TypeURSS{$K}((0:0, 2:6, 8:16, 20:33, 35:47, 49:50))
@@ -567,6 +565,8 @@ end
                 rs = $TypeURSS{$K}(v)
                 ss = subset(rs, 2:3)
                 @test !in(1:2, ss)
+                @test !in(1, ss)
+                @test in(2, ss)
                 @test in(2:2, ss)
                 @test in(2:3, ss)
                 @test in(3:3, ss)
@@ -578,6 +578,8 @@ end
                 v = [0:0, 2:3, 5:6, 8:8]
                 rs = $TypeURSS{$K}(v)
                 ss = subset(rs, 3:2)
+                @test !in(1, ss)
+                @test !in(2, ss)
                 @test !in(1:2, ss)
                 @test !in(2:2, ss)
                 @test !in(2:3, ss)
@@ -627,15 +629,21 @@ end
                 @test findfirst(s->issubset(s, $K(1):$K(4)), rs) == searchsortedrangelast(rs, $K(2))
                 @test findall(s->length(s)==1, rs) == convertinfer($K, [0:0])
 
-                rs = $TypeURSS{$K}((0:0, 2:4))
-                @test collect(rs) == convertinfer($K, [0:0, 2:4])
-                @test collect(UInt64, rs) == convertinfer(UInt64, [0:0, 2:4])
-                @test convert(typeof(rs), rs) === rs
-                @test convert(Vector{$K}, rs) == Vector{$K}([0,2,3,4])
-                @test convert(Vector{UInt64}, rs) == Vector{UInt64}([0,2,3,4])
-                @test convert(Set{$K}, rs) == Set{$K}(convertinfer($K, [0,2,3,4]))
-                @test convert(Set{UInt64}, rs) == Set{UInt64}(convertinfer(UInt64, [0,2,3,4]))
+                v = [0:0, 2:4]
+                rs = $TypeURSS{$K}(v)
+                @test collect(rs) == convertinfer($K, v)
+                @test collect(UInt64, rs) == convertinfer(UInt64, v)
 
+                @test convert(typeof(rs), rs) === rs
+
+                @test convert(SortedSet{inferrangetype($K)}, rs) == SortedSet(to_urange.(inferrangetype($K), v))
+                @test convert(SortedSet{UInt64}, rs)             == SortedSet{UInt64}(collect(Iterators.flatten(v)))
+                @test convert(SortedSet{$K}, rs)                 == SortedSet{$K}(collect(Iterators.flatten(v)))
+                @test convert(SortedSet, rs)                     == SortedSet{$K}(collect(Iterators.flatten(v)))
+                @test convert(Vector{inferrangetype($K)}, rs)    == Vector(to_urange.(inferrangetype($K), v))
+                @test convert(Vector{UInt64}, rs)                == Vector{UInt64}(collect(Iterators.flatten(v)))
+                @test convert(Vector{$K}, rs)                    == Vector{$K}(collect(Iterators.flatten(v)))
+                @test convert(Vector, rs)                        == Vector{$K}(collect(Iterators.flatten(v)))
             end
         end
     end
@@ -650,19 +658,36 @@ end
                 @test union($TypeURSS{$K}((0:0, 2:4)), $TypeURSS{$K}((2:3, 5:6))) == $TypeURSS{$K}((0:0, 2:6))
                 @test union($TypeURSS{$K}((0:0, 2:4)), (2:3, 5:6)) == $TypeURSS{$K}((0:0, 2:6))
                 @test union($TypeURSS{$K}((0:0, 2:4)), (2, 3, 5, 6)) == $TypeURSS{$K}((0:0, 2:6))
+                @test union($TypeURSS{$K}((0:0, 2:4)), [2:3], [5:6]) == $TypeURSS{$K}((0:0, 2:6))
                 @test union($TypeURSS{$K}((0:0, 2:4)), [2:3, 5:6]) == $TypeURSS{$K}((0:0, 2:6))
                 @test union($TypeURSS{$K}((0:0, 2:4)), [2, 3, 5, 6]) == $TypeURSS{$K}((0:0, 2:6))
+                @test union($TypeURSS{$K}((0:0, 2:4)), 1:1) == $TypeURSS{$K}((0:4))
                 @test union($TypeURSS{$K}((0:0, 2:4)), 1) == $TypeURSS{$K}((0:4))
 
                 @test intersect($TypeURSS{$K}((0:0, 2:4)), $TypeURSS{$K}((2:3, 5:6))) == $TypeURSS{$K}((2:3))
                 @test intersect($TypeURSS{$K}((0:0, 2:4)), (2:3, 5:6)) == $TypeURSS{$K}((2:3))
+                @test intersect($TypeURSS{$K}((0:0, 2:4)), 2:3) == $TypeURSS{$K}((2:3))
                 @test intersect($TypeURSS{$K}((0:0, 2:4)), 2) == $TypeURSS{$K}((2:2))
                 rs = $TypeURSS{$K}((0:0, 2:4))
                 @test (intersect!(rs, $TypeURSS{$K}((2:3, 5:6, 8:8))); rs == $TypeURSS{$K}((2:3)))
                 rs = [0:0, 2:4, 8:10, 12:12]
+                @test (intersect(rs, $TypeURSS{$K}((2:3, 5:6, 8:8))) == [2:3, 8:8])
                 @test (intersect!(rs, $TypeURSS{$K}((2:3, 5:6, 8:8))); rs == [2:3, 8:8])
+                rs = Set((0:0, 2:4, 8:10, 12:12))
+                @test (intersect(rs, $TypeURSS{$K}((2:3, 5:6, 8:8))) == Set((2:3, 8:8)))
+                @test (intersect!(rs, $TypeURSS{$K}((2:3, 5:6, 8:8))); rs == Set((2:3, 8:8)))
+                rs = SortedSet((0:0, 2:4, 8:10, 12:12))
+                @test (intersect(rs, $TypeURSS{$K}((2:3, 5:6, 8:8))) == SortedSet((2:3, 8:8)))
+                @test (intersect!(rs, $TypeURSS{$K}((2:3, 5:6, 8:8))); rs == SortedSet((2:3, 8:8)))
                 rs = [0, 2,3,4, 8,9,10, 12]
+                @test (intersect(rs, $TypeURSS{$K}((2:3, 5:6, 8:8))) == [2,3, 8])
                 @test (intersect!(rs, $TypeURSS{$K}((2:3, 5:6, 8:8))); rs == [2,3, 8])
+                rs = Set((0, 2,3,4, 8,9,10, 12))
+                @test (intersect(rs, $TypeURSS{$K}((2:3, 5:6, 8:8))) == Set((2,3, 8)))
+                @test (intersect!(rs, $TypeURSS{$K}((2:3, 5:6, 8:8))); rs == Set((2,3, 8)))
+                rs = SortedSet((0, 2,3,4, 8,9,10, 12))
+                @test (intersect(rs, $TypeURSS{$K}((2:3, 5:6, 8:8))) == SortedSet((2,3, 8)))
+                @test (intersect!(rs, $TypeURSS{$K}((2:3, 5:6, 8:8))); rs == SortedSet((2,3, 8)))
 
                 rs = $TypeURSS{$K}((2:3, 5:6, 8:8))
                 @test (intersect!(rs, convertinfer($K, [0:0, 2:4, 8:10, 12:12])); rs == $TypeURSS{$K}((2:3, 8:8)))
@@ -672,6 +697,21 @@ end
                 @test (intersect!(rs, Set(convertinfer($K, [0:0, 2:4, 8:10, 12:12]))); rs == $TypeURSS{$K}((2:3, 8:8)))
                 rs = $TypeURSS{$K}((2:3, 5:6, 8:8))
                 @test (intersect!(rs, Set(convertinfer($K, [0, 2,3,4, 8,9,10, 12]))); rs == $TypeURSS{$K}((2:3, 8:8)))
+
+
+                rs = $TypeURSS{$K}((2:3, 5:6))
+                @test (setdiff(rs, 2:2) == $TypeURSS{$K}((3:3, 5:6)))
+                @test (setdiff(rs, 2:2, 3:5) == $TypeURSS{$K}((6:6,)))
+
+                rs1 = $TypeURSS{$K}((2:3, 5:6))
+                rs2 = $TypeURSS{$K}((3:3, 5:6, 8:8))
+                @inferred symdiff(rs1, rs2)
+                @test collect(Iterators.flatten(symdiff(rs1, rs2))) ==
+                      symdiff(collect(Iterators.flatten(rs1)), collect(Iterators.flatten(rs2)))
+                @test collect(Iterators.flatten(symdiff(rs1, rs2, (9:9,)))) ==
+                      symdiff(collect(Iterators.flatten(rs1)), collect(Iterators.flatten(rs2)), collect($K, Iterators.flatten((9:9,))))
+                @test collect(Iterators.flatten(symdiff(rs1, (1:9,)))) ==
+                      symdiff(collect(Iterators.flatten(rs1)), collect($K, Iterators.flatten((1:9,))))
 
 
                 rs = $TypeURSS{$K}((0:0, 2:4))
@@ -720,24 +760,6 @@ end
 end
 
 
-@testset "Converting" begin
-    for K in list_of_Ti_to_test
-        for TypeURSS in list_of_containers_types_to_test
-            @eval begin
-
-                v = [0:0, 2:3]
-                rs = $TypeURSS{$K}(v)
-                @test convert(SortedSet{inferrangetype($K)}, rs) == SortedSet(to_urange.(inferrangetype($K), v))
-                @test convert(SortedSet{$K}, rs)                 == SortedSet{$K}(collect(Iterators.flatten(v)))
-                @test convert(SortedSet, rs)                     == SortedSet{$K}(collect(Iterators.flatten(v)))
-                @test convert(Vector{inferrangetype($K)}, rs)    == Vector(to_urange.(inferrangetype($K), v))
-                @test convert(Vector{$K}, rs)                    == Vector{$K}(collect(Iterators.flatten(v)))
-                @test convert(Vector, rs)                        == Vector{$K}(collect(Iterators.flatten(v)))
-
-            end
-        end
-    end
-end
 
 
 

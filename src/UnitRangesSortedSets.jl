@@ -20,14 +20,6 @@ using Setfield
 using Random
 
 
-# https://github.com/JuliaLang/julia/issues/39952
-basetype(::Type{T}) where T = Base.typename(T).wrapper
-## https://discourse.julialang.org/t/how-do-a-i-get-a-type-stripped-of-parameters/73465/8
-#basetype(::Type{T}) where T = eval(nameof(T))
-## https://discourse.julialang.org/t/deparametrising-types/41939/4
-#basetype(T::DataType) = T.name.wrapper
-#basetype(T::UnionAll) = basetype(T.body)
-
 safe_add(x::T, y) where {T} = x + T(y)
 safe_add(x::T, y) where {T<:Integer} = ((z, flag) = Base.add_with_overflow(x, T(y));   !flag ? z : typemax(T))
 safe_add(x::T, y) where {T<:AbstractChar} = (z = UInt64(x) + UInt64(y);   z < UInt128(2)^(8 * sizeof(T)) ? T(z) : typemax(T))
@@ -142,8 +134,6 @@ subset(rs::P, kk::AbstractRange) where {P<:AbstractUnitRangesSortedSubSet{K,TU}}
 
 function subset(rs::P, kk::AbstractRange) where {P<:AbstractUnitRangesSortedContainer{K,TU}} where {K,TU}
     kk = to_urange(TU, kk)
-    @boundscheck length(rs) == 0 && length(kk) != 0 && throw(BoundsError(rs, kk))
-    @boundscheck length(rs) != 0 && (first(kk) < first(first(rs)) || last(kk) > last(last(rs))) && throw(BoundsError(rs, kk))
     iir_kk = searchsortedrange(rs, kk)
     if length(kk) == 0 || length(iir_kk) == 0
         if length(kk) == 0 && length(iir_kk) == 1
@@ -181,6 +171,7 @@ end
 @inline Base.copy(rs::T) where {T<:AbstractUnitRangesSortedSubSet{K,TU}} where {K,TU} =
     intersect(rs.parent, to_urange(TU, rs.kstart, rs.kstop))
 
+@inline Base.parent(rs::T) where {T<:AbstractUnitRangesSortedSubSet{K,TU}} where {K,TU} = rs.parent
 
 """
 $(TYPEDEF)
@@ -328,8 +319,6 @@ thus was created custom one named `URSSIndexURange`.
 """
 @inline create_indexrange(parent::P, l, r) where {P<:UnitRangesSortedVector} = UnitRange{Int}(l, r)
 @inline create_indexrange(parent::P, l, r) where {P<:UnitRangesSortedSet} = URSSIndexURange(parent, l, r)
-#@inline create_indexrange(parent::P, l, r) where {P<:UnitRangesSortedVector{K,TU}} where {K,TU} = UnitRange{Int}(l, r)
-#@inline create_indexrange(parent::P, l, r) where {P<:UnitRangesSortedSet{K,TU}} where {K,TU} = URSSIndexURange(parent, l, r)
 
 
 @inline function URSSIndexURange(rs::P, l::Tix, r::Tix) where {P<:UnitRangesSortedVector, Tix}
@@ -517,7 +506,7 @@ end
 """
     first(rs::AbstractUnitRangesSortedSet)
 
-Returns first range from the set `rs`.
+Returns first range from the set of ranges `rs`.
 """
 @inline Base.first(rs::UnitRangesSortedVector{K,TU}) where {K,TU} =
     to_urange(TU, rs.rstarts[1], rs.rstops[1])
@@ -529,7 +518,7 @@ Returns first range from the set `rs`.
 """
     last(rs::AbstractUnitRangesSortedSet)
 
-Returns last range from the set `rs`.
+Returns last range from the set of ranges `rs`.
 """
 @inline Base.last(rs::UnitRangesSortedVector{K,TU}) where {K,TU} =
     to_urange(TU, rs.rstarts[end], rs.rstops[end])
@@ -633,11 +622,10 @@ Base.findall(pred::Function, rs::AbstractUnitRangesSortedSet) = collect(r for r 
 #  Iterators
 #
 
-@inline Base.iterate(rs::UnitRangesSortedSubSet0{K,TU}, state = 1) where {K,TU} =
-    # for type inference
-    rs.kstart > rs.kstop ? nothing : (to_urange(TU, rs.kstart, rs.kstop), state)
-@inline Base.iterate(rrs::Base.Iterators.Reverse{T}, state = 1) where {T<:UnitRangesSortedSubSet0{K,TU}} where {K,TU} =
-    rrs.itr.kstart > rrs.itr.kstop ? nothing : (to_urange(TU, rrs.itr.kstart, rrs.itr.kstop), state)
+@inline Base.iterate(rs::UnitRangesSortedSubSet0) = nothing
+@inline Base.iterate(rs::UnitRangesSortedSubSet0, state) = nothing
+@inline Base.iterate(rrs::Base.Iterators.Reverse{T}) where {T<:UnitRangesSortedSubSet0} = nothing
+@inline Base.iterate(rrs::Base.Iterators.Reverse{T}, state) where {T<:UnitRangesSortedSubSet0} = nothing
 
 
 @inline Base.iterate(rs::UnitRangesSortedSubSet1) = (rs.singlerange, 1)
@@ -717,14 +705,6 @@ end
     end
 end
 
-#@inline function Base.iterate(rs::UnitRangesSortedSet{K,TU}, state = SDMToken((rs.ranges, startof(rs.ranges)))) where {K,TU}
-#    if state[2] != pastendsemitoken(state[1])
-#        return (to_urange(TU, deref(state)...), SDMToken((state[1], advance(state))))
-#        #return (getindex(rs, state), SDMToken((state[1], advance(state))))
-#    else
-#        return nothing
-#    end
-#end
 
 @inline function Base.iterate(ur::URSSIndexURange, state = (first(ur), 0))
     st, i = state
@@ -779,17 +759,13 @@ Base.eachindex(rs::T) where {T<:AbstractUnitRangesSortedSubSet} = eachindexitera
 Base.eachindex(rrs::Base.Iterators.Reverse{T}) where {T<:AbstractUnitRangesSortedSet} = Iterators.reverse(eachindex(rrs.itr))
 # TODO: check for https://github.com/JuliaLang/julia/pull/43110/files
 
-## Is it need?
-#Base.keys(rs::AbstractUnitRangesSortedSet) = eachindex(rs)
-#Base.keys(rrs::Base.Iterators.Reverse{T}) where {T<:AbstractUnitRangesSortedSet} = Iterators.reverse(keys(rrs.itr))
-
 #
 # Assignments
 #
 
 
 @inline Base.in(kk::AbstractRange, rs::AbstractUnitRangesSortedSet{K,TU}) where {K,TU} = _in(to_urange(TU, kk), rs)
-@inline Base.in(kk::TU, rs::AbstractUnitRangesSortedSet{K,TU}) where {K,TU} = _in(kk, rs)
+@inline Base.in(kk::TU, rs::AbstractUnitRangesSortedSet{K,TU}) where {K,TU<:AbstractRange} = _in(kk, rs)
 
 @inline function _in(kk::TU, rs::AbstractUnitRangesSortedSet{K,TU}) where {K,TU}
     # fast check for cached range index
@@ -835,11 +811,11 @@ end
 @inline Base.in(kk::AbstractRange, su::UnitRangesSortedSubSet0) = false
 @inline Base.in(key, su::UnitRangesSortedSubSet0) = false
 @inline Base.in(kk::AbstractRange, su::UnitRangesSortedSubSet1{K,TU}) where {K,TU} = issubset(to_urange(TU, kk), su.singlerange)
-@inline Base.in(kk::TU, su::UnitRangesSortedSubSet1{K,TU}) where {K,TU} = issubset(kk, su.singlerange)
+@inline Base.in(kk::TU, su::UnitRangesSortedSubSet1{K,TU}) where {K,TU<:AbstractRange} = issubset(kk, su.singlerange)
 @inline Base.in(key, su::UnitRangesSortedSubSet1{K}) where {K} = in(K(key), su.singlerange)
 
 @inline Base.in(kk::AbstractRange, su::UnitRangesSortedSubSet{K,TU}) where {K,TU} = _in(to_urange(TU, kk), su)
-@inline Base.in(kk::TU, su::UnitRangesSortedSubSet{K,TU}) where {K,TU} = _in(kk, su)
+@inline Base.in(kk::TU, su::UnitRangesSortedSubSet{K,TU}) where {K,TU<:AbstractRange} = _in(kk, su)
 @inline function _in(kk::TU, su::UnitRangesSortedSubSet{K,TU,P}) where {K,TU,P<:UnitRangesSortedVector}
     # bounds check
     (su.kstart <= first(kk) <= last(kk) <= su.kstop) || return false
@@ -905,7 +881,6 @@ end
 end
 
 
-#@inline Base.haskey(rs::AbstractUnitRangesSortedSet, key) = in(key, rs)
 
 function Base.push!(rs::UnitRangesSortedVector{K,TU}, II::Union{AbstractVector,AbstractSet,NTuple}) where {K,TU}
     for r in II
@@ -916,7 +891,7 @@ end
 
 
 @inline Base.push!(rs::UnitRangesSortedVector{K,TU}, kk::AbstractRange) where {K,TU} = _push!(rs, to_urange(TU, kk))
-@inline Base.push!(rs::UnitRangesSortedVector{K,TU}, kk::TU) where {K,TU} = _push!(rs, kk)
+@inline Base.push!(rs::UnitRangesSortedVector{K,TU}, kk::TU) where {K,TU<:AbstractRange} = _push!(rs, kk)
 
 function _push!(rs::UnitRangesSortedVector{K,TU}, kk::TU) where {K,TU}
 
@@ -1015,7 +990,7 @@ function Base.push!(rs::UnitRangesSortedSet{K,TU}, II::Union{AbstractVector,Abst
 end
 
 @inline Base.push!(rs::UnitRangesSortedSet{K,TU}, kk::AbstractRange) where {K,TU} = _push!(rs, to_urange(TU, kk))
-@inline Base.push!(rs::UnitRangesSortedSet{K,TU}, kk::TU) where {K,TU} = _push!(rs, kk)
+@inline Base.push!(rs::UnitRangesSortedSet{K,TU}, kk::TU) where {K,TU<:AbstractRange} = _push!(rs, kk)
 function _push!(rs::UnitRangesSortedSet{K,TU}, kk::TU) where {K,TU}
 
     if length(kk) == 0
@@ -1276,7 +1251,7 @@ function Base.delete!(rs::UnitRangesSortedVector{K,TU}, II::T) where {K,TU, T<:U
 end
 
 @inline Base.delete!(rs::UnitRangesSortedVector{K,TU}, kk::AbstractRange) where {K,TU} = _delete!(rs, to_urange(TU, kk))
-@inline Base.delete!(rs::UnitRangesSortedVector{K,TU}, kk::TU) where {K,TU} = _delete!(rs, kk)
+@inline Base.delete!(rs::UnitRangesSortedVector{K,TU}, kk::TU) where {K,TU<:AbstractRange} = _delete!(rs, kk)
 function _delete!(rs::UnitRangesSortedVector{K,TU}, kk::TU) where {K,TU}
     length(kk) == 0 && return rs
 
@@ -1346,7 +1321,7 @@ function Base.delete!(rs::UnitRangesSortedSet{K,TU}, II::Union{AbstractVector,Ab
 end
 
 @inline Base.delete!(rs::UnitRangesSortedSet{K,TU}, kk::AbstractRange) where {K,TU} = _delete!(rs, to_urange(TU, kk))
-@inline Base.delete!(rs::UnitRangesSortedSet{K,TU}, kk::TU) where {K,TU} = _delete!(rs, kk)
+@inline Base.delete!(rs::UnitRangesSortedSet{K,TU}, kk::TU) where {K,TU<:AbstractRange} = _delete!(rs, kk)
 function _delete!(rs::UnitRangesSortedSet{K,TU}, kk::TU) where {K,TU}
     length(kk) == 0 && return rs
 
@@ -1518,8 +1493,6 @@ end
 Base.copy(rs::T) where {T<:UnitRangesSortedVector} = T(rs.lastusedrangeindex, copy(rs.rstarts), copy(rs.rstops))
 Base.copy(rs::T) where {T<:UnitRangesSortedSet} = T(rs.lastusedrangeindex, packcopy(rs.ranges))
 
-#Base.deepcopy(rs::AbstractUnitRangesSortedContainer) = copy(rs)
-
 
 
 Base.union(rs::AbstractUnitRangesSortedSet, rss...) = union!(copy(rs), rss...)
@@ -1554,18 +1527,11 @@ function Base.setdiff!(rs::AbstractUnitRangesSortedContainer, rs2)
     return rs
 end
 
-Base.symdiff(rs::AbstractUnitRangesSortedSet, sets...) = symdiff!(empty(rs), rs, sets...)
+Base.symdiff(rs::AbstractUnitRangesSortedSet, sets...) = symdiff!(copy(rs), sets...)
 Base.symdiff(rs::AbstractUnitRangesSortedSet, s) = symdiff!(copy(rs), s)
 
-#function Base.symdiff!(rs::AbstractUnitRangesSortedSet, itrs...)
-#    for x in itrs
-#        symdiff!(rs, x)
-#    end
-#    return rs
-#end
-
 @inline Base.symdiff!(rs::AbstractUnitRangesSortedContainer, rss...) = symdiff!(symdiff!(rs, rss[1]), Base.tail(rss)...)
-function Base.symdiff!(rs1::AbstractUnitRangesSortedContainer, rs2)
+function Base.symdiff!(rs1::AbstractUnitRangesSortedContainer{K,TU}, rs2) where {K,TU}
     for r in rs2
         ss = subset(rs1, r)
         vv = collect(ss)
@@ -1573,16 +1539,16 @@ function Base.symdiff!(rs1::AbstractUnitRangesSortedContainer, rs2)
             push!(rs1, r)
         elseif length(vv) == 1
             delete!(rs1, vv[1])
-            push!(rs1, first(r):safe_sub(first(vv[1]), 1))
-            push!(rs1, safe_add(last(vv[1]), 1):last(r))
+            push!(rs1, to_urange(TU, first(r), safe_sub(first(vv[1]), 1)))
+            push!(rs1, to_urange(TU, safe_add(last(vv[1]), 1), last(r)))
         else
-            push!(rs1, first(r):safe_sub(first(vv[1]), 1))
-            push!(rs1, safe_add(last(vv[end]), 1):last(r))
+            push!(rs1, to_urange(TU, first(r), safe_sub(first(vv[1]), 1)))
+            push!(rs1, to_urange(TU, safe_add(last(vv[end]), 1), last(r)))
             rnext, rhead = Iterators.peel(Iterators.reverse(vv))
             delete!(rs1, rnext)
             for rr in rhead
                 delete!(rs1, rr)
-                push!(rs1, last(rr)+1:first(rnext)-1)
+                push!(rs1, to_urange(TU, last(rr)+1, first(rnext)-1))
                 rnext = rr
             end
         end
@@ -1645,7 +1611,7 @@ end
 
 @inline Base.intersect!(rs::AbstractUnitRangesSortedContainer{K,TU}, kk::AbstractRange) where {K,TU} =
     __intersect!(rs, to_urange(TU,kk))
-@inline Base.intersect!(rs::AbstractUnitRangesSortedContainer{K,TU}, kk::TU) where {K,TU} = __intersect!(rs, kk)
+@inline Base.intersect!(rs::AbstractUnitRangesSortedContainer{K,TU}, kk::TU) where {K,TU<:AbstractRange} = __intersect!(rs, kk)
 function __intersect!(rs::AbstractUnitRangesSortedContainer{K,TU}, kk::TU) where {K,TU}
     length(kk) == 0 && return empty!(rs)
     delete!(rs, safe_add(last(kk), 1):getindex_rangestop(rs, lastindex(rs)))
@@ -1668,7 +1634,6 @@ function Base.intersect!(rs1::AbstractUnitRangesSortedContainer, rs2::AbstractUn
             rnext = r
         end
     else
-        #throw(AssertionError("FIXME: I want `Iterators.reverse` for $(typeof(rs2))."))
         rprev, rs2tail = Iterators.peel(rs2)
         for r in rs2tail
             delete!(rs1, last(rprev)+1:first(r)-1)
@@ -1779,6 +1744,14 @@ end
 #
 #  Aux functions
 #
+
+# https://github.com/JuliaLang/julia/issues/39952
+basetype(::Type{T}) where T = Base.typename(T).wrapper
+## https://discourse.julialang.org/t/how-do-a-i-get-a-type-stripped-of-parameters/73465/8
+#basetype(::Type{T}) where T = eval(nameof(T))
+## https://discourse.julialang.org/t/deparametrising-types/41939/4
+#basetype(T::DataType) = T.name.wrapper
+#basetype(T::UnionAll) = basetype(T.body)
 
 datatypeshortname(x) = (T = typeof(x); string(basetype(T)) * "{" * string(eltype(eltype(T))) * "}")
 
