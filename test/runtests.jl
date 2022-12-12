@@ -12,8 +12,6 @@ using Test
 #
 # [rs[i] for i in searchsortedrange(rs, 10:40)]
 #
-# may be introduce getemptyrange(rs)
-#
 # function UnitRangesSortedVector(rs::AbstractUnitRangesSortedSet{K,TU}) where {K,TU}
 # function UnitRangesSortedSet(rs::AbstractUnitRangesSortedSet{K,TU}) where {K,TU}
 # @inline function URSSIndexURange(rs::P, l::Tix, r::Tix) where {P<:UnitRangesSortedVector, Tix}
@@ -30,13 +28,6 @@ using Test
 # @inline searchsortedrangelast(rs::Sub01XUnitRangesSortedSet, k)
 # @inline searchsortedrangefirst(rs::Sub01XUnitRangesSortedSet, k)
 # @inline searchsortedrange(rs::AbstractSubUnitRangesSortedSet, kk::AbstractRange)
-# function Base.push!(rs::UnitRangesSortedVector{K,TU}, II::Union{AbstractVector,AbstractSet,NTuple}) where {K,TU}
-# function Base.push!(rs::UnitRangesSortedSet{K,TU}, II::Union{AbstractVector,AbstractSet,NTuple}) where {K,TU}
-# @inline Base.push!(rs::UnitRangesSortedSet{K,TU}, kk::TU) where {K,TU}
-# function Base.delete!(rs::UnitRangesSortedVector{K,TU}, II::T) where {K,TU, T<:Union{AbstractVector,AbstractSet,NTuple}}
-# @inline Base.delete!(rs::UnitRangesSortedVector{K,TU}, kk::TU) where {K,TU}
-# function Base.delete!(rs::UnitRangesSortedSet{K,TU}, II::Union{AbstractVector,AbstractSet,NTuple})  where {K,TU}
-# @inline Base.delete!(rs::UnitRangesSortedSet{K,TU}, kk::TU) where {K,TU} = _delete!(rs, kk)
 #
 # function Base.show(io::IO, x::T) where {T<:AbstractUnitRangesSortedSubSet}
 # function Base.show(io::IO, ::MIME"text/plain", x::T) where {T<:AbstractUnitRangesSortedSubSet}
@@ -48,7 +39,8 @@ using Test
 basetype(::Type{T}) where T = Base.typename(T).wrapper
 
 
-const list_of_Ti_to_test = (Int, UInt64, UInt16, Float64, Char)
+const list_of_Ti_to_test = (Int, UInt16, Float64, Char)
+#const list_of_Ti_to_test = (Int, UInt64, UInt16, Float64, Char)
 
 const list_of_containers_types_to_test = (UnitRangesSortedVector, UnitRangesSortedSet)
 

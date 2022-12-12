@@ -15,8 +15,6 @@ const FOrd = ForwardOrdering
 using DocStringExtensions
 using DataStructures
 import DataStructures: DataStructures.Tokens.IntSemiToken, DataStructures.SDMToken
-using IterTools
-using Setfield
 using Random
 
 
@@ -89,6 +87,8 @@ end
 # may be SimpleUnitRangesSortedSet
 #
 # may be FlatUnitRangesSortedSet
+#
+# may be LinearUnitRangesSortedSet
 #
 """
 Inserting zero, or negative length ranges does nothing.
@@ -1914,24 +1914,6 @@ function testfun_create(T::Type, n = 500_000, density = 0.9)
     sum(length(r) for r in rs) == length(randseq) || println("Lost some indices")
     rs
 end
-function testfun_createSV(T::Type, n = 500_000, m = 5, density = 0.9)
-    rs = T(m,n)
-    Random.seed!(1234)
-    for i in shuffle(randsubseq(1:n, density))
-        for j = 1:m
-            rs[i,j] = rand()
-        end
-    end
-    rs
-end
-function testfun_createVL(T::Type, n = 500_000, density = 0.9)
-    rs = T(n)
-    Random.seed!(1234)
-    for i in shuffle(randsubseq(1:n, density))
-        rs[i] = rand(rand(0:7))
-    end
-    rs
-end
 
 function testfun_create_seq(T::Type, n = 500_000, density = 0.9)
     rs = T()
@@ -2013,19 +1995,6 @@ function testfun_in_seq(rs)
     I
 end
 
-function testfun_nzgetindex(sv)
-    S = 0.0
-    for i in nzindices(sv)
-        S += sv[i]
-    end
-    (0, S)
-end
-
-function testfun_setindex!(sv)
-    for i in nzindices(sv)
-        sv[i] = 0.0
-    end
-end
 
 
 
