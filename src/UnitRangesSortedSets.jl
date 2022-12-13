@@ -791,7 +791,7 @@ Base.eachindex(rrs::Base.Iterators.Reverse{T}) where {T<:AbstractUnitRangesSorte
             return true
         end
     end
-    # cached range' index miss (or index is not stored), thus try search
+    # cached range' index miss (or index is not stored), thus try to search
     iir_kk = searchsortedrange(rs, kk)
     rs.lastusedrangeindex = last(iir_kk)
     if length(iir_kk) != 1
@@ -1547,8 +1547,10 @@ end
 Base.symdiff(rs::AbstractUnitRangesSortedSet, sets...) = symdiff!(copy(rs), sets...)
 Base.symdiff(rs::AbstractUnitRangesSortedSet, s) = symdiff!(copy(rs), s)
 
-@inline Base.symdiff!(rs::AbstractUnitRangesSortedContainer, rss...) = symdiff!(symdiff!(rs, rss[1]), Base.tail(rss)...)
-function Base.symdiff!(rs1::AbstractUnitRangesSortedContainer{K,TU}, rs2) where {K,TU}
+@inline Base.symdiff!(rs::AbstractUnitRangesSortedContainer, rss...) = symdiff!(_symdiff!(rs, rss[1]), Base.tail(rss)...)
+@inline Base.symdiff!(rs1::AbstractUnitRangesSortedContainer, rs2) = _symdiff!(rs1, rs2)
+@inline Base.symdiff!(rs1::AbstractUnitRangesSortedContainer, rs2::AbstractSet) = _symdiff!(rs1, rs2) # AbstractSet ambiguity
+function _symdiff!(rs1::AbstractUnitRangesSortedContainer{K,TU}, rs2) where {K,TU}
     for r in rs2
         ss = subset(rs1, r)
         vv = collect(ss)
