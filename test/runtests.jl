@@ -1,9 +1,13 @@
 import UnitRangesSortedSets:
     advance, beforefirstindex, inferrangetype, pastlastindex, regress, to_urange
 
+using BenchmarkTools
 using DataStructures
 using UnitRangesSortedSets
 using Test
+
+using Aqua
+Aqua.test_all(UnitRangesSortedSets)
 
 # TODO:
 # Custom Number Type, see Unitful: "runtests.jl"
@@ -609,6 +613,7 @@ end
                 vu = (1:6, 8:16, 20:33)
                 test_iterators(rs, convertinfer($K, vu))
 
+
                 rs = $TypeURSS{$K}((0:0, 2:4))
                 rs2 = copy(rs)
                 @test rs2 == rs && rs2 !== rs
@@ -758,13 +763,33 @@ end
 end
 
 
+@testset "Iter allocations" begin
+        for TypeURSS in list_of_containers_types_to_test
 
+            @eval rs = $TypeURSS{UInt16}((1:6, 8:16))
 
+            @test (@ballocated (for r in $rs j += 1 end) setup = (j = 0)) == 0
+            @test (@ballocated (for r in $rs, i in r j += Int(i) end) setup = (j = 0)) == 0
+            @test (@ballocated (for i in Iterators.flatten($rs) j += Int(i) end) setup = (j = 0)) == 0
+            ss = subset(rs, 4:10)
+            @test (@ballocated (for r in $ss j += 1 end) setup = (j = 0)) == 0
+            @test (@ballocated (for r in $ss, i in r j += Int(i) end) setup = (j = 0)) == 0
+            @test (@ballocated (for i in Iterators.flatten($ss) j += Int(i) end) setup = (j = 0)) == 0
+            ss1 = subset(rs, 2:6)
+            @test (@ballocated (for r in $ss1 j += 1 end) setup = (j = 0)) == 0
+            @test (@ballocated (for r in $ss1, i in r j += Int(i) end) setup = (j = 0)) == 0
+            @test (@ballocated (for i in Iterators.flatten($ss1) j += Int(i) end) setup = (j = 0)) == 0
+            ss0 = subset(rs, 7:7)
+            @test (@ballocated (for r in $ss0 j += 1 end) setup = (j = 0)) == 0
+            @test (@ballocated (for r in $ss0, i in r j += Int(i) end) setup = (j = 0)) == 0
+            @test (@ballocated (for i in Iterators.flatten($ss0) j += Int(i) end) setup = (j = 0)) == 0
+            ss0 = subset(rs, 5:4)
+            @test (@ballocated (for r in $ss0 j += 1 end) setup = (j = 0)) == 0
+            @test (@ballocated (for r in $ss0, i in r j += Int(i) end) setup = (j = 0)) == 0
+            @test (@ballocated (for i in Iterators.flatten($ss0) j += Int(i) end) setup = (j = 0)) == 0
 
-
-
-
-
+        end
+end
 
 
 @testset "`show`" begin
@@ -775,17 +800,19 @@ end
                 io = IOBuffer()
                 rs = $TypeURSS{$K}((0:0, 2:4))
                 show(io, rs)
-                T = $TypeURSS{$K}
-                @test String(take!(io)) == "$T(" *
+                TT = $TypeURSS
+                KK = $K
+                @test String(take!(io)) == "$TT{$KK}(" *
                                            repr($K(0)) * ":" * repr($K(0)) * ", " *
                                            repr($K(2)) * ":" * repr($K(4)) * ")"
 
                 io = IOBuffer()
                 rs = $TypeURSS{$K}((0:0, 2:4))
                 show(io, MIME("text/plain"), rs)
-                T = $TypeURSS{$K}
+                TT = $TypeURSS
+                KK = $K
                 pad = UnitRangesSortedSets.get_max_pad(rs)
-                @test String(take!(io)) == "$T():\n" *
+                @test String(take!(io)) == "$TT{$KK}():\n" *
                                            "  " * " "^(pad-length(repr($K(0)))) * repr($K(0)) * ":" * repr($K(0)) * "\n" *
                                            "  " * " "^(pad-length(repr($K(2)))) * repr($K(2)) * ":" * repr($K(4))
 
@@ -793,5 +820,4 @@ end
         end
     end
 end
-
 

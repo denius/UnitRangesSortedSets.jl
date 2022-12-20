@@ -3,8 +3,6 @@ module UnitRangesSortedSets
 export AbstractUnitRangesSortedSet, AbstractUnitRangesSortedSubSet, AbstractUnitRangesSortedContainer
 export UnitRangesSortedVector, UnitRangesSortedSet
 export UnitRangesSortedSubSet0, UnitRangesSortedSubSet1, UnitRangesSortedSubSet, URSSIndexURange
-export testfun_create, testfun_createSV, testfun_createVL, testfun_create_seq, testfun_create_dense, testfun_delete!,
-       testfun_in, testfun_in_outer, testfun_in_rand, testfun_in_seq, testfun_nzgetindex, testfun_setindex!
 export searchsortedrange, searchsortedrangefirst, searchsortedrangelast, getrange, getindex, beforefirstindex, pastlastindex
 export subset
 
@@ -15,7 +13,6 @@ const FOrd = ForwardOrdering
 using DocStringExtensions
 using DataStructures
 import DataStructures: DataStructures.Tokens.IntSemiToken, DataStructures.SDMToken
-using Random
 
 
 safe_add(x::T, y) where {T} = x + T(y)
@@ -27,20 +24,22 @@ safe_sub(x::T, y) where {T<:Integer} = ((z, flag) = Base.sub_with_overflow(x, T(
 safe_sub(x::T, y) where {T<:AbstractChar} = (z = Int64(x) - Int64(y);   z >= 0 ? T(z) : typemin(T))
 
 
-@inline to_urange(::Type{TU}, l, r) where {TU<:UnitRange} =
+@inline to_urange(::Type{TU}, l::L, r::L) where {TU<:UnitRange,L} =
     TU(l, r)
+@inline to_urange(::Type{TU}, l::L, r::R) where {TU<:UnitRange,L,R} =
+    TU(promote_type(L, R)(l), promote_type(L, R)(r))
 @inline to_urange(::Type{TU}, kk::AbstractRange) where {TU<:UnitRange} =
     TU(first(kk), last(kk))
 @inline to_urange(::Type{TU}, l, r) where {TU<:StepRange{T,S}} where {T,S} =
-    TU(l, S(1), r)
+    TU(l, oneunit(S), r)
 @inline to_urange(::Type{TU}, kk::AbstractRange) where {TU<:StepRange{T,S}} where {T,S} =
-    TU(first(kk), S(1), last(kk))
+    TU(first(kk), oneunit(S), last(kk))
 
 
 @inline inferrangetype(::Type{K}) where {K<:Real} = UnitRange{K}
 @inline function inferrangetype(::Type{K}) where K
     T = typeof(K(0):K(0))
-    return T <: StepRange ? StepRange{K,Int8} : T
+    return T <: StepRange ? StepRange{K,UInt8} : T
 end
 
 
@@ -51,14 +50,78 @@ abstract type AbstractUnitRangesSortedSubSet{K,TU,P} <: AbstractUnitRangesSorted
 
 
 """
-$(TYPEDEF)
-Mutable struct fields:
-$(TYPEDFIELDS)
+Sorted set of unit ranges. Sorted in ascending order and no range overlaps with another.
+
+    mutable struct UnitRangesSortedSet{K, TU} <: AbstractSet{TU}
+
+`UnitRangesSortedSet` can be created like the standard `Set`:
+
+    urs = UnitRangesSortedSet(somecontainer)
+
+or with `push!`:
+
+```julia
+julia> urs = UnitRangesSortedSet{Int}()
+UnitRangesSortedSet{Int64}()
+
+julia> push!(urs, 1)
+UnitRangesSortedSet{Int64}():
+  1:1
+
+julia> push!(urs, 2)
+UnitRangesSortedSet{Int64}():
+  1:2
+
+julia> push!(urs, 10:12)
+UnitRangesSortedSet{Int64}():
+   1:2
+  10:12
+```
+
+Iterating
+
+```julia
+julia> for r in urs @show(r) end
+r = 1:2
+r = 10:12
+
+julia> for r in urs, i in r @show(i) end
+i = 1
+i = 2
+i = 10
+i = 11
+i = 12
+
+julia> for i in Iterators.flatten(urs) @show(i) end
+i = 1
+i = 2
+i = 10
+i = 11
+i = 12
+```
+
+Deleting elements and ranges:
+```julia
+julia> delete!(urs, 10:11)
+UnitRangesSortedSet{Int64}():
+   1:2
+  12:12
+
+julia> delete!(urs, 1)
+UnitRangesSortedSet{Int64}():
+   2:2
+  12:12
+```
+
+
+Some internal details:
+The struct contains `ranges::SortedDict{K,K}`, where the key is `first(range)`, and the value is `last(range)`.
+Note: for `Char` the `StepRange{Char,UInt8}` with `oneunit(UInt8)` step will be created.
 """
 mutable struct UnitRangesSortedSet{K,TU} <: AbstractUnitRangesSortedContainer{K,TU}
     "Index of last used range."
     lastusedrangeindex::IntSemiToken
-    "Storage for ranges: the ket of Dict is the `first(range)`, and the value of Dict is the `last(range)`."
+    "Storage for ranges: the key of Dict is the `first(range)`, and the value of Dict is the `last(range)`."
     ranges::SortedDict{K,K,FOrd}
 end
 
@@ -91,7 +154,7 @@ end
 # may be LinearUnitRangesSortedSet
 #
 """
-Inserting zero, or negative length ranges does nothing.
+Inserting zero length ranges, or negative length ranges does nothing.
 $(TYPEDEF)
 Mutable struct fields:
 $(TYPEDFIELDS)
@@ -474,7 +537,11 @@ end
     to_urange(TU, deref((rs.ranges, i))...)
 @inline Base.getindex(rs::UnitRangesSortedSet{K,TU}, t::SDMToken) where {K,TU} =
     to_urange(TU, deref(t)...)
-@inline function Base.getindex(ur::URSSIndexURange, i)
+@inline Base.getindex(ur::URSSIndexURange, i::Integer) = _getindex(ur, i) # ambiguity
+@inline Base.getindex(ur::URSSIndexURange, i::Colon) = _getindex(ur, i)
+@inline Base.getindex(ur::URSSIndexURange, i::StepRange{T}) where {T<:Integer} = _getindex(ur, i)
+@inline Base.getindex(ur::URSSIndexURange, i::AbstractUnitRange{T}) where {T<:Integer} = _getindex(ur, i)
+@inline function _getindex(ur::URSSIndexURange, i)
     @boundscheck indexcompare(ur.parent, first(ur), i) != 1 &&
                  indexcompare(ur.parent, i, last(ur)) != 1 || throw(BoundsError(ur, i))
     getindex(ur.parent, i)
@@ -1507,13 +1574,13 @@ function Base.empty!(rs::AbstractUnitRangesSortedContainer)
     rs
 end
 
-Base.copy(rs::T) where {T<:UnitRangesSortedVector} = T(rs.lastusedrangeindex, copy(rs.rstarts), copy(rs.rstops))
-Base.copy(rs::T) where {T<:UnitRangesSortedSet} = T(rs.lastusedrangeindex, packcopy(rs.ranges))
+@inline Base.copy(rs::T) where {T<:UnitRangesSortedVector} = T(rs.lastusedrangeindex, copy(rs.rstarts), copy(rs.rstops))
+@inline Base.copy(rs::T) where {T<:UnitRangesSortedSet} = T(rs.lastusedrangeindex, packcopy(rs.ranges))
 
 
 
-Base.union(rs::AbstractUnitRangesSortedSet, rss...) = union!(copy(rs), rss...)
-Base.union(rs::AbstractUnitRangesSortedSet, rs2) = union!(copy(rs), rs2)
+@inline Base.union(rs::AbstractUnitRangesSortedSet, rss...) = union!(copy(rs), rss...)
+@inline Base.union(rs::AbstractUnitRangesSortedSet, rs2) = union!(copy(rs), rs2)
 
 @inline Base.union!(rs::AbstractUnitRangesSortedContainer, rss...) = union!(union!(rs, rss[1]), Base.tail(rss)...)
 function Base.union!(rs::AbstractUnitRangesSortedContainer, rs2)
@@ -1527,8 +1594,8 @@ end
 @inline Base.union!(rs::AbstractUnitRangesSortedContainer, r::AbstractRange) = push!(rs, r)
 
 
-Base.setdiff(rs::AbstractUnitRangesSortedSet, rss...) = setdiff!(copy(rs), rss...)
-Base.setdiff(rs::AbstractUnitRangesSortedSet, rs2) = setdiff!(copy(rs), rs2)
+@inline Base.setdiff(rs::AbstractUnitRangesSortedSet, rss...) = setdiff!(copy(rs), rss...)
+@inline Base.setdiff(rs::AbstractUnitRangesSortedSet, rs2) = setdiff!(copy(rs), rs2)
 
 @inline Base.setdiff!(rs::AbstractUnitRangesSortedContainer, rss...) = setdiff!(setdiff!(rs, rss[1]), Base.tail(rss)...)
 function Base.setdiff!(rs::AbstractUnitRangesSortedContainer, rs2)
@@ -1544,8 +1611,8 @@ function Base.setdiff!(rs::AbstractUnitRangesSortedContainer, rs2)
     return rs
 end
 
-Base.symdiff(rs::AbstractUnitRangesSortedSet, sets...) = symdiff!(copy(rs), sets...)
-Base.symdiff(rs::AbstractUnitRangesSortedSet, s) = symdiff!(copy(rs), s)
+@inline Base.symdiff(rs::AbstractUnitRangesSortedSet, sets...) = symdiff!(copy(rs), sets...)
+@inline Base.symdiff(rs::AbstractUnitRangesSortedSet, s) = symdiff!(copy(rs), s)
 
 @inline Base.symdiff!(rs::AbstractUnitRangesSortedContainer, rss...) = symdiff!(_symdiff!(rs, rss[1]), Base.tail(rss)...)
 @inline Base.symdiff!(rs1::AbstractUnitRangesSortedContainer, rs2) = _symdiff!(rs1, rs2)
@@ -1599,13 +1666,19 @@ function Base.issubset(rs1::Union{AbstractSet,AbstractVector,AbstractRange,Tuple
     end
     return true
 end
-function Base.issubset(rs1::AbstractUnitRangesSortedSet, rs2::Union{AbstractSet,AbstractVector,AbstractRange,Tuple})
+@inline Base.issubset(rs1::AbstractUnitRangesSortedSet, rs2::Union{AbstractSet,AbstractVector,AbstractRange,Tuple}) = _issubset1(rs1, rs2)
+@inline Base.issubset(rs1::AbstractUnitRangesSortedSet, rs2::SortedSet) = _issubset1(rs1, rs2)  # ambiguity
+function _issubset1(rs1::AbstractUnitRangesSortedSet, rs2)
     for r1 in rs1
         issubset(r1, rs2) || return false
     end
     return true
 end
-function Base.issubset(rs1::AbstractUnitRangesSortedSet, rs2::Union{AbstractSet{T},AbstractVector{T},NTuple{N,T}}) where {T<:AbstractRange,N}
+@inline Base.issubset(rs1::AbstractUnitRangesSortedSet, rs2::AbstractSet{T}) where {T<:AbstractRange} = _issubset2(rs1, rs2)
+@inline Base.issubset(rs1::AbstractUnitRangesSortedSet, rs2::SortedSet{T}) where {T<:AbstractRange} = _issubset2(rs1, rs2)  # ambiguity
+@inline Base.issubset(rs1::AbstractUnitRangesSortedSet, rs2::AbstractVector{T}) where {T<:AbstractRange} = _issubset2(rs1, rs2)
+@inline Base.issubset(rs1::AbstractUnitRangesSortedSet, rs2::Tuple{Vararg{AbstractRange}}) = _issubset2(rs1, rs2)
+function _issubset2(rs1::AbstractUnitRangesSortedSet, rs2)
     for r1 in rs1
         findfirst(s->issubset(r1, s), rs2) !== nothing || return false
     end
@@ -1628,8 +1701,7 @@ function Base.filter!(pred::Function, rs::AbstractUnitRangesSortedContainer)
 end
 
 
-@inline Base.intersect!(rs::AbstractUnitRangesSortedContainer{K,TU}, kk::AbstractRange) where {K,TU} =
-    __intersect!(rs, to_urange(TU,kk))
+@inline Base.intersect!(rs::AbstractUnitRangesSortedContainer{K,TU}, kk::AbstractRange) where {K,TU} = __intersect!(rs, to_urange(TU,kk))
 @inline Base.intersect!(rs::AbstractUnitRangesSortedContainer{K,TU}, kk::TU) where {K,TU<:AbstractRange} = __intersect!(rs, kk)
 function __intersect!(rs::AbstractUnitRangesSortedContainer{K,TU}, kk::TU) where {K,TU}
     length(kk) == 0 && return empty!(rs)
@@ -1664,9 +1736,9 @@ function Base.intersect!(rs1::AbstractUnitRangesSortedContainer, rs2::AbstractUn
 end
 
 # AbstractSet ambiguity resolving
-Base.intersect!(rs1::AbstractUnitRangesSortedContainer, rs2::AbstractSet) = _intersect!(rs1, rs2)
-Base.intersect!(rs1::AbstractUnitRangesSortedContainer, rs2::AbstractVector) = _intersect!(rs1, rs2)
-function _intersect!(rs1::AbstractUnitRangesSortedContainer, rs2)
+Base.intersect!(rs1::AbstractUnitRangesSortedContainer, rs2::AbstractSet) = _intersect1!(rs1, rs2)
+Base.intersect!(rs1::AbstractUnitRangesSortedContainer, rs2::AbstractVector) = _intersect1!(rs1, rs2)
+function _intersect1!(rs1::AbstractUnitRangesSortedContainer, rs2)
     length(rs2) == 0 && return empty!(rs1)
 
     rv2 = collect(rs2)
@@ -1693,7 +1765,10 @@ function _intersect!(rs1::AbstractUnitRangesSortedContainer, rs2)
     rs1
 end
 
-function Base.intersect!(rs1::AbstractUnitRangesSortedContainer, rs2::Union{AbstractSet{T},AbstractVector{T},NTuple{N,T}}) where {T<:AbstractRange,N}
+Base.intersect!(rs1::AbstractUnitRangesSortedContainer, rs2::AbstractSet{T}) where {T<:AbstractRange} = __intersect1!(rs1, rs2)
+Base.intersect!(rs1::AbstractUnitRangesSortedContainer, rs2::AbstractVector{T}) where {T<:AbstractRange} = __intersect1!(rs1, rs2)
+Base.intersect!(rs1::AbstractUnitRangesSortedContainer, rs2::Tuple{Vararg{AbstractRange}}) = __intersect1!(rs1, rs2)
+function __intersect1!(rs1::AbstractUnitRangesSortedContainer, rs2)
     length(rs2) == 0 && return empty!(rs1)
 
     rv2 = collect(rs2)
@@ -1750,10 +1825,9 @@ end
 
 Base.intersect(rs1::AbstractUnitRangesSortedSet, rs2) = intersect!(copy(rs1), rs2)
 Base.intersect(rs1::AbstractUnitRangesSortedSet, rs2::AbstractUnitRangesSortedSet) = intersect!(copy(rs1), rs2)
-# AbstractSet ambiguity resolving
-Base.intersect(rs1::AbstractSet, rs2::AbstractUnitRangesSortedSet) = _intersect(rs1, rs2)
-Base.intersect(rs1::AbstractVector, rs2::AbstractUnitRangesSortedSet) = _intersect(rs1, rs2)
-function _intersect(rs1, rs2::AbstractUnitRangesSortedSet)
+Base.intersect(rs1::AbstractSet, rs2::AbstractUnitRangesSortedSet) = _intersect2(rs1, rs2)  # AbstractSet ambiguity resolving
+Base.intersect(rs1::AbstractVector, rs2::AbstractUnitRangesSortedSet) = _intersect2(rs1, rs2)
+function _intersect2(rs1, rs2::AbstractUnitRangesSortedSet)
     rs = UnitRangesSortedSet(rs1)
     intersect!(rs, rs2)
     return convert(typeof(rs1), rs)
