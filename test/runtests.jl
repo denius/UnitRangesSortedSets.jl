@@ -16,17 +16,17 @@ Aqua.test_all(UnitRangesSortedSets)
 #
 # [rs[i] for i in searchsortedrange(rs, 10:40)]
 #
-# function UnitRangesSortedVector(rs::AbstractUnitRangesSortedSet{K,TU}) where {K,TU}
+# function PlainUnitRangesSortedSet(rs::AbstractUnitRangesSortedSet{K,TU}) where {K,TU}
 # function UnitRangesSortedSet(rs::AbstractUnitRangesSortedSet{K,TU}) where {K,TU}
-# @inline function URSSIndexURange(rs::P, l::Tix, r::Tix) where {P<:UnitRangesSortedVector, Tix}
-# URSSIndexURange for UnitRangesSortedVector?
+# @inline function URSSIndexURange(rs::P, l::Tix, r::Tix) where {P<:PlainUnitRangesSortedSet, Tix}
+# URSSIndexURange for PlainUnitRangesSortedSet?
 # @inline Base.firstindex(ur::URSSIndexURange) = ur.start
 # @inline Base.lastindex(ur::URSSIndexURange) = ur.stop
 # @inline DataStructures.advance(ur::URSSIndexURange), beforefirstindex
 # @inline function Base.iterate(ur::URSSIndexURange, state = (first(ur), 0))
 # @inline function Base.getindex(ur::URSSIndexURange, i) ???
-# @inline function indexcompare(rs::UnitRangesSortedVector, i, j)
-# @inline function indexcompare(rs::AbstractSubUnitRangesSortedSet{K,TU,P}, i, j) where {K,TU,P<:UnitRangesSortedVector}
+# @inline function indexcompare(rs::PlainUnitRangesSortedSet, i, j)
+# @inline function indexcompare(rs::AbstractSubUnitRangesSortedSet{K,TU,P}, i, j) where {K,TU,P<:PlainUnitRangesSortedSet}
 # @inline getindex_tuple(rs::Sub01XUnitRangesSortedSet, i)
 # @inline searchsortedrangelast(rs::Sub01XUnitRangesSortedSet, k)
 # @inline searchsortedrangefirst(rs::Sub01XUnitRangesSortedSet, k)
@@ -45,7 +45,7 @@ basetype(::Type{T}) where T = Base.typename(T).wrapper
 const list_of_Ti_to_test = (Int, UInt16, Float64, Char)
 #const list_of_Ti_to_test = (Int, UInt64, UInt16, Float64, Char)
 
-const list_of_containers_types_to_test = (UnitRangesSortedVector, UnitRangesSortedSet)
+const list_of_containers_types_to_test = (PlainUnitRangesSortedSet, UnitRangesSortedSet)
 
 
 function check_ranges_isequal(r, rs...)
