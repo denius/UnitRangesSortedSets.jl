@@ -12,7 +12,6 @@ export subset
 import Base: ForwardOrdering, Forward
 const FOrd = ForwardOrdering
 
-using DocStringExtensions
 using DataStructures
 import DataStructures: DataStructures.Tokens.IntSemiToken, DataStructures.SDMToken
 
@@ -143,9 +142,8 @@ end
 
 """
 Inserting zero length ranges, or negative length ranges does nothing.
-$(TYPEDEF)
-Mutable struct fields:
-$(TYPEDFIELDS)
+
+    mutable struct PlainUnitRangesSortedSet{K, TU} <: AbstractUnitRangesSortedContainer{K, TU}
 """
 mutable struct PlainUnitRangesSortedSet{K,TU} <: AbstractUnitRangesSortedContainer{K,TU}
     "Index of last used range."
@@ -175,9 +173,9 @@ end
 
 
 """
-$(TYPEDEF)
-Immutable struct fields:
-$(TYPEDFIELDS)
+
+    struct UnitRangesSortedSubSet{K, TU, P, Tix} <: AbstractUnitRangesSortedSubSet{K, TU, P}
+
 """
 struct UnitRangesSortedSubSet{K,TU,P,Tix} <: AbstractUnitRangesSortedSubSet{K,TU,P}
     "The `<:AbstractUnitRangesSortedSet` which subset point to."
@@ -202,9 +200,9 @@ end
 
 
 """
-$(TYPEDEF)
-Immutable struct fields:
-$(TYPEDFIELDS)
+
+    struct UnitRangesSortedSubSet1{K, TU, P, Tix} <: AbstractUnitRangesSortedSubSet{K, TU, P}
+
 """
 struct UnitRangesSortedSubSet1{K,TU,P,Tix} <: AbstractUnitRangesSortedSubSet{K,TU,P}
     "The `<:AbstractUnitRangesSortedSet` which subset point to."
@@ -227,9 +225,9 @@ end
 
 
 """
-$(TYPEDEF)
-Immutable struct fields:
-$(TYPEDFIELDS)
+
+    struct UnitRangesSortedSubSet0{K, TU, P, Tix} <: AbstractUnitRangesSortedSubSet{K, TU, P}
+
 """
 struct UnitRangesSortedSubSet0{K,TU,P,Tix} <: AbstractUnitRangesSortedSubSet{K,TU,P}
     #"Empty range `kstart:kstop` for simplicity."
