@@ -1,5 +1,5 @@
 name = "UnitRangesSortedSets"
-uuid = "235ad7fc-2aba-4ca4-9c7c-757ade02a5c7"
+uuid = "72c04766-89e7-4306-a268-94416c2640a0"
 authors = ["Denis Telnov <denis.telnov@gmail.com> and contributors"]
 version = "0.1.0"
 
@@ -8,9 +8,9 @@ DataStructures = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
 DocStringExtensions = "ffbed154-4ef7-542d-bbb7-c09d3a79fcae"
 
 [compat]
-DataStructures = "~0.18"
-DocStringExtensions = "^0, ^1"
-julia = "^1.6"
+DataStructures = "0.18"
+DocStringExtensions = "0"
+julia = "1.6, 1"
 
 [extras]
 Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
@@ -18,4 +18,4 @@ BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Aqua", "BenchmarkTools", "Test"]
+test = ["Test", "Aqua", "BenchmarkTools"]
