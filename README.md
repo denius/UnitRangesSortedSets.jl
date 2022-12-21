@@ -10,7 +10,32 @@ Sorted set of `UnitRange`s. Sorted in ascending order and no one range overlaps 
 
 `UnitRangesSortedSet` can be created like the standard `Set`:
 
-    urs = UnitRangesSortedSet(somecontainer)
+    UnitRangesSortedSet(somecontainer)
+
+```julia
+julia> using UnitRangesSortedSets
+
+julia> UnitRangesSortedSet((1, 2, 4))
+UnitRangesSortedSet{Int64}():
+  1:2
+  4:4
+
+julia> UnitRangesSortedSet(('a':'z', 'α':'ω'))
+UnitRangesSortedSet{Char}():
+  'a':'z'
+  'α':'ω'
+
+julia> Random.seed!(1234);
+
+julia> UnitRangesSortedSet(rand(1:20, 10))
+UnitRangesSortedSet{Int64}():
+   5:5
+   7:8
+  10:11
+  15:16
+  18:18
+  20:20
+```
 
 or with `push!`:
 
@@ -32,7 +57,7 @@ UnitRangesSortedSet{Int64}():
   10:12
 ```
 
-Iterating
+Iterating over set of ranges:
 
 ```julia-repl
 julia> for r in urs @show(r) end
@@ -52,6 +77,11 @@ i = 2
 i = 10
 i = 11
 i = 12
+
+julia> collect(urs)
+2-element Vector{UnitRange{Int64}}:
+ 1:2
+ 10:12
 ```
 
 Deleting elements and ranges:
@@ -67,7 +97,49 @@ UnitRangesSortedSet{Int64}():
   12:12
 ```
 
+# SubSet
 
-Some internal details:
-The struct contains `ranges::SortedDict{K,K}`, where the key is `first(range)`, and the value is `last(range)`.
-Note: for `Char` the `StepRange{Char,UInt8}` with `oneunit(UInt8)` step will be created.
+It is possible to create subsets of `UnitRangesSortedSet` (like a `view` for `Array`s):
+```julia
+julia> urs = UnitRangesSortedSet((1:2, 10:12))
+UnitRangesSortedSet{Int64}():
+   1:2
+  10:12
+
+julia> ss = subset(urs, 0:10)
+2-element subset(UnitRangesSortedSet{Int64}, DataStructures.Tokens.IntSemiToken(3):DataStructures.Tokens.IntSemiToken(4)):
+   1:2
+  10:10
+```
+
+The `subset` object is a static, iterable view of the container.
+
+# Two types of `UnitRangesSortedSet`
+
+The first type `UnitRangesSortedSet{K}` contains `SortedDict{K,K}`,
+```julia
+mutable struct UnitRangesSortedSet{K,TU} <: AbstractUnitRangesSortedContainer{K,TU}
+    ranges::SortedDict{K,K,FOrd}
+end
+```
+where each element of the dict contains the `first(range)` as key, and the `last(range)` as value.
+
+The second implementation `PlainUnitRangesSortedSet{K}` is based on `Vector{K}`s:
+```julia
+mutable struct PlainUnitRangesSortedSet{K,TU} <: AbstractUnitRangesSortedContainer{K,TU}
+    rstarts::Vector{K}
+    rstops::Vector{K}
+end
+```
+where `rstarts::Vector{K}` and `rstops::Vector{K}` are the starts and stops of
+the ranges respectively.
+
+These two implementations have a similar API but different speeds.
+When created from elements in random order, `UnitRangesSortedSet` is vastly superior
+to the `Plain` variant.
+But in searching operations (`in()`, `subset()`) `PlainUnitRangesSortedSet` variant is faster:
+in Julia-v1.6 it is twice as fast, in Julia-1.8 the speedup is about 20-30%.
+In either case, both of them can be converted to each other using the appropriate constructor.
+
+Note: for `Char`, `StepRange{Char,UInt8}` will be used, with a step of `oneunit(UInt8)` if needed.
+
