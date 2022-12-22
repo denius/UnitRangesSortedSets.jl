@@ -811,9 +811,17 @@ end
                 TT = $TypeURSS
                 KK = $K
                 pad = UnitRangesSortedSets.get_max_pad(rs)
-                @test String(take!(io)) == "$TT{$KK}():\n" *
-                                           "  " * " "^(pad-length(repr($K(0)))) * repr($K(0)) * ":" * repr($K(0)) * "\n" *
-                                           "  " * " "^(pad-length(repr($K(2)))) * repr($K(2)) * ":" * repr($K(4))
+                if length(rs) == 0
+                    @test String(take!(io)) == "$TT{$KK}()\n"
+                elseif length(rs) == 1
+                    @test String(take!(io)) == "$TT{$KK} with 1 element:\n" *
+                                               "  " * " "^(pad-length(repr($K(0)))) * repr($K(0)) * ":" * repr($K(0)) * "\n" *
+                                               "  " * " "^(pad-length(repr($K(2)))) * repr($K(2)) * ":" * repr($K(4))
+                else
+                    @test String(take!(io)) == "$TT{$KK} with $(length(rs)) elements:\n" *
+                                               "  " * " "^(pad-length(repr($K(0)))) * repr($K(0)) * ":" * repr($K(0)) * "\n" *
+                                               "  " * " "^(pad-length(repr($K(2)))) * repr($K(2)) * ":" * repr($K(4))
+                end
 
             end
         end

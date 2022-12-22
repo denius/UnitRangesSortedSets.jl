@@ -1910,9 +1910,10 @@ end
 # derived from stdlib/SparseArrays/src/sparsevector.jl
 function Base.show(io::IO, ::MIME"text/plain", x::T) where {T<:AbstractUnitRangesSortedSet}
     len = length(x)
-    print(io, datatypeshortname(x), "()")
-    if len != 0
-        println(io, ":")
+    if len == 0
+        println(io, datatypeshortname(x), "()")
+    else
+        println(io, datatypeshortname(x), " with ", len, len==1 ? " element:" : " elements:")
         show(IOContext(io, :typeinfo => eltype(x)), x)
     end
 end

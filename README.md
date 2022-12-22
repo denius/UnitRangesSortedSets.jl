@@ -19,19 +19,19 @@ thus
 julia> using UnitRangesSortedSets
 
 julia> UnitRangesSortedSet((1, 2, 4))
-UnitRangesSortedSet{Int64}():
+UnitRangesSortedSet{Int64} with 2 elements:
   1:2
   4:4
 
 julia> UnitRangesSortedSet(('a':'z', 'α':'ω'))
-UnitRangesSortedSet{Char}():
+UnitRangesSortedSet{Char} with 2 elements:
   'a':'z'
   'α':'ω'
 
 julia> Random.seed!(1234);
 
 julia> UnitRangesSortedSet(rand(1:20, 10))
-UnitRangesSortedSet{Int64}():
+UnitRangesSortedSet{Int64} with 6 elements:
    5:5
    7:8
   10:11
@@ -47,15 +47,15 @@ julia> urs = UnitRangesSortedSet{Int}()
 UnitRangesSortedSet{Int64}()
 
 julia> push!(urs, 1)
-UnitRangesSortedSet{Int64}():
+UnitRangesSortedSet{Int64} with 1 element:
   1:1
 
 julia> push!(urs, 2)
-UnitRangesSortedSet{Int64}():
+UnitRangesSortedSet{Int64} with 1 element:
   1:2
 
 julia> push!(urs, 10:12)
-UnitRangesSortedSet{Int64}():
+UnitRangesSortedSet{Int64} with 2 elements:
    1:2
   10:12
 ```
@@ -90,12 +90,12 @@ julia> collect(urs)
 Deleting elements and ranges:
 ```julia
 julia> delete!(urs, 10:11)
-UnitRangesSortedSet{Int64}():
+UnitRangesSortedSet{Int64} with 2 elements:
    1:2
   12:12
 
 julia> delete!(urs, 1)
-UnitRangesSortedSet{Int64}():
+UnitRangesSortedSet{Int64} with 2 elements:
    2:2
   12:12
 ```
@@ -105,7 +105,7 @@ UnitRangesSortedSet{Int64}():
 It is possible to create subsets of `UnitRangesSortedSet` (like a `view` for `Array`s):
 ```julia
 julia> urs = UnitRangesSortedSet((1:2, 10:12))
-UnitRangesSortedSet{Int64}():
+UnitRangesSortedSet{Int64} with 2 elements:
    1:2
   10:12
 
