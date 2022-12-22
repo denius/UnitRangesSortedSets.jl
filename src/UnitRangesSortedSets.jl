@@ -1,19 +1,19 @@
 
 module UnitRangesSortedSets
 
-export AbstractUnitRangesSortedSet, AbstractUnitRangesSortedSubSet, AbstractUnitRangesSortedContainer
-export PlainUnitRangesSortedSet, UnitRangesSortedSet
-export UnitRangesSortedSubSet0, UnitRangesSortedSubSet1, UnitRangesSortedSubSet
+export AbstractUnitRangesSortedSet, AbstractUnitRangesSortedContainer, AbstractUnitRangesSortedSubSet
+export UnitRangesSortedSet, PlainUnitRangesSortedSet
+export UnitRangesSortedSubSet, UnitRangesSortedSubSet1, UnitRangesSortedSubSet0
 export searchsortedrange, searchsortedrangefirst, searchsortedrangelast
 export getrange, getindex, beforefirstindex, pastlastindex
 export subset
 
 
-import Base: ForwardOrdering, Forward
+using Base: ForwardOrdering, Forward
 const FOrd = ForwardOrdering
 
 using DataStructures
-import DataStructures: DataStructures.Tokens.IntSemiToken, DataStructures.SDMToken
+using DataStructures: DataStructures.Tokens.IntSemiToken, DataStructures.SDMToken
 
 
 safe_add(x::T, y) where {T} = x + T(y)

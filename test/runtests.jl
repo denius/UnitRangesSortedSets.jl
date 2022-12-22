@@ -1,9 +1,8 @@
-import UnitRangesSortedSets:
-    advance, beforefirstindex, inferrangetype, pastlastindex, regress, to_urange
 
 using BenchmarkTools
 using DataStructures
 using UnitRangesSortedSets
+using UnitRangesSortedSets: advance, beforefirstindex, inferrangetype, pastlastindex, regress, to_urange
 using Test
 
 using Aqua
