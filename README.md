@@ -10,8 +10,11 @@ Sorted set of `UnitRange`s. Sorted in ascending order and no one range overlaps 
 
 `UnitRangesSortedSet` can be created like the standard `Set`:
 
+```julia
     UnitRangesSortedSet(somecontainer)
+```
 
+thus
 ```julia
 julia> using UnitRangesSortedSets
 
@@ -39,7 +42,7 @@ UnitRangesSortedSet{Int64}():
 
 or with `push!`:
 
-```julia-repl
+```julia
 julia> urs = UnitRangesSortedSet{Int}()
 UnitRangesSortedSet{Int64}()
 
@@ -59,7 +62,7 @@ UnitRangesSortedSet{Int64}():
 
 Iterating over set of ranges:
 
-```julia-repl
+```julia
 julia> for r in urs @show(r) end
 r = 1:2
 r = 10:12
@@ -85,7 +88,7 @@ julia> collect(urs)
 ```
 
 Deleting elements and ranges:
-```julia-repl
+```julia
 julia> delete!(urs, 10:11)
 UnitRangesSortedSet{Int64}():
    1:2
