@@ -127,9 +127,9 @@ end
 ```
 where each element of the dict contains the `first(range)` as key, and the `last(range)` as value.
 
-The second implementation `PlainUnitRangesSortedSet{K}` is based on `Vector{K}`s:
+The second implementation `VecUnitRangesSortedSet{K}` is based on `Vector{K}`s:
 ```julia
-mutable struct PlainUnitRangesSortedSet{K,TU} <: AbstractUnitRangesSortedContainer{K,TU}
+mutable struct VecUnitRangesSortedSet{K,TU} <: AbstractUnitRangesSortedContainer{K,TU}
     rstarts::Vector{K}
     rstops::Vector{K}
 end
@@ -140,7 +140,7 @@ the ranges respectively.
 These two implementations have a similar API but different speeds.
 When created from elements in random order, `UnitRangesSortedSet` is vastly superior
 to the `Plain` variant.
-But in searching operations (`in()`, `subset()`) `PlainUnitRangesSortedSet` variant is faster:
+But in searching operations (`in()`, `subset()`) `VecUnitRangesSortedSet` variant is faster:
 in Julia-v1.6 it is twice as fast, in Julia-1.8 the speedup is about 20-30%.
 In either case, both of them can be converted to each other using the appropriate constructor.
 
