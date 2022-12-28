@@ -1,9 +1,8 @@
-import UnitRangesSortedSets:
-    advance, beforefirstindex, inferrangetype, pastlastindex, regress, to_urange
 
 using BenchmarkTools
 using DataStructures
 using UnitRangesSortedSets
+using UnitRangesSortedSets: advance, beforefirstindex, inferrangetype, pastlastindex, regress, to_urange
 using Test
 
 using Aqua
@@ -16,17 +15,17 @@ Aqua.test_all(UnitRangesSortedSets)
 #
 # [rs[i] for i in searchsortedrange(rs, 10:40)]
 #
-# function PlainUnitRangesSortedSet(rs::AbstractUnitRangesSortedSet{K,TU}) where {K,TU}
+# function VecUnitRangesSortedSet(rs::AbstractUnitRangesSortedSet{K,TU}) where {K,TU}
 # function UnitRangesSortedSet(rs::AbstractUnitRangesSortedSet{K,TU}) where {K,TU}
-# @inline function URSSIndexURange(rs::P, l::Tix, r::Tix) where {P<:PlainUnitRangesSortedSet, Tix}
-# URSSIndexURange for PlainUnitRangesSortedSet?
+# @inline function URSSIndexURange(rs::P, l::Tix, r::Tix) where {P<:VecUnitRangesSortedSet, Tix}
+# URSSIndexURange for VecUnitRangesSortedSet?
 # @inline Base.firstindex(ur::URSSIndexURange) = ur.start
 # @inline Base.lastindex(ur::URSSIndexURange) = ur.stop
 # @inline DataStructures.advance(ur::URSSIndexURange), beforefirstindex
 # @inline function Base.iterate(ur::URSSIndexURange, state = (first(ur), 0))
 # @inline function Base.getindex(ur::URSSIndexURange, i) ???
-# @inline function indexcompare(rs::PlainUnitRangesSortedSet, i, j)
-# @inline function indexcompare(rs::AbstractSubUnitRangesSortedSet{K,TU,P}, i, j) where {K,TU,P<:PlainUnitRangesSortedSet}
+# @inline function indexcompare(rs::VecUnitRangesSortedSet, i, j)
+# @inline function indexcompare(rs::AbstractSubUnitRangesSortedSet{K,TU,P}, i, j) where {K,TU,P<:VecUnitRangesSortedSet}
 # @inline getindex_tuple(rs::Sub01XUnitRangesSortedSet, i)
 # @inline searchsortedrangelast(rs::Sub01XUnitRangesSortedSet, k)
 # @inline searchsortedrangefirst(rs::Sub01XUnitRangesSortedSet, k)
@@ -45,7 +44,7 @@ basetype(::Type{T}) where T = Base.typename(T).wrapper
 const list_of_Ti_to_test = (Int, UInt16, Float64, Char)
 #const list_of_Ti_to_test = (Int, UInt64, UInt16, Float64, Char)
 
-const list_of_containers_types_to_test = (PlainUnitRangesSortedSet, UnitRangesSortedSet)
+const list_of_containers_types_to_test = (VecUnitRangesSortedSet, UnitRangesSortedSet)
 
 
 function check_ranges_isequal(r, rs...)
@@ -812,9 +811,17 @@ end
                 TT = $TypeURSS
                 KK = $K
                 pad = UnitRangesSortedSets.get_max_pad(rs)
-                @test String(take!(io)) == "$TT{$KK}():\n" *
-                                           "  " * " "^(pad-length(repr($K(0)))) * repr($K(0)) * ":" * repr($K(0)) * "\n" *
-                                           "  " * " "^(pad-length(repr($K(2)))) * repr($K(2)) * ":" * repr($K(4))
+                if length(rs) == 0
+                    @test String(take!(io)) == "$TT{$KK}()\n"
+                elseif length(rs) == 1
+                    @test String(take!(io)) == "$TT{$KK} with 1 element:\n" *
+                                               "  " * " "^(pad-length(repr($K(0)))) * repr($K(0)) * ":" * repr($K(0)) * "\n" *
+                                               "  " * " "^(pad-length(repr($K(2)))) * repr($K(2)) * ":" * repr($K(4))
+                else
+                    @test String(take!(io)) == "$TT{$KK} with $(length(rs)) elements:\n" *
+                                               "  " * " "^(pad-length(repr($K(0)))) * repr($K(0)) * ":" * repr($K(0)) * "\n" *
+                                               "  " * " "^(pad-length(repr($K(2)))) * repr($K(2)) * ":" * repr($K(4))
+                end
 
             end
         end
