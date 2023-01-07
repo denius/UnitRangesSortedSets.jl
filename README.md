@@ -141,7 +141,7 @@ These two implementations have a similar API but different speeds.
 
 # Benchmarking
 
-All results of benchmarks in the file test/test-bench-results.md
+All results of benchmarks in the file [test-bench-results.md](test/test-bench-results.md).
 
 Main conclusions of benchmarking:
 * in any case of iterating over `range`s or consecutively element-wise in any `AbstractUnitRangesSortedSet` is
