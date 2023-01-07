@@ -238,7 +238,7 @@ julia> ss = subset(urs, 0:10)
   10:10
 ```
 
-The `subset` object is a static, iterable view of the container
+The `subset` object is an static, iterable view of the container
 
     struct UnitRangesSortedSubSet{K, TU, P, Tix} <: AbstractUnitRangesSortedSubSet{K, TU, P}
 
