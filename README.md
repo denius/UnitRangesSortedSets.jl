@@ -147,17 +147,19 @@ Main conclusions of benchmarking:
 * in any case of iterating over `range`s or consecutively element-wise in any `AbstractUnitRangesSortedSet` is
   much much faster then in any another variant.
 * element-wise iterating, and over ranges iterating, in `VecUnitRangesSortedSet` is faster by
-  the orders over `UnitRangesSortedSet`
+  the orders over `UnitRangesSortedSet`.
 * when created from elements in random order, `UnitRangesSortedSet` is vastly superior
-  to the `Vec` variant
-* creating in consecutively element-wise order, `VecUnitRangesSortedSet` is an order faster by the twin
+  to the `Vec` variant.
+* creating in consecutively element-wise order, `VecUnitRangesSortedSet` is an order faster by the twin.
 * in searching operations (`in()`, `subset()`) `VecUnitRangesSortedSet` variant is faster:
-  in Julia-v1.6 it is twice as fast, in Julia-1.8 the speedup is about 20-30%
-* if your range diapason is about some millions of elements then the `BitSet` the best choice
+  in Julia-v1.6 it is twice as fast, in Julia-1.8 the speedup is about 20-30%.
+* if your range diapason is about some millions of elements then the `BitSet` is the best choice
   for creating. And then `convert(UnitRangesSortedSet, someBitSetContainer)` is the solution to
-  have fast iteration over container
+  have the fast iteration over container.
 
 In either case, both of them can be converted to each other using the appropriate constructor.
 
-Note: for `Char`, `StepRange{Char,UInt8}` will be used, with a step of `oneunit(UInt8)` if needed.
+### Note
+
+For `Char`, `StepRange{Char,UInt8}` will be used, with a step of `oneunit(UInt8)` if needed.
 
