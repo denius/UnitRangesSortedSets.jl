@@ -51,13 +51,50 @@ abstract type AbstractUnitRangesSortedSubSet{K,TU,P} <: AbstractUnitRangesSorted
 
 
 """
-Sorted set of unit ranges. Sorted in ascending order and no range overlaps with another.
+Sorted set of `UnitRange`s. Sorted in ascending order and no one range overlaps with another.
 
-    mutable struct UnitRangesSortedSet{K, TU} <: AbstractSet{TU}
+```julia
+mutable struct UnitRangesSortedSet{K,TU} <: AbstractSet{TU}
+    "Index of last used range."
+    lastusedrangeindex::IntSemiToken
+    "Storage for ranges: the key of Dict is the `first(range)`, and the value of Dict is the `last(range)`."
+    ranges::SortedDict{K,K,FOrd}
+end
+```
+
+Ranges stored in `SortedDict` as `first`s in keys and `last`s in values.
 
 `UnitRangesSortedSet` can be created like the standard `Set`:
 
-    urs = UnitRangesSortedSet(somecontainer)
+```julia
+    UnitRangesSortedSet(somecontainer)
+```
+
+for example
+```julia
+julia> using UnitRangesSortedSets
+
+julia> UnitRangesSortedSet((1, 2, 4))
+UnitRangesSortedSet{Int64} with 2 elements:
+  1:2
+  4:4
+
+julia> UnitRangesSortedSet(('a':'z', 'α':'ω'))
+UnitRangesSortedSet{Char} with 2 elements:
+  'a':'z'
+  'α':'ω'
+
+julia> Random.seed!(1234);
+
+julia> UnitRangesSortedSet(rand(1:20, 10))
+UnitRangesSortedSet{Int64} with 6 elements:
+   5:5
+   7:8
+  10:11
+  15:16
+  18:18
+  20:20
+```
 
 or with `push!`:
 
@@ -66,20 +103,20 @@ julia> urs = UnitRangesSortedSet{Int}()
 UnitRangesSortedSet{Int64}()
 
 julia> push!(urs, 1)
-UnitRangesSortedSet{Int64}():
+UnitRangesSortedSet{Int64} with 1 element:
   1:1
 
 julia> push!(urs, 2)
-UnitRangesSortedSet{Int64}():
+UnitRangesSortedSet{Int64} with 1 element:
   1:2
 
 julia> push!(urs, 10:12)
-UnitRangesSortedSet{Int64}():
+UnitRangesSortedSet{Int64} with 2 elements:
    1:2
   10:12
 ```
 
-Iterating
+Iterating over set of ranges:
 
 ```julia
 julia> for r in urs @show(r) end
@@ -99,24 +136,26 @@ i = 2
 i = 10
 i = 11
 i = 12
+
+julia> collect(urs)
+2-element Vector{UnitRange{Int64}}:
+ 1:2
+ 10:12
 ```
 
 Deleting elements and ranges:
 ```julia
 julia> delete!(urs, 10:11)
-UnitRangesSortedSet{Int64}():
+UnitRangesSortedSet{Int64} with 2 elements:
    1:2
   12:12
 
 julia> delete!(urs, 1)
-UnitRangesSortedSet{Int64}():
+UnitRangesSortedSet{Int64} with 2 elements:
    2:2
   12:12
 ```
 
-
-Some internal details:
-The struct contains `ranges::SortedDict{K,K}`, where the key is `first(range)`, and the value is `last(range)`.
 Note: for `Char` the `StepRange{Char,UInt8}` with `oneunit(UInt8)` step will be created.
 """
 mutable struct UnitRangesSortedSet{K,TU} <: AbstractUnitRangesSortedContainer{K,TU}
@@ -141,9 +180,22 @@ end
 
 
 """
-Inserting zero length ranges, or negative length ranges does nothing.
+Sorted set of `UnitRange`s. Sorted in ascending order and no one range overlaps with another.
 
-    mutable struct VecUnitRangesSortedSet{K, TU} <: AbstractUnitRangesSortedContainer{K, TU}
+```julia
+mutable struct VecUnitRangesSortedSet{K,TU} <: AbstractSet{TU}
+    "Index of last used range."
+    lastusedrangeindex::Int
+    "Storage for ranges starts,"
+    rstarts::Vector{K}
+    "and stops."
+    rstops::Vector{K}
+end
+```
+
+Ranges stored in `Vector`s: in `rstarts` stored `first`s of ranges, and in `rstops` stored `last`s.
+
+For further details see `UnitRangesSortedSet`.
 """
 mutable struct VecUnitRangesSortedSet{K,TU} <: AbstractUnitRangesSortedContainer{K,TU}
     "Index of last used range."
@@ -173,6 +225,20 @@ end
 
 
 """
+It is possible to create the subset of any `AbstractUnitRangesSortedSet`, like a `view` for `Array`s:
+```julia
+julia> urs = UnitRangesSortedSet((1:2, 10:12))
+UnitRangesSortedSet{Int64} with 2 elements:
+   1:2
+  10:12
+
+julia> ss = subset(urs, 0:10)
+2-element subset(UnitRangesSortedSet{Int64}, DataStructures.Tokens.IntSemiToken(3):DataStructures.Tokens.IntSemiToken(4)):
+   1:2
+  10:10
+```
+
+The `subset` object is a static, iterable view of the container
 
     struct UnitRangesSortedSubSet{K, TU, P, Tix} <: AbstractUnitRangesSortedSubSet{K, TU, P}
 
@@ -200,9 +266,9 @@ end
 
 
 """
-
     struct UnitRangesSortedSubSet1{K, TU, P, Tix} <: AbstractUnitRangesSortedSubSet{K, TU, P}
 
+is like the `UnitRangesSortedSubSet` but with only one range or part of range in subset.
 """
 struct UnitRangesSortedSubSet1{K,TU,P,Tix} <: AbstractUnitRangesSortedSubSet{K,TU,P}
     "The `<:AbstractUnitRangesSortedSet` which subset point to."
@@ -225,9 +291,9 @@ end
 
 
 """
-
     struct UnitRangesSortedSubSet0{K, TU, P, Tix} <: AbstractUnitRangesSortedSubSet{K, TU, P}
 
+is like the `UnitRangesSortedSubSet` but with the zero-length subset range in subset.
 """
 struct UnitRangesSortedSubSet0{K,TU,P,Tix} <: AbstractUnitRangesSortedSubSet{K,TU,P}
     #"Empty range `kstart:kstop` for simplicity."

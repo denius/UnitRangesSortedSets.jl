@@ -14,7 +14,7 @@ Sorted set of `UnitRange`s. Sorted in ascending order and no one range overlaps 
     UnitRangesSortedSet(somecontainer)
 ```
 
-thus
+for example
 ```julia
 julia> using UnitRangesSortedSets
 
@@ -102,7 +102,7 @@ UnitRangesSortedSet{Int64} with 2 elements:
 
 # SubSet
 
-It is possible to create subsets of `UnitRangesSortedSet` (like a `view` for `Array`s):
+It is possible to create the subset of `UnitRangesSortedSet` (like a `view` for `Array`s):
 ```julia
 julia> urs = UnitRangesSortedSet((1:2, 10:12))
 UnitRangesSortedSet{Int64} with 2 elements:
