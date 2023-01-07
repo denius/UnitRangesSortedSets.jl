@@ -177,6 +177,26 @@ function testfun_iter_ranges(rs::Set, N)
     num
 end
 
+
+function output_results(results)
+    println("\nSizes:")
+    PrettyTables.pretty_table(results[:sz         ], tf=PrettyTables.tf_markdown)
+    println("\nIterate ranges consecutively, ms:")
+    PrettyTables.pretty_table(results[:iter_ranges], tf=PrettyTables.tf_markdown)
+    println("\nIterate elements consecutively, ms:")
+    PrettyTables.pretty_table(results[:iter_con   ], tf=PrettyTables.tf_markdown)
+    println("\nFill element-wise consecutively, ms:")
+    PrettyTables.pretty_table(results[:fill_con   ], tf=PrettyTables.tf_markdown)
+    println("\nAccess element-wise consecutively (time per element, ns):")
+    PrettyTables.pretty_table(results[:accss_con  ], tf=PrettyTables.tf_markdown)
+    println("\nFill element-wise in random order of elements, ms:")
+    PrettyTables.pretty_table(results[:fill_rnd   ], tf=PrettyTables.tf_markdown)
+    println("\nAccess element-wise randomly (time per element, ns):")
+    PrettyTables.pretty_table(results[:accss_rnd  ], tf=PrettyTables.tf_markdown)
+    nothing
+end
+
+
 function run_bench(name, N, indices, results, verbose = false)
 
     indices = sort(indices)
@@ -195,14 +215,21 @@ function run_bench(name, N, indices, results, verbose = false)
         push!(sizes, Base.summarysize( testfun_create_ext(T, indices) ) )
     end
     push!(results[:sz], sizes)
-    PrettyTables.pretty_table(results[:sz], tf=PrettyTables.tf_markdown)
+    verbose && PrettyTables.pretty_table(results[:sz], tf=PrettyTables.tf_markdown)
 
-    times_ir = Float64[name]
-    times_ic = Float64[name]
-    times_fc = Float64[name]
-    times_ac = Float64[name]
-    times_fr = Float64[name]
-    times_ar = Float64[name]
+    times_ir,
+    times_ic,
+    times_fc,
+    times_ac,
+    times_fr,
+    times_ar = ntuple(_->Any[name, length(indices), length(testfun_create_ext(UnitRangesSortedSet{Int}, indices))], 6)
+
+    #times_ir = Float64[name]
+    #times_ic = Float64[name]
+    #times_fc = Float64[name]
+    #times_ac = Float64[name]
+    #times_fr = Float64[name]
+    #times_ar = Float64[name]
     for T in (BitSet, Set{Int}, SortedSet{Int}, UnitRangesSortedSet{Int}, VecUnitRangesSortedSet{Int})
         @sync begin
             # Iterate ranges consecutively, ms
@@ -226,24 +253,16 @@ function run_bench(name, N, indices, results, verbose = false)
     push!(results[:fill_rnd], times_fr)
     push!(results[:accss_rnd], times_ar)
 
-    if verbose
-        PrettyTables.pretty_table(results[:sz         ], tf=PrettyTables.tf_markdown)
-        PrettyTables.pretty_table(results[:iter_ranges], tf=PrettyTables.tf_markdown)
-        PrettyTables.pretty_table(results[:iter_con   ], tf=PrettyTables.tf_markdown)
-        PrettyTables.pretty_table(results[:fill_con   ], tf=PrettyTables.tf_markdown)
-        PrettyTables.pretty_table(results[:accss_con  ], tf=PrettyTables.tf_markdown)
-        PrettyTables.pretty_table(results[:fill_rnd   ], tf=PrettyTables.tf_markdown)
-        PrettyTables.pretty_table(results[:accss_rnd  ], tf=PrettyTables.tf_markdown)
-    end
+    verbose && output_results(results)
 
 end
 
-function run_benches(N = 1_000_000)
+function run_benches(N = 1_000_000; verbose = false)
 
     # Size, bytes => Int,
-    sz = DataFrame("Density, %" => Float64[],
-                   "# elements" => Int[],
-                   "# ranges" => Int[],
+    sz = DataFrame("ρ, %" => Float64[],
+                   "elems" => Int[],
+                   "ranges" => Int[],
                    "BitSet" => Int[],
                    "Set" => Int[],
                    "SortedSet" => Int[],
@@ -251,53 +270,22 @@ function run_benches(N = 1_000_000)
                    "VURSSet" => Int[]
                   )
 
-    fill_con = DataFrame("Density, %" => Float64[],
-                   "BitSet" => Float64[],
-                   "Set" => Float64[],
-                   "SortedSet" => Float64[],
-                   "URSSet" => Float64[],
-                   "VURSSet" => Float64[]
-                  )
 
-    fill_rnd = DataFrame("Density, %" => Float64[],
-                   "BitSet" => Float64[],
-                   "Set" => Float64[],
-                   "SortedSet" => Float64[],
-                   "URSSet" => Float64[],
-                   "VURSSet" => Float64[]
-                  )
-
-    accss_con = DataFrame("Density, %" => Float64[],
-                   "BitSet" => Float64[],
-                   "Set" => Float64[],
-                   "SortedSet" => Float64[],
-                   "URSSet" => Float64[],
-                   "VURSSet" => Float64[]
-                  )
-
-    accss_rnd = DataFrame("Density, %" => Float64[],
-                   "BitSet" => Float64[],
-                   "Set" => Float64[],
-                   "SortedSet" => Float64[],
-                   "URSSet" => Float64[],
-                   "VURSSet" => Float64[]
-                  )
-
-    iter_ranges = DataFrame("Density, %" => Float64[],
-                   "BitSet" => Float64[],
-                   "Set" => Float64[],
-                   "SortedSet" => Float64[],
-                   "URSSet" => Float64[],
-                   "VURSSet" => Float64[]
-                  )
-
-    iter_con = DataFrame("Density, %" => Float64[],
-                   "BitSet" => Float64[],
-                   "Set" => Float64[],
-                   "SortedSet" => Float64[],
-                   "URSSet" => Float64[],
-                   "VURSSet" => Float64[]
-                  )
+    iter_ranges,
+    iter_con,
+    fill_con,
+    accss_con,
+    fill_rnd,
+    accss_rnd = ntuple(_->DataFrame("ρ, %" => Float64[],
+                                    "elems" => Int[],
+                                    "ranges" => Int[],
+                                    "BitSet" => Float64[],
+                                    "Set" => Float64[],
+                                    "SortedSet" => Float64[],
+                                    "URSSet" => Float64[],
+                                    "VURSSet" => Float64[]
+                                   )
+                       , 6)
 
     results = Dict((
                    :sz          => sz,
@@ -334,24 +322,11 @@ function run_benches(N = 1_000_000)
         indices[1] != 1 && prepend!(indices, 1)
         indices[end] != N && append!(indices, N)
 
-        run_bench(density, N, indices, results)
+        run_bench(density, N, indices, results, verbose)
 
     end
 
-    println("\nSizes:")
-    PrettyTables.pretty_table(results[:sz         ], tf=PrettyTables.tf_markdown)
-    println("\nIterate ranges consecutively, ms:")
-    PrettyTables.pretty_table(results[:iter_ranges], tf=PrettyTables.tf_markdown)
-    println("\nIterate elements consecutively, ms:")
-    PrettyTables.pretty_table(results[:iter_con   ], tf=PrettyTables.tf_markdown)
-    println("\nFill element-wise consecutively, ms:")
-    PrettyTables.pretty_table(results[:fill_con   ], tf=PrettyTables.tf_markdown)
-    println("\nAccess element-wise consecutively (time per element, ns):")
-    PrettyTables.pretty_table(results[:accss_con  ], tf=PrettyTables.tf_markdown)
-    println("\nFill element-wise in random order of elements, ms:")
-    PrettyTables.pretty_table(results[:fill_rnd   ], tf=PrettyTables.tf_markdown)
-    println("\nAccess element-wise randomly (time per element, ns):")
-    PrettyTables.pretty_table(results[:accss_rnd  ], tf=PrettyTables.tf_markdown)
+    output_results(results)
 
     for density in (0.001, 0.01, 0.1, 1.0, 10.0, 50.0, 90., 99.0, 99.9, 99.99, 99.999)
 
@@ -362,24 +337,11 @@ function run_benches(N = 1_000_000)
         indices[1] != 1 && prepend!(indices, 1)
         indices[end] != N && append!(indices, N)
 
-        run_bench(density, N, indices, results)
+        run_bench(density, N, indices, results, verbose)
 
     end
 
-    println("\nSizes:")
-    PrettyTables.pretty_table(results[:sz         ], tf=PrettyTables.tf_markdown)
-    println("\nIterate ranges consecutively, ms:")
-    PrettyTables.pretty_table(results[:iter_ranges], tf=PrettyTables.tf_markdown)
-    println("\nIterate elements consecutively, ms:")
-    PrettyTables.pretty_table(results[:iter_con   ], tf=PrettyTables.tf_markdown)
-    println("\nFill element-wise consecutively, ms:")
-    PrettyTables.pretty_table(results[:fill_con   ], tf=PrettyTables.tf_markdown)
-    println("\nAccess element-wise consecutively (time per element, ns):")
-    PrettyTables.pretty_table(results[:accss_con  ], tf=PrettyTables.tf_markdown)
-    println("\nFill element-wise in random order of elements, ms:")
-    PrettyTables.pretty_table(results[:fill_rnd   ], tf=PrettyTables.tf_markdown)
-    println("\nAccess element-wise randomly (time per element, ns):")
-    PrettyTables.pretty_table(results[:accss_rnd  ], tf=PrettyTables.tf_markdown)
+    output_results(results)
 
 end
 
