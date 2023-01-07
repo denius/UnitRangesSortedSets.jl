@@ -1,7 +1,5 @@
-Sizes:
-|    ρ, % |  elems | ranges | BitSet |      Set | SortedSet |   URSSet | VURSSet |
-|---------|--------|--------|--------|----------|-----------|----------|---------|
-| Float64 |  Int64 |  Int64 |  Int64 |    Int64 |     Int64 |    Int64 |   Int64 |
+Sizes, bytes:
+|    ρ<br>% |  elems<br>Int | ranges<br>Int | BitSet<br>Int |      Set<br>Int | SortedSet<br>Int |   URSSet<br>Int | VURSSet<br>Int |
 |---------|--------|--------|--------|----------|-----------|----------|---------|
 |   0.001 |   1001 |   1001 | 125064 |    37056 |     64360 |    72400 |   16120 |
 |    0.01 |   1001 |   1001 | 125064 |    37056 |     64360 |    72400 |   16120 |
@@ -27,9 +25,6 @@ Sizes:
 |  99.999 | 999985 |     16 | 125064 | 18874560 |  64124112 |     1648 |     360 |
 
 Iterate ranges consecutively, ms:
-#|    ρ, % |  elems | ranges |  BitSet |     Set | SortedSet |   URSSet |  VURSSet |
-#| Float64 |  Int64 |  Int64 | Float64 | Float64 |   Float64 |  Float64 |  Float64 |
-
 |    ρ, %<br>Float64|  elems<br>Int | ranges<br>Int |  BitSet<br>Float64 |     Set<br>Float64 | SortedSet<br>Float64 |   URSSet<br>Float64 |  VURSSet<br>Float64 |
 |---------|--------|--------|---------|---------|-----------|----------|----------|
 |   0.001 |   1001 |   1001 |  0.0147 |    36.2 |    0.0182 |   0.0179 |  3.63e-5 |
@@ -56,7 +51,6 @@ Iterate ranges consecutively, ms:
 |  99.999 | 999985 |     16 |    1.26 |    49.5 |      28.3 | 0.000327 |  2.65e-5 |
 
 Iterate elements consecutively, ms:
-|    ρ, % |  elems | ranges |  BitSet |     Set | SortedSet |   URSSet |  VURSSet |
 | Float64 |  Int64 |  Int64 | Float64 | Float64 |   Float64 |  Float64 |  Float64 |
 |---------|--------|--------|---------|---------|-----------|----------|----------|
 |   0.001 |   1001 |   1001 |  0.0142 |    14.5 |    0.0168 |     0.02 |  0.00177 |
@@ -83,7 +77,6 @@ Iterate elements consecutively, ms:
 |  99.999 | 999985 |     16 |   0.522 |    50.9 |      27.1 | 0.000315 |  5.22e-5 |
 
 Fill element-wise consecutively, ms:
-|    ρ, % |  elems | ranges |  BitSet |     Set | SortedSet |  URSSet | VURSSet |
 | Float64 |  Int64 |  Int64 | Float64 | Float64 |   Float64 | Float64 | Float64 |
 |---------|--------|--------|---------|---------|-----------|---------|---------|
 |   0.001 |   1001 |   1001 |  0.0753 |  0.0647 |     0.125 |   0.215 |  0.0549 |
@@ -110,7 +103,6 @@ Fill element-wise consecutively, ms:
 |  99.999 | 999985 |     16 |    2.48 |    87.0 |     425.0 |  1500.0 |    19.3 |
 
 Access element-wise consecutively (time per element, ns):
-|    ρ, % |  elems | ranges |   BitSet |      Set | SortedSet |   URSSet |  VURSSet |
 | Float64 |  Int64 |  Int64 |  Float64 |  Float64 |   Float64 |  Float64 |  Float64 |
 |---------|--------|--------|----------|----------|-----------|----------|----------|
 |   0.001 |   1001 |   1001 | 0.000863 |    0.011 |    0.0203 |   0.0293 |   0.0316 |
@@ -137,7 +129,6 @@ Access element-wise consecutively (time per element, ns):
 |  99.999 | 999985 |     16 |    0.578 |     48.0 |      64.1 |     3.98 |      1.8 |
 
 Fill element-wise in random order of elements, ms:
-|    ρ, % |  elems | ranges |  BitSet |     Set | SortedSet |  URSSet | VURSSet |
 | Float64 |  Int64 |  Int64 | Float64 | Float64 |   Float64 | Float64 | Float64 |
 |---------|--------|--------|---------|---------|-----------|---------|---------|
 |   0.001 |   1001 |   1001 |  0.0159 |  0.0352 |     0.121 |   0.307 |   0.198 |
@@ -164,7 +155,6 @@ Fill element-wise in random order of elements, ms:
 |  99.999 | 999985 |     16 |     2.8 |   287.0 |     715.0 |   480.0 | 12800.0 |
 
 Access element-wise randomly (time per element, ns):
-|    ρ, % |  elems | ranges |   BitSet |      Set | SortedSet |   URSSet |  VURSSet |
 | Float64 |  Int64 |  Int64 |  Float64 |  Float64 |   Float64 |  Float64 |  Float64 |
 |---------|--------|--------|----------|----------|-----------|----------|----------|
 |   0.001 |   1001 |   1001 | 0.000826 |    0.011 |    0.0278 |   0.0455 |   0.0483 |
@@ -191,7 +181,6 @@ Access element-wise randomly (time per element, ns):
 |  99.999 | 999985 |     16 |    0.881 |     50.8 |     549.0 |     20.0 |     18.4 |
 
 Sizes:
-|    ρ, % |  elems | ranges | BitSet |      Set | SortedSet |   URSSet | VURSSet |
 | Float64 |  Int64 |  Int64 |  Int64 |    Int64 |     Int64 |    Int64 |   Int64 |
 |---------|--------|--------|--------|----------|-----------|----------|---------|
 |   0.001 |   1001 |   1001 | 125064 |    37056 |     64360 |    72400 |   16120 |
@@ -218,7 +207,6 @@ Sizes:
 |  99.999 | 999985 |     16 | 125064 | 18874560 |  64124112 |     1648 |     360 |
 
 Iterate ranges consecutively, ms:
-|    ρ, % |  elems | ranges |  BitSet |     Set | SortedSet |   URSSet |  VURSSet |
 | Float64 |  Int64 |  Int64 | Float64 | Float64 |   Float64 |  Float64 |  Float64 |
 |---------|--------|--------|---------|---------|-----------|----------|----------|
 |   0.001 |   1001 |   1001 |  0.0147 |    36.2 |    0.0182 |   0.0179 |  3.63e-5 |
@@ -245,7 +233,6 @@ Iterate ranges consecutively, ms:
 |  99.999 | 999985 |     16 |    1.26 |    49.5 |      28.3 | 0.000327 |  2.65e-5 |
 
 Iterate elements consecutively, ms:
-|    ρ, % |  elems | ranges |  BitSet |     Set | SortedSet |   URSSet |  VURSSet |
 | Float64 |  Int64 |  Int64 | Float64 | Float64 |   Float64 |  Float64 |  Float64 |
 |---------|--------|--------|---------|---------|-----------|----------|----------|
 |   0.001 |   1001 |   1001 |  0.0142 |    14.5 |    0.0168 |     0.02 |  0.00177 |
@@ -272,7 +259,6 @@ Iterate elements consecutively, ms:
 |  99.999 | 999985 |     16 |   0.522 |    50.9 |      27.1 | 0.000315 |  5.22e-5 |
 
 Fill element-wise consecutively, ms:
-|    ρ, % |  elems | ranges |  BitSet |     Set | SortedSet |  URSSet | VURSSet |
 | Float64 |  Int64 |  Int64 | Float64 | Float64 |   Float64 | Float64 | Float64 |
 |---------|--------|--------|---------|---------|-----------|---------|---------|
 |   0.001 |   1001 |   1001 |  0.0753 |  0.0647 |     0.125 |   0.215 |  0.0549 |
@@ -299,7 +285,6 @@ Fill element-wise consecutively, ms:
 |  99.999 | 999985 |     16 |    2.48 |    87.0 |     425.0 |  1500.0 |    19.3 |
 
 Access element-wise consecutively (time per element, ns):
-|    ρ, % |  elems | ranges |   BitSet |      Set | SortedSet |   URSSet |  VURSSet |
 | Float64 |  Int64 |  Int64 |  Float64 |  Float64 |   Float64 |  Float64 |  Float64 |
 |---------|--------|--------|----------|----------|-----------|----------|----------|
 |   0.001 |   1001 |   1001 | 0.000863 |    0.011 |    0.0203 |   0.0293 |   0.0316 |
@@ -326,7 +311,6 @@ Access element-wise consecutively (time per element, ns):
 |  99.999 | 999985 |     16 |    0.578 |     48.0 |      64.1 |     3.98 |      1.8 |
 
 Fill element-wise in random order of elements, ms:
-|    ρ, % |  elems | ranges |  BitSet |     Set | SortedSet |  URSSet | VURSSet |
 | Float64 |  Int64 |  Int64 | Float64 | Float64 |   Float64 | Float64 | Float64 |
 |---------|--------|--------|---------|---------|-----------|---------|---------|
 |   0.001 |   1001 |   1001 |  0.0159 |  0.0352 |     0.121 |   0.307 |   0.198 |
@@ -353,7 +337,6 @@ Fill element-wise in random order of elements, ms:
 |  99.999 | 999985 |     16 |     2.8 |   287.0 |     715.0 |   480.0 | 12800.0 |
 
 Access element-wise randomly (time per element, ns):
-|    ρ, % |  elems | ranges |   BitSet |      Set | SortedSet |   URSSet |  VURSSet |
 | Float64 |  Int64 |  Int64 |  Float64 |  Float64 |   Float64 |  Float64 |  Float64 |
 |---------|--------|--------|----------|----------|-----------|----------|----------|
 |   0.001 |   1001 |   1001 | 0.000826 |    0.011 |    0.0278 |   0.0455 |   0.0483 |
