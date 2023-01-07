@@ -176,25 +176,58 @@ function testfun_iter_ranges(rs::Set, N)
     end
     num
 end
-#function testfun_iter_ranges(rs::Union{BitSet,Set}, N)
-#    num = 1
-#    prev = 0
-#    for i = 1:N
-#        if i in rs
-#            prev = i
-#            break
-#        end
-#    end
-#    for i = (prev+1):N
-#        if i in rs && i != prev + 1
-#            num += 1
-#        end
-#        prev = i
-#    end
-#    num
-#end
 
-function run_bench(N = 1_000_000)
+function run_bench(name, N, indices, results)
+
+    indices = sort(indices)
+
+    Random.seed!(1234)
+    rnd_indices = shuffle(indices)
+
+    sizes = []
+    push!(sizes, name)
+    push!(sizes, length(indices))
+    push!(sizes, length(testfun_create_outer(UnitRangesSortedSet{Int}, indices)))
+
+    println("\nSizes:")
+
+    for T in (BitSet, Set{Int}, SortedSet{Int}, UnitRangesSortedSet{Int}, VecUnitRangesSortedSet{Int})
+        push!(sizes, Base.summarysize( testfun_create_outer(T, indices) ) )
+    end
+    push!(results[:sz], sizes)
+    PrettyTables.pretty_table(results[:sz], tf=PrettyTables.tf_markdown)
+
+    times_ir = Float64[name]
+    times_ic = Float64[name]
+    times_fc = Float64[name]
+    times_ac = Float64[name]
+    times_fr = Float64[name]
+    times_ar = Float64[name]
+    for T in (BitSet, Set{Int}, SortedSet{Int}, UnitRangesSortedSet{Int}, VecUnitRangesSortedSet{Int})
+        # Iterate ranges consecutively, ms
+        push!(times_ir, mean( @benchmark testfun_iter_ranges(r, $N) setup = (r = testfun_create_outer($T, $indices) ) ; ).time / 1e6)
+        # Iterate elements consecutively, ms
+        push!(times_ic, mean( @benchmark testfun_iter_cons(r, $N) setup = (r = testfun_create_outer($T, $indices) ) ; ).time / 1e6)
+        # Fill element-wise consecutively, ms
+        push!(times_fc, mean( @benchmark testfun_create_outer($T, $indices)                        ; ).time / 1e6)
+        # Access element-wise consecutively (time per element, ns
+        push!(times_ac, mean( @benchmark testfun_in_outer(r, $indices) setup = (r = testfun_create_outer($T, $indices) ) ; ).time / N)
+        # Fill element-wise in random order of elements, ms
+        push!(times_fr, mean( @benchmark testfun_create_outer($T, $rnd_indices)                        ; ).time / 1e6)
+        # Access element-wise randomly (time per element, ns)
+        push!(times_ar, mean( @benchmark testfun_in_outer(r, $rnd_indices) setup = (r = testfun_create_outer($T, $indices) ) ; ).time / N)
+    end
+    push!(results[:iter_ranges], times_ir)
+    push!(results[:iter_con], times_ic)
+    push!(results[:fill_con], times_fc)
+    push!(results[:accss_con], times_ac)
+    push!(results[:fill_rnd], times_fr)
+    push!(results[:accss_rnd], times_ar)
+    #PrettyTables.pretty_table(iter_ranges, tf=PrettyTables.tf_markdown)
+    #
+end
+
+function run_benches(N = 1_000_000)
 
     # Size, bytes => Int,
     sz = DataFrame("Density, %" => Float64[],
@@ -255,6 +288,16 @@ function run_bench(N = 1_000_000)
                    "VURSSet" => Float64[]
                   )
 
+    results = Dict((
+                   :sz          => sz,
+                   :iter_ranges => iter_ranges,
+                   :iter_con    => iter_con,
+                   :fill_con    => fill_con,
+                   :accss_con   => accss_con,
+                   :fill_rnd    => fill_rnd,
+                   :accss_rnd   => accss_rnd
+                  ))
+
 
 
     for density in (0.001, 0.01, 0.1, 1.0, 10.0, 50.0, 90., 99.0, 99.9, 99.99, 99.999)
@@ -266,77 +309,17 @@ function run_bench(N = 1_000_000)
         indices[1] != 1 && prepend!(indices, 1)
         indices[end] != N && append!(indices, N)
 
-        result = []
-        push!(result, density)
-        push!(result, length(indices))
-        push!(result, length(testfun_create_outer(UnitRangesSortedSet{Int}, indices)))
-
-        println("\nSizes:")
-
-        for T in (BitSet, Set{Int}, SortedSet{Int}, UnitRangesSortedSet{Int}, VecUnitRangesSortedSet{Int})
-            push!(result, Base.summarysize( testfun_create_outer(T, indices) ) )
-        end
-        push!(sz, result)
-        PrettyTables.pretty_table(sz, tf=PrettyTables.tf_markdown)
-
-        println("\nIterate ranges consecutively, ms:")
-        times = Float64[density]
-        for T in (BitSet, Set{Int}, SortedSet{Int}, UnitRangesSortedSet{Int}, VecUnitRangesSortedSet{Int})
-            push!(times, mean( @benchmark testfun_iter_ranges(r, $N) setup = (r = testfun_create_outer($T, $indices) ) ; ).time / 1e6)
-        end
-        push!(iter_ranges, times)
-        PrettyTables.pretty_table(iter_ranges, tf=PrettyTables.tf_markdown)
-
-        println("\nIterate elements consecutively, ms:")
-        times = Float64[density]
-        for T in (BitSet, Set{Int}, SortedSet{Int}, UnitRangesSortedSet{Int}, VecUnitRangesSortedSet{Int})
-            push!(times, mean( @benchmark testfun_iter_cons(r, $N) setup = (r = testfun_create_outer($T, $indices) ) ; ).time / 1e6)
-        end
-        push!(iter_con, times)
-        PrettyTables.pretty_table(iter_con, tf=PrettyTables.tf_markdown)
-
-        println("\nFill element-wise consecutively, ms:")
-        times = Float64[density]
-        for T in (BitSet, Set{Int}, SortedSet{Int}, UnitRangesSortedSet{Int}, VecUnitRangesSortedSet{Int})
-            push!(times, mean( @benchmark testfun_create_outer($T, $indices)                        ; ).time / 1e6)
-        end
-        push!(fill_con, times)
-        PrettyTables.pretty_table(fill_con, tf=PrettyTables.tf_markdown)
-
-        println("\nAccess element-wise consecutively (time per element, ns):")
-        times = Float64[density]
-        for T in (BitSet, Set{Int}, SortedSet{Int}, UnitRangesSortedSet{Int}, VecUnitRangesSortedSet{Int})
-            push!(times, mean( @benchmark  testfun_in_outer(r, $indices) setup = (r = testfun_create_outer($T, $indices) ) ; ).time / N)
-        end
-        push!(accss_con, times)
-        PrettyTables.pretty_table(accss_con, tf=PrettyTables.tf_markdown)
-
-
-
-
-        Random.seed!(1234)
-        indices = shuffle(indices)
-
-
-        println("\nFill element-wise in random order of elements, ms:")
-        times = Float64[density]
-        for T in (BitSet, Set{Int}, SortedSet{Int}, UnitRangesSortedSet{Int}, VecUnitRangesSortedSet{Int})
-            push!(times, mean( @benchmark testfun_create_outer($T, $indices) ; ).time / 1e6)
-        end
-        push!(fill_rnd, times)
-        PrettyTables.pretty_table(fill_rnd, tf=PrettyTables.tf_markdown)
-
-        println("\nAccess element-wise randomly (time per element, ns):")
-        Random.seed!(1234)
-        shindices = shuffle(indices)
-        times = Float64[density]
-        for T in (BitSet, Set{Int}, SortedSet{Int}, UnitRangesSortedSet{Int}, VecUnitRangesSortedSet{Int})
-            push!(times, mean( @benchmark  testfun_in_outer(r, $indices) setup = (r = testfun_create_outer($T, $indices) ) ; ).time / N)
-        end
-        push!(accss_rnd, times)
-        PrettyTables.pretty_table(accss_rnd, tf=PrettyTables.tf_markdown)
+        run_bench(density, N, indices, results)
 
     end
+
+    PrettyTables.pretty_table(results[:sz         ], tf=PrettyTables.tf_markdown)
+    PrettyTables.pretty_table(results[:iter_ranges], tf=PrettyTables.tf_markdown)
+    PrettyTables.pretty_table(results[:iter_con   ], tf=PrettyTables.tf_markdown)
+    PrettyTables.pretty_table(results[:fill_con   ], tf=PrettyTables.tf_markdown)
+    PrettyTables.pretty_table(results[:accss_con  ], tf=PrettyTables.tf_markdown)
+    PrettyTables.pretty_table(results[:fill_rnd   ], tf=PrettyTables.tf_markdown)
+    PrettyTables.pretty_table(results[:accss_rnd  ], tf=PrettyTables.tf_markdown)
 
 end
 
