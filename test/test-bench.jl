@@ -224,12 +224,6 @@ function run_bench(name, N, indices, results, verbose = false)
     times_fr,
     times_ar = ntuple(_->Any[name, length(indices), length(testfun_create_ext(UnitRangesSortedSet{Int}, indices))], 6)
 
-    #times_ir = Float64[name]
-    #times_ic = Float64[name]
-    #times_fc = Float64[name]
-    #times_ac = Float64[name]
-    #times_fr = Float64[name]
-    #times_ar = Float64[name]
     for T in (BitSet, Set{Int}, SortedSet{Int}, UnitRangesSortedSet{Int}, VecUnitRangesSortedSet{Int})
         @sync begin
             # Iterate ranges consecutively, ms
