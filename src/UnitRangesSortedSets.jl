@@ -1046,7 +1046,7 @@ function _push!(rs::VecUnitRangesSortedSet{K,TU}, kk::TU) where {K,TU}
         insert!(rs.rstops, 1, last(kk))
 
     else
-        throw(AssertionError("FIXME: Something went wrong."))
+        throw(AssertionError("FIXME: Should be unreachable."))
     end
 
     return rs
@@ -1147,7 +1147,7 @@ function _push!(rs::UnitRangesSortedSet{K,TU}, kk::TU) where {K,TU}
         rs.ranges[first(kk)] = last(kk)
 
     else
-        throw(AssertionError("FIXME: Something went wrong."))
+        throw(AssertionError("FIXME: Should be unreachable."))
     end
 
     return rs
@@ -1362,7 +1362,7 @@ function _delete!(rs::VecUnitRangesSortedSet{K,TU}, kk::TU) where {K,TU}
             rs.rstops[first(iir_kk)] = first(kk) - 1
 
         else
-            throw(AssertionError("FIXME: Something went wrong."))
+            throw(AssertionError("FIXME: Should be unreachable."))
         end
 
     # All remaining cases are with two ranges from `rs`,
@@ -1376,7 +1376,7 @@ function _delete!(rs::VecUnitRangesSortedSet{K,TU}, kk::TU) where {K,TU}
         rs.rstops[first(iir_kk)] = first(kk) - 1
 
     else
-        throw(AssertionError("FIXME: Something went wrong."))
+        throw(AssertionError("FIXME: Should be unreachable."))
     end
 
     return rs
@@ -1434,7 +1434,7 @@ function _delete!(rs::UnitRangesSortedSet{K,TU}, kk::TU) where {K,TU}
             rs.ranges[first(iir_kk)] = first(kk) - 1
 
         else
-            throw(AssertionError("FIXME: Something went wrong."))
+            throw(AssertionError("FIXME: Should be unreachable."))
         end
 
     # All remaining cases are with two ranges from `rs`,
@@ -1450,7 +1450,7 @@ function _delete!(rs::UnitRangesSortedSet{K,TU}, kk::TU) where {K,TU}
         rs.ranges[first(iir_kk)] = first(kk) - 1
 
     else
-        throw(AssertionError("FIXME: Something went wrong."))
+        throw(AssertionError("FIXME: Should be unreachable."))
     end
 
     return rs
@@ -1764,7 +1764,7 @@ function __intersect1!(rs1::AbstractUnitRangesSortedContainer, rs2)
 
     length(rv2) == 1 && return rs1
 
-    hasmethod(Iterators.reverse, Tuple{typeof(rv2)}) || throw(AssertionError("FIXME: Something went wrong."))
+    hasmethod(Iterators.reverse, Tuple{typeof(rv2)}) || throw(AssertionError("FIXME: TODO."))
 
     rnext, rv2head = Iterators.peel(Iterators.reverse(rv2))
     for r in rv2head
