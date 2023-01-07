@@ -162,4 +162,3 @@ In either case, both of them can be converted to each other using the appropriat
 ### Note
 
 For `Char`, `StepRange{Char,UInt8}` will be used, with a step of `oneunit(UInt8)` if needed.
-
