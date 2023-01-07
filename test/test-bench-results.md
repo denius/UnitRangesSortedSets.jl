@@ -27,8 +27,10 @@ Sizes:
 |  99.999 | 999985 |     16 | 125064 | 18874560 |  64124112 |     1648 |     360 |
 
 Iterate ranges consecutively, ms:
-|    ρ, % |  elems | ranges |  BitSet |     Set | SortedSet |   URSSet |  VURSSet |
-| Float64 |  Int64 |  Int64 | Float64 | Float64 |   Float64 |  Float64 |  Float64 |
+#|    ρ, % |  elems | ranges |  BitSet |     Set | SortedSet |   URSSet |  VURSSet |
+#| Float64 |  Int64 |  Int64 | Float64 | Float64 |   Float64 |  Float64 |  Float64 |
+
+|    ρ, %<br>Float64|  elems<br>Int | ranges<br>Int |  BitSet<br>Float64 |     Set<br>Float64 | SortedSet<br>Float64 |   URSSet<br>Float64 |  VURSSet<br>Float64 |
 |---------|--------|--------|---------|---------|-----------|----------|----------|
 |   0.001 |   1001 |   1001 |  0.0147 |    36.2 |    0.0182 |   0.0179 |  3.63e-5 |
 |    0.01 |   1001 |   1001 |  0.0147 |    33.8 |    0.0183 |   0.0189 |  3.94e-5 |
