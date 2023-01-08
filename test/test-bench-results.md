@@ -1,5 +1,5 @@
 Sizes, bytes:
-|    ρ<br>% |  elements<br>Int | ranges<br>Int | BitSet<br>Int |      Set<br>Int | SortedSet<br>Int |   URSSet<br>Int | VURSSet<br>Int |
+|    ρ, % |  elements | ranges | BitSet |      Set | SortedSet |   URSSet | VURSSet |
 |---------|--------|--------|--------|----------|-----------|----------|---------|
 |   0.001 |   1001 |   1001 | 125064 |    37056 |     64360 |    72400 |   16120 |
 |    0.01 |   1001 |   1001 | 125064 |    37056 |     64360 |    72400 |   16120 |
@@ -26,7 +26,7 @@ Sizes, bytes:
 
 
 Iterate ranges consecutively, ms:
-|    ρ, %<br>Float64|  elements<br>Int | ranges<br>Int |  BitSet<br>Float64 |     Set<br>Float64 | SortedSet<br>Float64 |   URSSet<br>Float64 |  VURSSet<br>Float64 |
+|    ρ, % |  elements | ranges |  BitSet |     Set | SortedSet |   URSSet |  VURSSet |
 |---------|--------|--------|---------|---------|-----------|----------|----------|
 |   0.001 |   1001 |   1001 |  0.0147 |    36.2 |    0.0182 |   0.0179 |  3.63e-5 |
 |    0.01 |   1001 |   1001 |  0.0147 |    33.8 |    0.0183 |   0.0189 |  3.94e-5 |
@@ -53,7 +53,7 @@ Iterate ranges consecutively, ms:
 
 
 Iterate elements consecutively, ms:
-|    ρ, %<br>Float64|  elements<br>Int | ranges<br>Int |  BitSet<br>Float64 |     Set<br>Float64 | SortedSet<br>Float64 |   URSSet<br>Float64 |  VURSSet<br>Float64 |
+|    ρ, % |  elements | ranges |  BitSet |     Set | SortedSet |   URSSet |  VURSSet |
 |---------|--------|--------|---------|---------|-----------|----------|----------|
 |   0.001 |   1001 |   1001 |  0.0142 |    14.5 |    0.0168 |     0.02 |  0.00177 |
 |    0.01 |   1001 |   1001 |   0.014 |    14.0 |    0.0166 |     0.02 |  0.00171 |
@@ -80,7 +80,7 @@ Iterate elements consecutively, ms:
 
 
 Fill element-wise consecutively, ms:
-|    ρ, %<br>Float64|  elements<br>Int | ranges<br>Int |  BitSet<br>Float64 |     Set<br>Float64 | SortedSet<br>Float64 |   URSSet<br>Float64 |  VURSSet<br>Float64 |
+|    ρ, % |  elements | ranges |  BitSet |     Set | SortedSet |   URSSet |  VURSSet |
 |---------|--------|--------|---------|---------|-----------|---------|---------|
 |   0.001 |   1001 |   1001 |  0.0753 |  0.0647 |     0.125 |   0.215 |  0.0549 |
 |    0.01 |   1001 |   1001 |  0.0471 |   0.475 |     0.163 |   0.214 |  0.0527 |
@@ -107,7 +107,7 @@ Fill element-wise consecutively, ms:
 
 
 Access element-wise consecutively (time per element, ns):
-|    ρ, %<br>Float64|  elements<br>Int | ranges<br>Int |  BitSet<br>Float64 |     Set<br>Float64 | SortedSet<br>Float64 |   URSSet<br>Float64 |  VURSSet<br>Float64 |
+|    ρ, % |  elements | ranges |  BitSet |     Set | SortedSet |   URSSet |  VURSSet |
 |---------|--------|--------|----------|----------|-----------|----------|----------|
 |   0.001 |   1001 |   1001 | 0.000863 |    0.011 |    0.0203 |   0.0293 |   0.0316 |
 |    0.01 |   1001 |   1001 | 0.000862 |    0.011 |    0.0206 |   0.0299 |   0.0316 |
@@ -133,7 +133,7 @@ Access element-wise consecutively (time per element, ns):
 |  99.999 | 999985 |     16 |    0.578 |     48.0 |      64.1 |     3.98 |      1.8 |
 
 Fill element-wise in random order of elements, ms:
-|    ρ, %<br>Float64|  elements<br>Int | ranges<br>Int |  BitSet<br>Float64 |     Set<br>Float64 | SortedSet<br>Float64 |   URSSet<br>Float64 |  VURSSet<br>Float64 |
+|    ρ, % |  elements | ranges |  BitSet |     Set | SortedSet |   URSSet |  VURSSet |
 |---------|--------|--------|---------|---------|-----------|---------|---------|
 |   0.001 |   1001 |   1001 |  0.0159 |  0.0352 |     0.121 |   0.307 |   0.198 |
 |    0.01 |   1001 |   1001 |  0.0136 |    0.12 |     0.288 |   0.505 |   0.156 |
@@ -160,7 +160,7 @@ Fill element-wise in random order of elements, ms:
 
 
 Access element-wise randomly (time per element, ns):
-|    ρ, %<br>Float64|  elements<br>Int | ranges<br>Int |  BitSet<br>Float64 |     Set<br>Float64 | SortedSet<br>Float64 |   URSSet<br>Float64 |  VURSSet<br>Float64 |
+|    ρ, % |  elements | ranges |  BitSet |     Set | SortedSet |   URSSet |  VURSSet |
 |---------|--------|--------|----------|----------|-----------|----------|----------|
 |   0.001 |   1001 |   1001 | 0.000826 |    0.011 |    0.0278 |   0.0455 |   0.0483 |
 |    0.01 |   1001 |   1001 | 0.000821 |    0.011 |     0.027 |   0.0442 |   0.0475 |
