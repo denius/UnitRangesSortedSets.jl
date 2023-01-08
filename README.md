@@ -139,6 +139,8 @@ the ranges respectively.
 
 These two implementations have a similar API but different speeds.
 
+In either case, both of them can be converted to each other using the appropriate constructor.
+
 # Benchmarking
 
 All results of benchmarks in the file [test-bench-results.md](test/test-bench-results.md).
@@ -156,8 +158,6 @@ Main conclusions of benchmarking:
 * if your range diapason is about some millions of elements then the `BitSet` is the best choice
   for creating. And then `convert(UnitRangesSortedSet, someBitSetContainer)` is the solution to
   have the fast iteration over container.
-
-In either case, both of them can be converted to each other using the appropriate constructor.
 
 ### Note
 
