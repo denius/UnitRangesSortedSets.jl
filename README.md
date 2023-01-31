@@ -152,7 +152,8 @@ Main conclusions of benchmarking:
   the orders over `UnitRangesSortedSet`.
 * when created from elements in random order, `UnitRangesSortedSet` is vastly superior
   to the `Vec` variant.
-* creating in consecutively element-wise order, `VecUnitRangesSortedSet` is an order faster by the twin.
+* creating in consecutively element-wise order, `VecUnitRangesSortedSet` is an order of magnitude faster
+  than creating a set of the second type.
 * in searching operations (`in()`, `subset()`) `VecUnitRangesSortedSet` variant is faster:
   in Julia-v1.6 it is twice as fast, in Julia-1.8 the speedup is about 20-30%.
 * if your range diapason is about some millions of elements then the `BitSet` is the best choice
