@@ -43,6 +43,17 @@ safe_sub(x::T, y) where {T<:AbstractChar} = (z = Int64(x) - Int64(y);   z >= 0 ?
     return T <: StepRange ? StepRange{K,UInt8} : T
 end
 
+"""
+Mutable struct to store last used index.
+"""
+mutable struct CachedIndex{T}
+    val::T
+end
+
+Base.convert(::Type{CachedIndex{T}}, x) where T = CachedIndex{T}(T(x))
+Base.convert(::Type{CachedIndex{T}}, x::T) where T = CachedIndex{T}(x)
+Base.convert(::Type{CachedIndex{T}}, x::CachedIndex{T}) where T = CachedIndex{T}(x.val) # to resolve ambiguity
+
 
 abstract type AbstractUnitRangesSortedSet{K,TU} <: AbstractSet{TU} end
 
@@ -54,9 +65,9 @@ abstract type AbstractUnitRangesSortedSubSet{K,TU,P} <: AbstractUnitRangesSorted
 Sorted set of `UnitRange`s. Sorted in ascending order and no one range overlaps with another.
 
 ```julia
-mutable struct UnitRangesSortedSet{K,TU} <: AbstractSet{TU}
+struct UnitRangesSortedSet{K,TU} <: AbstractSet{TU}
     "Index of last used range."
-    lastusedrangeindex::IntSemiToken
+    lastusedrangeindex::CachedIndex{IntSemiToken}
     "Storage for ranges: the key of Dict is the `first(range)`, and the value of Dict is the `last(range)`."
     ranges::SortedDict{K,K,FOrd}
 end
@@ -158,9 +169,9 @@ UnitRangesSortedSet{Int64} with 2 elements:
 
 Note: for `Char` the `StepRange{Char,UInt8}` with `oneunit(UInt8)` step will be created.
 """
-mutable struct UnitRangesSortedSet{K,TU} <: AbstractUnitRangesSortedContainer{K,TU}
+struct UnitRangesSortedSet{K,TU} <: AbstractUnitRangesSortedContainer{K,TU}
     "Index of last used range."
-    lastusedrangeindex::IntSemiToken
+    lastusedrangeindex::CachedIndex{IntSemiToken}
     "Storage for ranges: the key of Dict is the `first(range)`, and the value of Dict is the `last(range)`."
     ranges::SortedDict{K,K,FOrd}
 end
@@ -183,9 +194,9 @@ end
 Sorted set of `UnitRange`s. Sorted in ascending order and no one range overlaps with another.
 
 ```julia
-mutable struct VecUnitRangesSortedSet{K,TU} <: AbstractSet{TU}
+struct VecUnitRangesSortedSet{K,TU} <: AbstractSet{TU}
     "Index of last used range."
-    lastusedrangeindex::Int
+    lastusedrangeindex::CachedIndex{Int}
     "Storage for ranges starts,"
     rstarts::Vector{K}
     "and stops."
@@ -197,9 +208,9 @@ Ranges stored in `Vector`s: in `rstarts` stored `first`s of ranges, and in `rsto
 
 For further details see `UnitRangesSortedSet`.
 """
-mutable struct VecUnitRangesSortedSet{K,TU} <: AbstractUnitRangesSortedContainer{K,TU}
+struct VecUnitRangesSortedSet{K,TU} <: AbstractUnitRangesSortedContainer{K,TU}
     "Index of last used range."
-    lastusedrangeindex::Int
+    lastusedrangeindex::CachedIndex{Int}
     "Storage for ranges starts,"
     rstarts::Vector{K}
     "and stops."
@@ -905,14 +916,14 @@ Base.eachindex(rrs::Base.Iterators.Reverse{T}) where {T<:AbstractUnitRangesSorte
 
 @inline function _in(kk::TU, rs::AbstractUnitRangesSortedSet{K,TU}) where {K,TU}
     # fast check for cached range index
-    if (ir = rs.lastusedrangeindex) != beforefirstindex(rs)
+    if (ir = rs.lastusedrangeindex.val) != beforefirstindex(rs)
         if issubset(kk, getindex(rs, ir))
             return true
         end
     end
     # cached range' index miss (or index is not stored), thus try to search
     iir_kk = searchsortedrange(rs, kk)
-    rs.lastusedrangeindex = last(iir_kk)
+    rs.lastusedrangeindex.val = last(iir_kk)
     if length(iir_kk) != 1
         return false
     elseif issubset(kk, getindex(rs, first(iir_kk)))
@@ -925,7 +936,7 @@ end
 @inline function Base.in(key, rs::AbstractUnitRangesSortedSet{K}) where K
     k = K(key)
     # fast check for cached range index
-    if (ir = rs.lastusedrangeindex) != beforefirstindex(rs)
+    if (ir = rs.lastusedrangeindex.val) != beforefirstindex(rs)
         r_start, r_stop = getindex_tuple(rs, ir)
         if r_start <= k <= r_stop
             return true
@@ -936,11 +947,11 @@ end
     if ir_k != beforefirstindex(rs)  # `k` is not before the start of first range
         r_start, r_stop = getindex_tuple(rs, ir_k)
         if k <= r_stop  # is `k` inside of range
-            rs.lastusedrangeindex = ir_k
+            rs.lastusedrangeindex.val = ir_k
             return true
         end
     end
-    rs.lastusedrangeindex = beforefirstindex(rs)
+    rs.lastusedrangeindex.val = beforefirstindex(rs)
     return false
 end
 
@@ -957,7 +968,7 @@ end
     (su.kstart <= first(kk) <= last(kk) <= su.kstop) || return false
 
     # fast check for cached range index
-    if (ir = su.parent.lastusedrangeindex) != beforefirstindex(su.parent) &&
+    if (ir = su.parent.lastusedrangeindex.val) != beforefirstindex(su.parent) &&
         su.firstindex <= first(ir) <= last(ir) <= su.lastindex
         if issubset(kk, getindex(su, ir))
             return true
@@ -965,7 +976,7 @@ end
     end
     # cached range' index miss (or index is not stored), thus try search
     iir_kk = searchsortedrange(su, kk)
-    su.parent.lastusedrangeindex = last(iir_kk)
+    su.parent.lastusedrangeindex.val = last(iir_kk)
     if length(iir_kk) != 1
         return false
     elseif issubset(kk, getindex(su, first(iir_kk)))
@@ -979,7 +990,7 @@ end
     issubset(kk, to_urange(TU, su.kstart, su.kstop)) || return false
 
     iir_kk = searchsortedrange(su, kk)
-    su.parent.lastusedrangeindex = last(iir_kk)
+    su.parent.lastusedrangeindex.val = last(iir_kk)
     if length(iir_kk) != 1
         return false
     elseif issubset(kk, getindex(su, first(iir_kk)))
@@ -995,7 +1006,7 @@ end
     (k < su.kstart || su.kstop < k) && return false
 
     # fast check for cached range index
-    if (ir = su.parent.lastusedrangeindex) != beforefirstindex(su.parent) &&
+    if (ir = su.parent.lastusedrangeindex.val) != beforefirstindex(su.parent) &&
         indexcompare(su, su.firstindex, ir) < 1 &&
         indexcompare(su, ir, su.lastindex) < 1
         r_start, r_stop = getindex_tuple(su, ir)
@@ -1008,11 +1019,11 @@ end
     if ir_k != beforefirstindex(su)  # `k` is not before the start of first range
         r_start, r_stop = getindex_tuple(su, ir_k)
         if r_start <= k <= r_stop  # is `k` inside of range
-            su.parent.lastusedrangeindex = ir_k
+            su.parent.lastusedrangeindex.val = ir_k
             return true
         end
     end
-    su.parent.lastusedrangeindex = beforefirstindex(su.parent)
+    su.parent.lastusedrangeindex.val = beforefirstindex(su.parent)
     return false
 end
 
@@ -1038,7 +1049,7 @@ function _push!(rs::VecUnitRangesSortedSet{K,TU}, kk::TU) where {K,TU}
         return rs
     end
 
-    rs.lastusedrangeindex = beforefirstindex(rs)
+    rs.lastusedrangeindex.val = beforefirstindex(rs)
 
     iir_kk = searchsortedrange(rs, kk)
 
@@ -1136,7 +1147,7 @@ function _push!(rs::UnitRangesSortedSet{K,TU}, kk::TU) where {K,TU}
         return rs
     end
 
-    rs.lastusedrangeindex = beforefirstindex(rs)
+    rs.lastusedrangeindex.val = beforefirstindex(rs)
 
     iir_kk = searchsortedrange(rs, kk)
 
@@ -1222,7 +1233,7 @@ end
 @inline function check_exist_and_update(rs, k)
 
     # fast check for cached range index
-    if (ir = rs.lastusedrangeindex) != beforefirstindex(rs)
+    if (ir = rs.lastusedrangeindex.val) != beforefirstindex(rs)
         r_start, r_stop = getindex_tuple(rs, ir)
         if r_start <= k <= r_stop
             return nothing
@@ -1239,7 +1250,7 @@ end
     # check the index exist and update its data
     if ir_k != beforefirstindex(rs)  # `k` is not before the first index
         if k <= getindex_rangestop(rs, ir_k)
-            rs.lastusedrangeindex = ir_k
+            rs.lastusedrangeindex.val = ir_k
             return nothing
         end
     end
@@ -1257,7 +1268,7 @@ function Base.push!(rs::VecUnitRangesSortedSet{K,TU}, key) where {K,TU}
     if length(rs) == 0
         push!(rs.rstarts, k)
         push!(rs.rstops, k)
-        rs.lastusedrangeindex = 1
+        rs.lastusedrangeindex.val = 1
         return rs
     end
 
@@ -1268,7 +1279,7 @@ function Base.push!(rs::VecUnitRangesSortedSet{K,TU}, key) where {K,TU}
         else  # prepend to first range
             rs.rstarts[1] = k
         end
-        rs.lastusedrangeindex = 1
+        rs.lastusedrangeindex.val = 1
         return rs
     end
 
@@ -1281,7 +1292,7 @@ function Base.push!(rs::VecUnitRangesSortedSet{K,TU}, key) where {K,TU}
         else  # just append to last range
             rs.rstops[ir_k] += 1
         end
-        rs.lastusedrangeindex = lastindex(rs)
+        rs.lastusedrangeindex.val = lastindex(rs)
         return rs
     end
 
@@ -1294,17 +1305,17 @@ function Base.push!(rs::VecUnitRangesSortedSet{K,TU}, key) where {K,TU}
         rs.rstops[ir_k] = last(rnext)
         deleteat!(rs.rstarts, stnext)
         deleteat!(rs.rstops, stnext)
-        rs.lastusedrangeindex = ir_k
+        rs.lastusedrangeindex.val = ir_k
     elseif k - last(r) == 1  # append to left range
         rs.rstops[ir_k] += 1
-        rs.lastusedrangeindex = ir_k
+        rs.lastusedrangeindex.val = ir_k
     elseif first(rnext) - k == 1  # prepend to right range
         rs.rstarts[stnext] -= 1
-        rs.lastusedrangeindex = stnext
+        rs.lastusedrangeindex.val = stnext
     else  # insert single element range
         insert!(rs.rstarts, stnext, k)
         insert!(rs.rstops, stnext, k)
-        rs.lastusedrangeindex = stnext
+        rs.lastusedrangeindex.val = stnext
     end
 
     return rs
@@ -1320,7 +1331,7 @@ function Base.push!(rs::UnitRangesSortedSet{K,TU}, key) where {K,TU}
 
     if length(rs) == 0
         rs.ranges[k] = k
-        rs.lastusedrangeindex = firstindex(rs)
+        rs.lastusedrangeindex.val = firstindex(rs)
         return rs
     end
 
@@ -1333,7 +1344,7 @@ function Base.push!(rs::UnitRangesSortedSet{K,TU}, key) where {K,TU}
             rs.ranges[k] = last(rnext)
             delete!((rs.ranges, stnext))
         end
-        rs.lastusedrangeindex = firstindex(rs)
+        rs.lastusedrangeindex.val = firstindex(rs)
         return rs
     end
 
@@ -1345,11 +1356,11 @@ function Base.push!(rs::UnitRangesSortedSet{K,TU}, key) where {K,TU}
         else  # just append to last range
             rs.ranges[ir_k] = last(r)+1
         end
-        rs.lastusedrangeindex = lastindex(rs)
+        rs.lastusedrangeindex.val = lastindex(rs)
         return rs
     end
 
-    rs.lastusedrangeindex = beforefirstindex(rs)
+    rs.lastusedrangeindex.val = beforefirstindex(rs)
 
     # `k` is somewhere between indices
     stnext = advance(rs, ir_k)
@@ -1360,7 +1371,7 @@ function Base.push!(rs::UnitRangesSortedSet{K,TU}, key) where {K,TU}
         delete!((rs.ranges, stnext))
     elseif k - last(r) == 1  # append to left range
         rs.ranges[ir_k] = k
-        rs.lastusedrangeindex = ir_k
+        rs.lastusedrangeindex.val = ir_k
     elseif first(rnext) - k == 1  # prepend to right range
         rs.ranges[k] = last(rnext)
         delete!((rs.ranges, stnext))
@@ -1394,7 +1405,7 @@ function _delete!(rs::VecUnitRangesSortedSet{K,TU}, kk::TU) where {K,TU}
     iir_kk = searchsortedrange(rs, kk)
     length(iir_kk) == 0 && return rs
 
-    rs.lastusedrangeindex = beforefirstindex(rs)
+    rs.lastusedrangeindex.val = beforefirstindex(rs)
 
     # delete all concluded ranges
     todelete1 = getindex_rangestart(rs, first(iir_kk)) < first(kk) ? first(iir_kk) + 1 : first(iir_kk)
@@ -1464,7 +1475,7 @@ function _delete!(rs::UnitRangesSortedSet{K,TU}, kk::TU) where {K,TU}
     iir_kk = searchsortedrange(rs, kk)
     length(iir_kk) == 0 && return rs
 
-    rs.lastusedrangeindex = beforefirstindex(rs)
+    rs.lastusedrangeindex.val = beforefirstindex(rs)
 
     # delete all concluded ranges
     todelete1 = getindex_rangestart(rs, first(iir_kk)) < first(kk) ? advance(rs, first(iir_kk)) : first(iir_kk)
@@ -1553,7 +1564,7 @@ function Base.delete!(rs::VecUnitRangesSortedSet{K,TU}, key) where {K,TU}
         rs.rstops[ir_k] = k-1
     end
 
-    rs.lastusedrangeindex = beforefirstindex(rs)
+    rs.lastusedrangeindex.val = beforefirstindex(rs)
 
     return rs
 end
@@ -1588,7 +1599,7 @@ function Base.delete!(rs::UnitRangesSortedSet{K,TU}, key) where {K,TU}
         rs.ranges[k+1] = last(r)
     end
 
-    rs.lastusedrangeindex = beforefirstindex(rs)
+    rs.lastusedrangeindex.val = beforefirstindex(rs)
 
     return rs
 end
@@ -1617,17 +1628,17 @@ Base.empty(rs::T) where {T<:AbstractUnitRangesSortedContainer} = T()
 function Base.empty!(rs::VecUnitRangesSortedSet)
     empty!(rs.rstarts)
     empty!(rs.rstops)
-    rs.lastusedrangeindex = beforefirstindex(rs)
+    rs.lastusedrangeindex.val = beforefirstindex(rs)
     rs
 end
 function Base.empty!(rs::AbstractUnitRangesSortedContainer)
     empty!(rs.ranges)
-    rs.lastusedrangeindex = beforefirstindex(rs)
+    rs.lastusedrangeindex.val = beforefirstindex(rs)
     rs
 end
 
-@inline Base.copy(rs::T) where {T<:VecUnitRangesSortedSet} = T(rs.lastusedrangeindex, copy(rs.rstarts), copy(rs.rstops))
-@inline Base.copy(rs::T) where {T<:UnitRangesSortedSet} = T(rs.lastusedrangeindex, packcopy(rs.ranges))
+@inline Base.copy(rs::T) where {T<:VecUnitRangesSortedSet} = T(rs.lastusedrangeindex.val, copy(rs.rstarts), copy(rs.rstops))
+@inline Base.copy(rs::T) where {T<:UnitRangesSortedSet} = T(rs.lastusedrangeindex.val, packcopy(rs.ranges))
 
 
 
