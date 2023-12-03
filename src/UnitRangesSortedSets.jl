@@ -1650,6 +1650,7 @@ end
 @inline Base.setdiff(rs::AbstractUnitRangesSortedSet, rs2) = setdiff!(copy(rs), rs2)
 
 @inline Base.setdiff!(rs::AbstractUnitRangesSortedContainer, rss...) = setdiff!(setdiff!(rs, rss[1]), Base.tail(rss)...)
+@inline Base.setdiff!(rs::AbstractUnitRangesSortedContainer, rs2::AbstractRange) = delete!(rs, rs2)
 function Base.setdiff!(rs::AbstractUnitRangesSortedContainer, rs2)
     if hasmethod(Iterators.reverse, Tuple{typeof(rs2)})
         for r in Iterators.reverse(rs2)
@@ -1659,12 +1660,6 @@ function Base.setdiff!(rs::AbstractUnitRangesSortedContainer, rs2)
         for r in rs2
             delete!(rs, r)
         end
-    end
-    return rs
-end
-function Base.setdiff!(rs::AbstractUnitRangesSortedContainer, rs2::AbstractRange)
-    for r in Iterators.reverse(subset(rs, rs2))
-        delete!(rs, r)
     end
     return rs
 end
