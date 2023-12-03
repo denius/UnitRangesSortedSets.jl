@@ -1662,6 +1662,12 @@ function Base.setdiff!(rs::AbstractUnitRangesSortedContainer, rs2)
     end
     return rs
 end
+function Base.setdiff!(rs::AbstractUnitRangesSortedContainer, rs2::AbstractRange)
+    for r in Iterators.reverse(subset(rs, rs2))
+        delete!(rs, r)
+    end
+    return rs
+end
 
 @inline Base.symdiff(rs::AbstractUnitRangesSortedSet, sets...) = symdiff!(copy(rs), sets...)
 @inline Base.symdiff(rs::AbstractUnitRangesSortedSet, s) = symdiff!(copy(rs), s)
