@@ -702,6 +702,8 @@ end
 
 
                 rs = $TypeURSS{$K}((2:3, 5:6))
+                @test (setdiff(rs, Set(2:2)) == $TypeURSS{$K}((3:3, 5:6)))
+                @test (setdiff(rs, OrderedSet(2:2)) == $TypeURSS{$K}((3:3, 5:6)))
                 @test (setdiff(rs, 2:2) == $TypeURSS{$K}((3:3, 5:6)))
                 @test (setdiff(rs, 2:2, 3:5) == $TypeURSS{$K}((6:6,)))
 
