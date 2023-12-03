@@ -1374,7 +1374,8 @@ end
 
 
 function Base.delete!(rs::VecUnitRangesSortedSet{K,TU}, II::T) where {K,TU, T<:Union{AbstractVector,AbstractSet,NTuple}}
-    if hasmethod(Iterators.reverse, Tuple{T})
+    if hasmethod(Iterators.reverse, Tuple{T}) &&
+       hasmethod(keys, Tuple{T})
         for r in Iterators.reverse(II)
             delete!(rs, r)
         end
@@ -1652,7 +1653,8 @@ end
 @inline Base.setdiff!(rs::AbstractUnitRangesSortedContainer, rss...) = setdiff!(setdiff!(rs, rss[1]), Base.tail(rss)...)
 @inline Base.setdiff!(rs::AbstractUnitRangesSortedContainer, rs2::AbstractRange) = delete!(rs, rs2)
 function Base.setdiff!(rs::AbstractUnitRangesSortedContainer, rs2)
-    if hasmethod(Iterators.reverse, Tuple{typeof(rs2)})
+    if hasmethod(Iterators.reverse, Tuple{typeof(rs2)}) &&
+       hasmethod(keys, Tuple{typeof(rs2)})
         for r in Iterators.reverse(rs2)
             delete!(rs, r)
         end
@@ -1771,7 +1773,8 @@ function Base.intersect!(rs1::AbstractUnitRangesSortedContainer, rs2::AbstractUn
 
     length(rs2) == 1 && return rs1
 
-    if hasmethod(Iterators.reverse, Tuple{typeof(rs2)})
+    if hasmethod(Iterators.reverse, Tuple{typeof(rs2)}) &&
+       hasmethod(keys, Tuple{typeof(rs2)})
         rnext, rs2head = Iterators.peel(Iterators.reverse(rs2))
         for r in rs2head
             delete!(rs1, last(r)+1:first(rnext)-1)
@@ -1801,7 +1804,8 @@ function _intersect1!(rs1::AbstractUnitRangesSortedContainer, rs2)
 
     length(rv2) == 1 && return rs1
 
-    if hasmethod(Iterators.reverse, Tuple{typeof(rv2)})
+    if hasmethod(Iterators.reverse, Tuple{typeof(rv2)}) &&
+       hasmethod(keys, Tuple{typeof(rv2)})
         rnext, rv2head = Iterators.peel(Iterators.reverse(rv2))
         for r in rv2head
             delete!(rs1, r+1:rnext-1)
