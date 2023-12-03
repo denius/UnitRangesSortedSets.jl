@@ -171,6 +171,8 @@ Note: for `Char` the `StepRange{Char,UInt8}` with `oneunit(UInt8)` step will be 
 """
 struct UnitRangesSortedSet{K,TU} <: AbstractUnitRangesSortedContainer{K,TU}
     "Index of last used range."
+    # TODO: Check `Base.RefValue{T}` as the pointer to mutable data
+    # https://discourse.julialang.org/t/mutable-vs-immutable-struct-modifying-an-array-field/94976/4
     lastusedrangeindex::CachedIndex{IntSemiToken}
     "Storage for ranges: the key of Dict is the `first(range)`, and the value of Dict is the `last(range)`."
     ranges::SortedDict{K,K,FOrd}
