@@ -1628,7 +1628,7 @@ function Base.empty!(rs::AbstractUnitRangesSortedContainer)
 end
 
 @inline Base.copy(rs::T) where {T<:VecUnitRangesSortedSet} = T(rs.lastusedrangeindex, copy(rs.rstarts), copy(rs.rstops))
-@inline Base.copy(rs::T) where {T<:UnitRangesSortedSet} = T(rs.lastusedrangeindex, packcopy(rs.ranges))
+@inline Base.copy(rs::T) where {T<:UnitRangesSortedSet} = T(beforefirstindex(rs), packcopy(rs.ranges))
 
 
 

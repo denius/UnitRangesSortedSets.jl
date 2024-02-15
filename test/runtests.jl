@@ -830,3 +830,19 @@ end
     end
 end
 
+@testset "Bugs" begin
+    @testset "#5" begin
+        for TypeURSS in list_of_containers_types_to_test
+            @eval begin
+                # provided by https://github.com/mnemnion
+                tamil = Any['ꣳ', '௦':'௯', '௰':'௲', '௳', '𑌁', '𑌃', '𑌻':'𑌼', '𑿐':'𑿑', '𑿓', '᳚', '॒', '॑', '।', '॥']
+                URvec = $TypeURSS[]
+                for elem in tamil
+                    push!(URvec, $TypeURSS([elem]))
+                end
+                @test_nowarn reduce(union, URvec)
+                @test reduce(union, URvec) == $TypeURSS{Char}(('॑':'॒', '।':'॥', '௦':'௳', '᳚':'᳚', 'ꣳ':'ꣳ', '𑌁':'𑌁', '𑌃':'𑌃', '𑌻':'𑌼', '𑿐':'𑿑', '𑿓':'𑿓',))
+            end
+        end
+    end
+end
