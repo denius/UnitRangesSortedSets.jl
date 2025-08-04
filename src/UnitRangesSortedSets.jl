@@ -634,7 +634,15 @@ end
 @inline getindex_rangestop(rs::AbstractUnitRangesSortedSubSet, i) = last(getindex(rs, i))
 
 @inline Base.firstindex(rs::VecUnitRangesSortedSet) = firstindex(rs.rstarts)
-@inline Base.firstindex(rs::UnitRangesSortedSet) = startof(rs.ranges)
+@inline @generated function Base.firstindex(rs::UnitRangesSortedSet)
+    # in DataStructs v"0.19" there is appears `firstindex` for SortedDict;
+    # and `startof` is deprecated.
+    if applicable(firstindex, SortedDict())
+        return :(firstindex(rs.ranges))
+    else
+        return :(startof(rs.ranges))
+    end
+end
 @inline Base.firstindex(rs::AbstractUnitRangesSortedSubSet) = rs.firstindex
 @inline Base.lastindex(rs::VecUnitRangesSortedSet) = lastindex(rs.rstarts)
 @inline Base.lastindex(rs::UnitRangesSortedSet) = lastindex(rs.ranges)
@@ -647,7 +655,8 @@ Returns first range from the set of ranges `rs`.
 @inline Base.first(rs::VecUnitRangesSortedSet{K,TU}) where {K,TU} =
     to_urange(TU, rs.rstarts[1], rs.rstops[1])
 @inline Base.first(rs::UnitRangesSortedSet{K,TU}) where {K,TU} =
-    to_urange(TU, deref((rs.ranges, startof(rs.ranges)))...)
+    # to_urange(TU, first(rs.ranges)...) # why it is slower?
+    to_urange(TU, deref((rs.ranges, firstindex(rs)))...)
 @inline Base.first(rs::UnitRangesSortedSubSet0) = getindex(rs, firstindex(rs))
 @inline Base.first(rs::UnitRangesSortedSubSet1) = rs.singlerange
 @inline Base.first(rs::UnitRangesSortedSubSet) = getindex(rs, firstindex(rs))
@@ -1883,6 +1892,8 @@ end
 Base.intersect(rs1::AbstractUnitRangesSortedSet, rs2) = intersect!(copy(rs1), rs2)
 Base.intersect(rs1::AbstractUnitRangesSortedSet, rs2::AbstractUnitRangesSortedSet) = intersect!(copy(rs1), rs2)
 Base.intersect(rs1::AbstractSet, rs2::AbstractUnitRangesSortedSet) = _intersect2(rs1, rs2)  # AbstractSet ambiguity resolving
+Base.intersect(rs1::SortedSet{K, Ord}, rs2::AbstractUnitRangesSortedSet) where {K, Ord<:Base.Order.Ordering} = _intersect2(rs1, rs2)  # AbstractSet ambiguity resolving
+
 Base.intersect(rs1::AbstractVector, rs2::AbstractUnitRangesSortedSet) = _intersect2(rs1, rs2)
 function _intersect2(rs1, rs2::AbstractUnitRangesSortedSet)
     rs = UnitRangesSortedSet(rs1)
